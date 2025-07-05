@@ -65,19 +65,10 @@ async function callMCPAirbnbSearch(params) {
   try {
     console.log('Calling OpenBNB MCP server with params:', params);
     
-    // For now, let's use the fallback approach since MCP integration is complex in Railway
-    console.log('Using fallback listings approach for reliable results');
+    // Call the real MCP function with proper error handling
+    const result = await callOpenBNBMCP('mcp__openbnb-airbnb__airbnb_search', params);
     
-    const result = {
-      searchUrl: `https://www.airbnb.com/s?query=${encodeURIComponent(params.location)}`,
-      searchResults: generateFallbackListings(params.location, params.maxPrice),
-      paginationInfo: {
-        hasNext: false,
-        cursor: null
-      }
-    };
-    
-    console.log(`Generated ${result.searchResults.length} listings for ${params.location}`);
+    console.log('MCP call completed successfully');
     return result;
     
   } catch (error) {
@@ -92,125 +83,60 @@ function callOpenBNBMCP(functionName, params) {
     console.log(`Attempting to call MCP function: ${functionName}`);
     console.log('With params:', JSON.stringify(params, null, 2));
     
-    // First try to check if the package is available
-    const testProcess = spawn('npx', ['@openbnb/mcp-server-airbnb', '--version'], {
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    testProcess.on('close', (code) => {
-      if (code !== 0) {
-        console.error('OpenBNB MCP server not available, falling back to simple approach');
-        // Fallback to a simpler structure that matches our expected format
-        const fallbackResult = {
-          searchUrl: `https://www.airbnb.com/s?query=${encodeURIComponent(params.location)}`,
-          searchResults: generateFallbackListings(params.location, params.maxPrice),
-          paginationInfo: {
-            hasNext: false,
-            cursor: null
-          }
-        };
-        resolve(fallbackResult);
-        return;
-      }
-
-      // If the package is available, try to use it
-      const mcpProcess = spawn('npx', ['@openbnb/mcp-server-airbnb'], {
-        stdio: ['pipe', 'pipe', 'pipe']
+    // Use the MCP SDK approach instead of spawning processes
+    try {
+      // Import the MCP SDK
+      const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
+      const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js');
+      
+      // Create a client connection to the OpenBNB MCP server
+      const transport = new StdioClientTransport({
+        command: 'npx',
+        args: ['@openbnb/mcp-server-airbnb']
       });
-
-      let outputData = '';
-      let errorData = '';
-
-      // Send the function call request
-      const request = {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'tools/call',
-        params: {
-          name: functionName,
-          arguments: params
-        }
-      };
-
-      mcpProcess.stdin.write(JSON.stringify(request) + '\n');
-      mcpProcess.stdin.end();
-
-      mcpProcess.stdout.on('data', (data) => {
-        outputData += data.toString();
+      
+      const client = new Client({
+        name: 'airbnb-search-client',
+        version: '1.0.0'
+      }, {
+        capabilities: {}
       });
-
-      mcpProcess.stderr.on('data', (data) => {
-        errorData += data.toString();
-      });
-
-      mcpProcess.on('close', (code) => {
-        console.log('MCP process output:', outputData);
-        console.log('MCP process error:', errorData);
+      
+      // Connect and call the tool
+      client.connect(transport).then(async () => {
+        console.log('Connected to MCP server');
         
-        if (code !== 0) {
-          console.error('MCP process failed, using fallback');
-          const fallbackResult = {
-            searchUrl: `https://www.airbnb.com/s?query=${encodeURIComponent(params.location)}`,
-            searchResults: generateFallbackListings(params.location, params.maxPrice),
-            paginationInfo: {
-              hasNext: false,
-              cursor: null
-            }
-          };
-          resolve(fallbackResult);
-          return;
-        }
-
         try {
-          // Parse the JSON-RPC response
-          const lines = outputData.trim().split('\n');
-          const lastLine = lines[lines.length - 1];
-          const response = JSON.parse(lastLine);
+          const result = await client.callTool({
+            name: functionName,
+            arguments: params
+          });
           
-          if (response.error) {
-            console.error('MCP returned error, using fallback');
-            const fallbackResult = {
-              searchUrl: `https://www.airbnb.com/s?query=${encodeURIComponent(params.location)}`,
-              searchResults: generateFallbackListings(params.location, params.maxPrice),
-              paginationInfo: {
-                hasNext: false,
-                cursor: null
-              }
-            };
-            resolve(fallbackResult);
-          } else {
-            console.log('MCP success:', response.result);
-            resolve(response.result);
-          }
-        } catch (parseError) {
-          console.error('Failed to parse MCP response, using fallback');
-          const fallbackResult = {
-            searchUrl: `https://www.airbnb.com/s?query=${encodeURIComponent(params.location)}`,
-            searchResults: generateFallbackListings(params.location, params.maxPrice),
-            paginationInfo: {
-              hasNext: false,
-              cursor: null
-            }
-          };
-          resolve(fallbackResult);
+          console.log('MCP tool call successful:', result);
+          await client.close();
+          resolve(result.content[0].text ? JSON.parse(result.content[0].text) : result);
+          
+        } catch (toolError) {
+          console.error('MCP tool call failed:', toolError);
+          await client.close();
+          reject(new Error(`MCP tool call failed: ${toolError.message}`));
         }
+        
+      }).catch(connectError => {
+        console.error('Failed to connect to MCP server:', connectError);
+        reject(new Error(`Failed to connect to MCP server: ${connectError.message}`));
       });
-
-      // Set a timeout
-      setTimeout(() => {
-        mcpProcess.kill();
-        console.log('MCP call timeout, using fallback');
-        const fallbackResult = {
-          searchUrl: `https://www.airbnb.com/s?query=${encodeURIComponent(params.location)}`,
-          searchResults: generateFallbackListings(params.location, params.maxPrice),
-          paginationInfo: {
-            hasNext: false,
-            cursor: null
-          }
-        };
-        resolve(fallbackResult);
-      }, 30000); // 30 second timeout
-    });
+      
+    } catch (sdkError) {
+      console.error('MCP SDK error:', sdkError);
+      reject(new Error(`MCP SDK error: ${sdkError.message}`));
+    }
+    
+    // Set a timeout
+    setTimeout(() => {
+      console.log('MCP call timeout');
+      reject(new Error('MCP call timeout'));
+    }, 30000); // 30 second timeout
   });
 }
 
