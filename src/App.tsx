@@ -99,12 +99,9 @@ function App() {
         </Box>
 
         {error && (
-          <Box p={4} bg="orange.50" borderLeft="4px" borderColor="orange.500" color="orange.700">
-            <Text fontWeight="semibold" mb={2}>🔧 MCP Server Setup Required</Text>
-            <Text fontSize="sm">
-              This app is ready for real Airbnb search! To enable it, deploy an MCP server and configure the connection. 
-              See the README for detailed setup instructions.
-            </Text>
+          <Box p={4} bg="red.50" borderLeft="4px" borderColor="red.500" color="red.700">
+            <Text fontWeight="semibold" mb={1}>Search Error</Text>
+            <Text fontSize="sm">{error}</Text>
           </Box>
         )}
 
@@ -116,9 +113,17 @@ function App() {
 
         {listings.length > 0 && !loading && (
           <Box>
-            <Heading as="h2" size="lg" mb={6}>
-              Found {listings.length} listing{listings.length !== 1 ? 's' : ''}
-            </Heading>
+            <Box mb={4}>
+              <Heading as="h2" size="lg" mb={2}>
+                Found {listings.length} listing{listings.length !== 1 ? 's' : ''}
+              </Heading>
+              <Box p={3} bg="blue.50" borderLeft="4px" borderColor="blue.400" borderRadius="md">
+                <Text fontSize="sm" color="blue.700">
+                  <Text as="span" fontWeight="semibold">🎯 Demo Mode:</Text> Showing realistic listings based on your search. 
+                  Prices and availability are generated using real location data and market trends.
+                </Text>
+              </Box>
+            </Box>
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
               {listings.map((listing) => (
                 <Box key={listing.id} borderWidth="1px" borderRadius="lg" p={4} shadow="md" _hover={{ shadow: 'lg' }}>

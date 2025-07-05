@@ -63,52 +63,69 @@ Or connect your GitHub repository to Vercel for automatic deployments.
 
 The application is configured to work with Vercel's serverless functions out of the box. The API endpoints are located in the `/api` directory.
 
-## MCP Server Integration
+## Search Implementation Options
 
-Currently, the app returns helpful error messages indicating that MCP server setup is required. To enable real Airbnb search:
+The app currently uses **Demo Mode** with realistic data. Here are all available options:
 
-### Option 1: Deploy Separate MCP Server (Recommended)
+### 🎯 Demo Mode (Current - No Setup Required)
+- **Endpoint**: `/api/demo-search`
+- **Features**: Realistic listings using real location data + market trends
+- **Pros**: Works immediately, no API keys needed, realistic results
+- **Cons**: Not real Airbnb data
 
-1. **Set up MCP Server**: Use the provided `mcp-server-example.js` as a starting point
-2. **Deploy to Cloud**: Deploy your MCP server to Railway, Fly.io, or Heroku
-3. **Configure Environment**: Set `MCP_SERVER_URL` in your Vercel environment variables
-4. **Update API**: Uncomment the fetch code in `/api/search-real.ts`
+### 🌐 Proxy Services (API Key Required)
+Switch to `/api/proxy-search` and configure one of these:
 
-### Option 2: Direct Integration
-
-Since Vercel serverless functions can't directly access MCP tools, you need a bridge service:
-
-```typescript
-// Example deployment setup
-const mcpServerUrl = process.env.MCP_SERVER_URL
-const response = await fetch(`${mcpServerUrl}/search`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(searchParams)
-})
-```
-
-### Setting Up Your MCP Server
-
-1. **Install Dependencies**:
+#### Option A: ScrapingBee (Recommended)
 ```bash
-npm install @modelcontextprotocol/client express cors
+# Add to Vercel environment
+SCRAPINGBEE_API_KEY=your_key_here
+```
+- **Cost**: Free tier: 1,000 requests/month
+- **Pros**: Real Airbnb data, reliable
+- **Setup**: https://www.scrapingbee.com
+
+#### Option B: RapidAPI Travel APIs
+```bash
+# Add to Vercel environment  
+RAPIDAPI_KEY=your_key_here
+```
+- **Cost**: Various free tiers
+- **Pros**: Multiple travel sites, structured data
+- **Setup**: https://rapidapi.com/hub
+
+#### Option C: SerpAPI
+```bash
+# Add to Vercel environment
+SERPAPI_KEY=your_key_here  
+```
+- **Cost**: Free tier: 100 searches/month
+- **Pros**: Google search results
+- **Setup**: https://serpapi.com
+
+### 🛠️ Direct Web Scraping
+- **Endpoint**: `/api/direct-search` 
+- **Pros**: No API costs
+- **Cons**: May be blocked, unreliable
+
+### 🔧 MCP Server (Advanced)
+- **Endpoint**: `/api/search-real`
+- **Setup**: Deploy separate MCP server to cloud
+- **Pros**: Full control, can integrate multiple sources
+- **Cons**: Requires server deployment
+
+## Switching Between Options
+
+1. **Change endpoint** in `src/services/airbnbService.ts`:
+```typescript
+// Current: demo-search
+// Options: proxy-search, direct-search, search-real
+const response = await fetch('/api/demo-search', {
 ```
 
-2. **Create MCP Server** (see `mcp-server-example.js`):
-```javascript
-const searchResult = await mcpClient.callTool({
-  name: 'mcp__openbnb-airbnb__airbnb_search',
-  arguments: {
-    location,
-    adults,
-    children,
-    ignoreRobotsText: true
-  }
-})
-```
+2. **Add environment variables** in Vercel dashboard for proxy services
 
-3. **Deploy and Connect**: Update your Vercel environment with the MCP server URL
+3. **Deploy and test**
 
 ## Natural Language Processing
 
