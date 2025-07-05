@@ -90,8 +90,15 @@ export default async function handler(
     // Call the MCP server
     const mcpResult = await callMCPAirbnbSearch(searchParams)
     
-    if (!mcpResult || !mcpResult.searchResults) {
-      throw new Error('No search results returned from MCP server')
+    console.log('MCP Result received:', JSON.stringify(mcpResult, null, 2))
+    
+    if (!mcpResult) {
+      throw new Error('No response from MCP server')
+    }
+    
+    if (!mcpResult.searchResults) {
+      console.log('MCP result structure:', Object.keys(mcpResult))
+      throw new Error(`MCP server returned data but no searchResults. Got: ${JSON.stringify(Object.keys(mcpResult))}`)
     }
 
     // Transform MCP results to our format
