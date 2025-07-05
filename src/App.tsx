@@ -7,7 +7,6 @@ import {
   Input,
   Button,
   SimpleGrid,
-  Image,
   Badge,
   HStack,
   Spinner,
@@ -132,15 +131,6 @@ function App() {
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
               {listings.map((listing) => (
                 <Box key={listing.id} borderWidth="1px" borderRadius="lg" p={4} shadow="md" _hover={{ shadow: 'lg' }}>
-                  <Image
-                    src={listing.images[0]}
-                    alt={listing.name}
-                    borderRadius="md"
-                    mb={4}
-                    h="200px"
-                    w="100%"
-                    objectFit="cover"
-                  />
                   <Stack gap={3} align="stretch">
                     <Heading as="h3" size="md" lineClamp={2}>
                       {listing.name}
