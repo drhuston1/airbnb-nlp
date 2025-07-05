@@ -1,9 +1,10 @@
 /**
- * MCP Airbnb Server - Uses actual MCP tools to search Airbnb
+ * MCP Airbnb Server - Uses OpenBNB MCP Server for real Airbnb search
  */
 
 const express = require('express');
 const cors = require('cors');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -59,37 +60,88 @@ app.post('/airbnb-search', async (req, res) => {
   }
 });
 
-// Function to call MCP Airbnb search
+// Function to call the actual OpenBNB MCP server
 async function callMCPAirbnbSearch(params) {
   try {
-    console.log('Attempting to call MCP Airbnb search function...');
+    console.log('Calling OpenBNB MCP server with params:', params);
     
-    // This is where we would call the actual MCP function
-    // In the current setup, MCP tools need to be made available in the Railway environment
+    // Call the OpenBNB MCP server using npx
+    // The function name should match what's available in the OpenBNB MCP server
+    const result = await callOpenBNBMCP('mcp__openbnb-airbnb__airbnb_search', params);
     
-    // For now, return an informative error about MCP setup
-    throw new Error(`
-      MCP Tools Setup Required:
-      
-      To use real MCP Airbnb search, this Railway server needs:
-      1. MCP client installed and configured
-      2. Access to mcp__openbnb-airbnb__airbnb_search function
-      3. Proper environment setup for MCP tools
-      
-      Current parameters would be: ${JSON.stringify(params, null, 2)}
-      
-      The MCP function should be called like:
-      await mcpClient.callTool({
-        name: 'mcp__openbnb-airbnb__airbnb_search',
-        arguments: params
-      })
-    `);
+    return result;
     
   } catch (error) {
     console.error('MCP call error:', error);
     throw error;
   }
 }
+
+// Function to call OpenBNB MCP functions
+function callOpenBNBMCP(functionName, params) {
+  return new Promise((resolve, reject) => {
+    // Use npx to run the OpenBNB MCP server
+    const mcpProcess = spawn('npx', ['@openbnb/mcp-server-airbnb'], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let outputData = '';
+    let errorData = '';
+
+    // Send the function call request
+    const request = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: {
+        name: functionName,
+        arguments: params
+      }
+    };
+
+    mcpProcess.stdin.write(JSON.stringify(request) + '\n');
+    mcpProcess.stdin.end();
+
+    mcpProcess.stdout.on('data', (data) => {
+      outputData += data.toString();
+    });
+
+    mcpProcess.stderr.on('data', (data) => {
+      errorData += data.toString();
+    });
+
+    mcpProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error('MCP process error:', errorData);
+        reject(new Error(`MCP process exited with code ${code}: ${errorData}`));
+        return;
+      }
+
+      try {
+        // Parse the JSON-RPC response
+        const lines = outputData.trim().split('\n');
+        const lastLine = lines[lines.length - 1];
+        const response = JSON.parse(lastLine);
+        
+        if (response.error) {
+          reject(new Error(`MCP error: ${response.error.message}`));
+        } else {
+          resolve(response.result);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse MCP response:', outputData);
+        reject(new Error(`Failed to parse MCP response: ${parseError.message}`));
+      }
+    });
+
+    // Set a timeout
+    setTimeout(() => {
+      mcpProcess.kill();
+      reject(new Error('MCP call timeout'));
+    }, 30000); // 30 second timeout
+  });
+}
+
 
 app.listen(PORT, () => {
   console.log(`MCP Airbnb Server running on port ${PORT}`);

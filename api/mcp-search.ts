@@ -122,16 +122,29 @@ export default async function handler(
 }
 
 async function callMCPAirbnbSearch(params: any) {
-  // Call the MCP Airbnb search function directly
-  console.log('Calling MCP Airbnb search with params:', params)
+  console.log('Calling Railway MCP server with params:', params)
   
-  // Since we have access to MCP tools in this environment, call them directly
+  const mcpServerUrl = process.env.MCP_SERVER_URL || 'https://airbnb-nlp-production.up.railway.app'
+  
   try {
-    // This is where we would call the actual MCP function
-    // For now, let's make sure we're properly set up to use MCP tools
-    throw new Error('MCP tools not available in Vercel serverless environment. Please use Railway approach.')
+    const response = await fetch(`${mcpServerUrl}/airbnb-search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`MCP server error: ${response.status} - ${errorText}`)
+    }
+
+    const result = await response.json()
+    return result
+    
   } catch (error) {
-    console.error('Direct MCP call failed:', error)
+    console.error('Railway MCP server call failed:', error)
     throw error
   }
 }
