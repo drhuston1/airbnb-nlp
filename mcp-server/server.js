@@ -179,18 +179,19 @@ async function callOpenBNBMCP(functionName, params) {
       console.error('Failed to list tools, trying direct call with function name:', functionName);
       
       // Fallback to direct call
-      const result = await client.callTool({
-        name: functionName,
-        arguments: params
-      });
-      
-      await client.close();
-      return result;
-      
-    } catch (toolError) {
-      console.error('MCP tool call failed:', toolError);
-      await client.close();
-      throw new Error(`MCP tool call failed: ${toolError.message}`);
+      try {
+        const result = await client.callTool({
+          name: functionName,
+          arguments: params
+        });
+        
+        await client.close();
+        return result;
+      } catch (toolError) {
+        console.error('MCP tool call failed:', toolError);
+        await client.close();
+        throw new Error(`MCP tool call failed: ${toolError.message}`);
+      }
     }
     
   } catch (error) {
