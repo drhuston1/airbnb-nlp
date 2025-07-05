@@ -2,7 +2,6 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Box,
   Text,
-  Input,
   Button,
   SimpleGrid,
   HStack,
