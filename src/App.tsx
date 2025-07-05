@@ -137,7 +137,10 @@ function App() {
                     </Heading>
                     <HStack justify="space-between">
                       <Text fontSize="sm" color="gray.600">
-                        {listing.location.city}, {listing.location.country}
+                        {listing.location.country ? 
+                          `${listing.location.city}, ${listing.location.country}` : 
+                          listing.location.city
+                        }
                       </Text>
                       <Badge colorScheme="pink">
                         ★ {listing.rating} ({listing.reviewsCount})

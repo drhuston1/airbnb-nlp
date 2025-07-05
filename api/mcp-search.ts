@@ -192,7 +192,7 @@ function transformMCPResults(searchResults: AirbnbSearchResult[], location: stri
       reviewsCount,
       location: {
         city: location.split(',')[0]?.trim() || location,
-        country: location.split(',')[1]?.trim() || 'Unknown'
+        country: location.split(',')[1]?.trim() || ''
       },
       host: {
         name: 'Host', // MCP response doesn't include host name
