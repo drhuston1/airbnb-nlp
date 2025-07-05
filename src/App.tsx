@@ -74,8 +74,8 @@ function App() {
   }
 
   return (
-    <Box minH="100vh" bg="gray.50">
-      <Container maxW="7xl" px={6} py={12}>
+    <Box minH="100vh" bg="gray.50" overflow="hidden">
+      <Container maxW="7xl" px={{ base: 4, md: 6 }} py={12}>
         <Stack gap={10} align="stretch">
           <Box textAlign="center" py={8}>
             <Heading as="h1" size="3xl" mb={6} 
@@ -149,8 +149,8 @@ function App() {
               
               {enableFilters && (
                 <Stack gap={4}>
-                  <HStack gap={6} flexWrap="wrap">
-                    <Box minW="180px">
+                  <Flex gap={4} flexWrap="wrap" w="full">
+                    <Box flex="1" minW="160px">
                       <Text fontSize="sm" fontWeight="500" color="gray.700" mb={2}>Minimum Rating</Text>
                       <Input
                         type="number"
@@ -167,7 +167,7 @@ function App() {
                       />
                     </Box>
                     
-                    <Box minW="180px">
+                    <Box flex="1" minW="160px">
                       <Text fontSize="sm" fontWeight="500" color="gray.700" mb={2}>Minimum Reviews</Text>
                       <Input
                         type="number"
@@ -181,7 +181,7 @@ function App() {
                         _focus={{ borderColor: "blue.400", bg: "white" }}
                       />
                     </Box>
-                  </HStack>
+                  </Flex>
                   
                   <Button 
                     size="sm" 
