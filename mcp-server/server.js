@@ -124,31 +124,68 @@ async function callOpenBNBMCP(functionName, params) {
       capabilities: {}
     });
     
-    // Connect and call the tool
+    // Connect and get available tools
     await client.connect(transport);
     console.log('Connected to MCP server');
     
+    // First, list available tools
     try {
+      const tools = await client.listTools();
+      console.log('Available MCP tools:', JSON.stringify(tools, null, 2));
+      
+      // Find the correct tool name
+      const availableToolNames = tools.tools?.map(tool => tool.name) || [];
+      console.log('Available tool names:', availableToolNames);
+      
+      // Use the first available tool that looks like search
+      const searchTool = availableToolNames.find(name => 
+        name.includes('search') || name.includes('airbnb')
+      ) || availableToolNames[0];
+      
+      if (!searchTool) {
+        throw new Error('No search tools available');
+      }
+      
+      console.log(`Using tool: ${searchTool}`);
+      
       const result = await client.callTool({
-        name: functionName,
+        name: searchTool,
         arguments: params
       });
       
-      console.log('MCP tool call successful:', JSON.stringify(result, null, 2));
+      console.log('MCP tool call result:', JSON.stringify(result, null, 2));
       await client.close();
+      
+      // Handle error responses
+      if (result.isError || (result.content && result.content[0] && result.content[0].text && result.content[0].text.startsWith('Error:'))) {
+        const errorMsg = result.content?.[0]?.text || 'Unknown MCP error';
+        throw new Error(`MCP tool error: ${errorMsg}`);
+      }
       
       // Handle different response formats
       if (result.content && result.content[0] && result.content[0].text) {
         try {
           return JSON.parse(result.content[0].text);
         } catch (parseError) {
-          console.error('Failed to parse MCP response as JSON:', result.content[0].text);
-          console.error('Parse error:', parseError);
-          throw new Error(`Invalid JSON response from MCP: ${result.content[0].text.substring(0, 100)}`);
+          // If it's not JSON, maybe it's the data we need directly
+          console.log('Response is not JSON, returning as-is:', result.content[0].text);
+          return { searchResults: [], searchUrl: '', message: result.content[0].text };
         }
       } else {
         return result;
       }
+      
+    } catch (listError) {
+      console.error('Failed to list tools, trying direct call with function name:', functionName);
+      
+      // Fallback to direct call
+      const result = await client.callTool({
+        name: functionName,
+        arguments: params
+      });
+      
+      await client.close();
+      return result;
       
     } catch (toolError) {
       console.error('MCP tool call failed:', toolError);
