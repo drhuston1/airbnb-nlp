@@ -515,13 +515,15 @@ function App() {
 
             {/* Example searches */}
             <Box textAlign="center">
-              <Text fontSize="sm" color="slate.500" mb={4}>Try asking for:</Text>
-              <Flex gap={3} flexWrap="wrap" justify="center" maxW="lg">
+              <Text fontSize="sm" color="slate.500" mb={4}>Ask complex questions in plain English:</Text>
+              <Flex gap={3} flexWrap="wrap" justify="center" maxW="4xl">
                 {[
-                  "Beachfront villa highest rated",
-                  "Downtown apartment under $200", 
-                  "Quiet cabin in mountains",
-                  "City center loft superhost"
+                  "Luxury beachfront villa in Malibu for 6 people with pool, superhost only",
+                  "Dog-friendly cabin near Yellowstone under $150 with 4.8+ rating", 
+                  "Modern downtown loft in Chicago with parking, entire home under $200",
+                  "Family cottage near Disney World with kitchen, well-reviewed, quiet area",
+                  "Romantic getaway in Napa Valley, private hot tub, superhost, luxury only",
+                  "Group house in Austin for 10 people, pool table, close to downtown"
                 ].map((example) => (
                   <Button
                     key={example}
@@ -534,8 +536,13 @@ function App() {
                       bg: "slate.50",
                       borderColor: "slate.400"
                     }}
-                    borderRadius="full"
+                    borderRadius="md"
                     px={4}
+                    py={3}
+                    h="auto"
+                    whiteSpace="normal"
+                    textAlign="left"
+                    maxW="300px"
                   >
                     {example}
                   </Button>
@@ -573,7 +580,7 @@ function App() {
 
                         {/* Property Grid */}
                         <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-                          {currentListings.map((listing) => (
+                          {message.listings.map((listing) => (
                             <Box 
                               key={listing.id} 
                               border="1px" 
@@ -647,11 +654,11 @@ function App() {
                         </SimpleGrid>
 
                         {/* Pagination Controls */}
-                        {currentListings.length > 0 && (
+                        {message.listings.length > 0 && (
                           <Box mt={6} pt={4} borderTop="1px" borderColor="slate.200">
                             <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
                               <Text fontSize="sm" color="slate.500">
-                                Page {currentPage} • {currentListings.length} properties
+                                Page {currentPage} • {message.listings.length} properties
                               </Text>
                               <HStack>
                                 <Button 
@@ -680,34 +687,34 @@ function App() {
                         )}
                       </Box>
                     )}
+                  </Box>
+                )}
 
-                    {/* Follow-up Suggestions */}
-                    {message.followUps && message.followUps.length > 0 && (
-                      <Box mt={6}>
-                        <Text fontSize="sm" color="slate.600" mb={3}>You might also want to:</Text>
-                        <Flex gap={2} flexWrap="wrap">
-                          {message.followUps.map((followUp, index) => (
-                            <Button
-                              key={index}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSearchQuery(followUp)}
-                              borderColor="emerald.200"
-                              color="emerald.700"
-                              _hover={{ 
-                                bg: "emerald.50",
-                                borderColor: "emerald.300"
-                              }}
-                              borderRadius="full"
-                              px={3}
-                              fontSize="xs"
-                            >
-                              {followUp}
-                            </Button>
-                          ))}
-                        </Flex>
-                      </Box>
-                    )}
+                {/* Follow-up Suggestions - Outside the main content */}
+                {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && (
+                  <Box mt={4}>
+                    <Text fontSize="sm" color="slate.600" mb={3}>You might also want to:</Text>
+                    <Flex gap={2} flexWrap="wrap">
+                      {message.followUps.map((followUp, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSearchQuery(followUp)}
+                          borderColor="emerald.200"
+                          color="emerald.700"
+                          _hover={{ 
+                            bg: "emerald.50",
+                            borderColor: "emerald.300"
+                          }}
+                          borderRadius="full"
+                          px={3}
+                          fontSize="xs"
+                        >
+                          {followUp}
+                        </Button>
+                      ))}
+                    </Flex>
                   </Box>
                 )}
               </Box>
