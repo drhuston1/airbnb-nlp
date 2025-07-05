@@ -229,88 +229,6 @@ function App() {
               </Stack>
             </Box>
 
-            {/* Quality Filters */}
-            <Box ref={filtersRef} bg="white" p={4} borderRadius="lg" shadow="sm" border="1px" borderColor="gray.200">
-              <HStack alignItems="center" mb={4}>
-                <Icon as={Settings} color="gray.600" mr={2} />
-                <Text fontSize="md" fontWeight="600" color="gray.700">
-                  Quality Filters
-                </Text>
-              </HStack>
-              
-              <Flex gap={4} flexWrap="wrap" w="full" align="end">
-                <Box flex="1" minW="140px">
-                  <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Rating</Text>
-                  <Input
-                    type="number"
-                    value={minRating}
-                    onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
-                    min={0}
-                    max={5}
-                    step={0.1}
-                    size="sm"
-                    bg="gray.50"
-                    border="1px"
-                    borderColor="gray.200"
-                    _focus={{ borderColor: "blue.400", bg: "white" }}
-                    _hover={{ borderColor: "gray.300" }}
-                    borderRadius="md"
-                    h="36px"
-                  />
-                </Box>
-                
-                <Box flex="1" minW="140px">
-                  <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Reviews</Text>
-                  <Input
-                    type="number"
-                    value={minReviews}
-                    onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
-                    min={0}
-                    size="sm"
-                    bg="gray.50"
-                    border="1px"
-                    borderColor="gray.200"
-                    _focus={{ borderColor: "blue.400", bg: "white" }}
-                    _hover={{ borderColor: "gray.300" }}
-                    borderRadius="md"
-                    h="36px"
-                  />
-                </Box>
-                
-                <Button 
-                  size="sm" 
-                  colorScheme="purple" 
-                  variant="outline"
-                  onClick={() => {
-                    setMinRating(4.9)
-                    setMinReviews(20)
-                  }}
-                  _hover={{ bg: "purple.50" }}
-                  borderRadius="md"
-                  h="36px"
-                  px={3}
-                >
-                  <Icon as={Star} mr={1} />
-                  High Quality
-                </Button>
-                
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  colorScheme="gray"
-                  onClick={() => {
-                    setMinRating(0)
-                    setMinReviews(0)
-                  }}
-                  _hover={{ bg: "gray.50" }}
-                  borderRadius="md"
-                  h="36px"
-                  px={3}
-                >
-                  Clear
-                </Button>
-              </Flex>
-            </Box>
           </Stack>
         </Box>
 
@@ -339,9 +257,9 @@ function App() {
         )}
 
         {allListings.length > 0 && !loading && (
-          <Box maxW="7xl" mx="auto">
+          <Box ref={filtersRef} maxW="7xl" mx="auto">
             <Box mb={8} bg="white" p={6} borderRadius="xl" shadow="sm" border="1px" borderColor="gray.200">
-              <Flex justify="space-between" align="center" mb={4} flexWrap="wrap" gap={4}>
+              <Flex justify="space-between" align="center" mb={6} flexWrap="wrap" gap={4}>
                 <Box>
                   <Heading as="h2" size="lg" color="gray.800" mb={2}>
                     {(minRating > 0 || minReviews > 0) ? (
@@ -369,13 +287,94 @@ function App() {
                   </Button>
                 </ButtonGroup>
               </Flex>
-              {(minRating > 0 || minReviews > 0) && filteredListings.length < allListings.length && (
-                <Box p={3} bg="purple.50" borderRadius="lg" border="1px" borderColor="purple.200">
-                  <Text fontSize="sm" color="purple.800" fontWeight="500">
-                    Filtered by {minRating > 0 ? `${minRating}+ stars` : ''}{minRating > 0 && minReviews > 0 ? ', ' : ''}{minReviews > 0 ? `${minReviews}+ reviews` : ''}
+              
+              {/* Quality Filters */}
+              <Box p={4} bg="gray.50" borderRadius="lg" border="1px" borderColor="gray.200">
+                <HStack alignItems="center" mb={4}>
+                  <Icon as={Settings} color="gray.600" mr={2} />
+                  <Text fontSize="md" fontWeight="600" color="gray.700">
+                    Quality Filters
                   </Text>
-                </Box>
-              )}
+                  {(minRating > 0 || minReviews > 0) && (
+                    <Badge colorScheme="purple" variant="subtle" fontSize="xs" px={2} py={1}>
+                      {filteredListings.length} matches
+                    </Badge>
+                  )}
+                </HStack>
+                
+                <Flex gap={4} flexWrap="wrap" w="full" align="end">
+                  <Box flex="1" minW="140px">
+                    <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Rating</Text>
+                    <Input
+                      type="number"
+                      value={minRating}
+                      onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
+                      min={0}
+                      max={5}
+                      step={0.1}
+                      size="sm"
+                      bg="white"
+                      border="1px"
+                      borderColor="gray.200"
+                      _focus={{ borderColor: "blue.400", bg: "white" }}
+                      _hover={{ borderColor: "gray.300" }}
+                      borderRadius="md"
+                      h="36px"
+                    />
+                  </Box>
+                  
+                  <Box flex="1" minW="140px">
+                    <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Reviews</Text>
+                    <Input
+                      type="number"
+                      value={minReviews}
+                      onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
+                      min={0}
+                      size="sm"
+                      bg="white"
+                      border="1px"
+                      borderColor="gray.200"
+                      _focus={{ borderColor: "blue.400", bg: "white" }}
+                      _hover={{ borderColor: "gray.300" }}
+                      borderRadius="md"
+                      h="36px"
+                    />
+                  </Box>
+                  
+                  <Button 
+                    size="sm" 
+                    colorScheme="purple" 
+                    variant="outline"
+                    onClick={() => {
+                      setMinRating(4.9)
+                      setMinReviews(20)
+                    }}
+                    _hover={{ bg: "purple.50" }}
+                    borderRadius="md"
+                    h="36px"
+                    px={3}
+                  >
+                    <Icon as={Star} mr={1} />
+                    High Quality
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    colorScheme="gray"
+                    onClick={() => {
+                      setMinRating(0)
+                      setMinReviews(0)
+                    }}
+                    _hover={{ bg: "gray.50" }}
+                    borderRadius="md"
+                    h="36px"
+                    px={3}
+                  >
+                    Clear
+                  </Button>
+                </Flex>
+              </Box>
             </Box>
 
             {(minRating > 0 || minReviews > 0) && filteredListings.length === 0 ? (
