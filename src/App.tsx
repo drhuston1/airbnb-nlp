@@ -83,12 +83,13 @@ function App() {
               letterSpacing="-0.02em"
             >
               <Text as="span" color="blue.600">
-                StayFinder
+                Airbnb
               </Text>{" "}
-              <Text as="span" color="purple.500">AI</Text>
+              <Text as="span" color="gray.700">in</Text>{" "}
+              <Text as="span" color="purple.500">Plain English</Text>
             </Heading>
             <Text fontSize="xl" color="gray.600" maxW="2xl" mx="auto" lineHeight="1.6">
-              Discover amazing stays worldwide using intelligent natural language search
+              Search Airbnb properties using natural language - just describe what you want
             </Text>
           </Box>
 
@@ -96,7 +97,7 @@ function App() {
           <Stack gap={6}>
             <Box bg="white" p={8} borderRadius="xl" shadow="lg" border="1px" borderColor="gray.200">
               <Input
-                placeholder="e.g., 'Find me a cozy apartment in Paris with a kitchen for 2 guests'"
+                placeholder="Try: 'Beachfront condo in Miami under $200' or 'Pet-friendly cabin in Colorado'"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 size="lg"
@@ -126,7 +127,7 @@ function App() {
                 _hover={{ transform: "translateY(-1px)", shadow: "lg" }}
                 transition="all 0.2s"
               >
-🔍 Find Perfect Stays
+                🔍 Search Airbnb
               </Button>
             </Box>
 
@@ -253,7 +254,7 @@ function App() {
           <Center py={12}>
             <Stack align="center" gap={4}>
               <Spinner size="xl" color="blue.500" />
-              <Text color="gray.600" fontWeight="500">Finding perfect stays...</Text>
+              <Text color="gray.600" fontWeight="500">Searching Airbnb...</Text>
             </Stack>
           </Center>
         )}
@@ -265,9 +266,9 @@ function App() {
                 <Box>
                   <Heading as="h2" size="lg" color="gray.800" mb={2}>
                     {enableFilters ? (
-                      <>Showing {filteredListings.length} of {allListings.length} stays</>
+                      <>Showing {filteredListings.length} of {allListings.length} properties</>
                     ) : (
-                      <>Found {allListings.length} perfect stays</>
+                      <>Found {allListings.length} Airbnb properties</>
                     )}
                   </Heading>
                   <Text fontSize="sm" color="gray.600">Page {currentPage}</Text>
