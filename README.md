@@ -65,27 +65,50 @@ The application is configured to work with Vercel's serverless functions out of 
 
 ## MCP Server Integration
 
-To connect to a real Airbnb MCP server:
+Currently, the app returns helpful error messages indicating that MCP server setup is required. To enable real Airbnb search:
 
-1. Modify `/api/search-real.ts` to include your MCP client setup
-2. Install MCP dependencies in your backend environment
-3. Configure authentication and connection details
+### Option 1: Deploy Separate MCP Server (Recommended)
 
-Example MCP integration (uncomment in `api/search-real.ts`):
+1. **Set up MCP Server**: Use the provided `mcp-server-example.js` as a starting point
+2. **Deploy to Cloud**: Deploy your MCP server to Railway, Fly.io, or Heroku
+3. **Configure Environment**: Set `MCP_SERVER_URL` in your Vercel environment variables
+4. **Update API**: Uncomment the fetch code in `/api/search-real.ts`
+
+### Option 2: Direct Integration
+
+Since Vercel serverless functions can't directly access MCP tools, you need a bridge service:
 
 ```typescript
-import { MCPClient } from '@modelcontextprotocol/client'
-import { StdioServerTransport } from '@modelcontextprotocol/client/stdio'
-
-const mcpClient = new MCPClient()
-const transport = new StdioServerTransport()
-await mcpClient.connect(transport)
-
-const searchResult = await mcpClient.callTool({
-  name: 'mcp__openbnb-airbnb__airbnb_search',
-  arguments: { location, adults, children, ... }
+// Example deployment setup
+const mcpServerUrl = process.env.MCP_SERVER_URL
+const response = await fetch(`${mcpServerUrl}/search`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(searchParams)
 })
 ```
+
+### Setting Up Your MCP Server
+
+1. **Install Dependencies**:
+```bash
+npm install @modelcontextprotocol/client express cors
+```
+
+2. **Create MCP Server** (see `mcp-server-example.js`):
+```javascript
+const searchResult = await mcpClient.callTool({
+  name: 'mcp__openbnb-airbnb__airbnb_search',
+  arguments: {
+    location,
+    adults,
+    children,
+    ignoreRobotsText: true
+  }
+})
+```
+
+3. **Deploy and Connect**: Update your Vercel environment with the MCP server URL
 
 ## Natural Language Processing
 

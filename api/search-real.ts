@@ -29,24 +29,11 @@ export default async function handler(
       return res.status(400).json({ error: 'Location is required' })
     }
 
-    // Here's how you would integrate with the actual MCP server
-    // Note: This requires setting up MCP client in your backend environment
+    // Call your MCP server endpoint that you would set up
+    // This is a placeholder that simulates calling an external MCP service
     
-    /* 
-    Example MCP integration (uncomment and modify as needed):
-    
-    import { MCPClient } from '@modelcontextprotocol/client'
-    import { StdioServerTransport } from '@modelcontextprotocol/client/stdio'
-    
-    const mcpClient = new MCPClient()
-    const transport = new StdioServerTransport()
-    
-    await mcpClient.connect(transport)
-    
-    // Call the Airbnb search function
-    const searchResult = await mcpClient.callTool({
-      name: 'mcp__openbnb-airbnb__airbnb_search',
-      arguments: {
+    try {
+      const searchParams = {
         location,
         ...(checkin && { checkin }),
         ...(checkout && { checkout }),
@@ -55,65 +42,57 @@ export default async function handler(
         ...(infants && { infants }),
         ...(pets && { pets }),
         ...(minPrice && { minPrice }),
-        ...(maxPrice && { maxPrice })
+        ...(maxPrice && { maxPrice }),
+        ignoreRobotsText: true // Required for Airbnb scraping
       }
-    })
-    
-    // Transform the MCP response to our expected format
-    const listings = searchResult.content.map(listing => ({
-      id: listing.id,
-      name: listing.name,
-      url: listing.url,
-      images: listing.images || [],
-      price: listing.price,
-      rating: listing.rating,
-      reviewsCount: listing.reviewsCount,
-      location: listing.location,
-      host: listing.host,
-      amenities: listing.amenities || [],
-      roomType: listing.roomType
-    }))
-    
-    await mcpClient.disconnect()
-    
-    return res.status(200).json({ listings })
-    */
 
-    // For now, return a more realistic mock that shows the structure
-    const mockListings = Array.from({ length: Math.floor(Math.random() * 8) + 3 }, (_, i) => ({
-      id: `listing_${Math.random().toString(36).substr(2, 9)}`,
-      name: `${['Charming', 'Beautiful', 'Cozy', 'Modern', 'Stylish'][Math.floor(Math.random() * 5)]} ${location} ${['Apartment', 'House', 'Studio', 'Loft'][Math.floor(Math.random() * 4)]}`,
-      url: `https://airbnb.com/rooms/${Math.random().toString(36).substr(2, 9)}`,
-      images: [
-        `https://picsum.photos/600/400?random=${Math.floor(Math.random() * 1000)}`,
-        `https://picsum.photos/600/400?random=${Math.floor(Math.random() * 1000) + 1000}`
-      ],
-      price: {
-        total: Math.floor(Math.random() * 300) + 50,
-        rate: Math.floor(Math.random() * 300) + 50,
-        currency: 'USD'
-      },
-      rating: parseFloat((Math.random() * 1.5 + 3.5).toFixed(1)),
-      reviewsCount: Math.floor(Math.random() * 300) + 10,
-      location: {
-        city: location.split(',')[0]?.trim() || location,
-        country: location.includes(',') ? location.split(',')[1]?.trim() || 'United States' : 'United States'
-      },
-      host: {
-        name: ['Sarah', 'John', 'Maria', 'David', 'Emma', 'Lisa', 'Michael', 'Anna', 'Chris', 'Sophie'][Math.floor(Math.random() * 10)],
-        isSuperhost: Math.random() > 0.6
-      },
-      amenities: [
-        'WiFi', 'Kitchen', 'Air conditioning', 'Washer', 'Heating', 'TV', 'Hot tub', 
-        'Pool', 'Gym', 'Parking', 'Breakfast', 'Laptop friendly workspace'
-      ].sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * 6) + 3),
-      roomType: ['Entire apartment', 'Entire house', 'Private room', 'Hotel room'][Math.floor(Math.random() * 4)]
-    }))
+      // In a real deployment, you would:
+      // 1. Deploy an MCP server to a cloud service (Railway, Fly.io, etc.)
+      // 2. Call that server's API endpoint here
+      // 3. Transform the response to match your frontend expectations
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200))
+      // Example of what the real implementation would look like:
+      /*
+      const mcpServerUrl = process.env.MCP_SERVER_URL || 'https://your-mcp-server.fly.dev'
+      const response = await fetch(`${mcpServerUrl}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(searchParams)
+      })
+      
+      if (!response.ok) {
+        throw new Error(`MCP server responded with ${response.status}`)
+      }
+      
+      const mcpData = await response.json()
+      return res.status(200).json({
+        listings: transformMCPResponse(mcpData.searchResults),
+        searchUrl: mcpData.searchUrl,
+        totalResults: mcpData.searchResults.length
+      })
+      */
 
-    res.status(200).json({ listings: mockListings })
+      // For now, return a helpful error message with instructions
+      return res.status(501).json({
+        error: 'Real MCP server integration required',
+        message: 'This endpoint is ready for MCP server integration',
+        searchParams,
+        instructions: {
+          step1: 'Deploy your MCP server to a cloud service (Railway, Fly.io, Heroku, etc.)',
+          step2: 'Create an API endpoint that calls the mcp__openbnb-airbnb__airbnb_search function',
+          step3: 'Set the MCP_SERVER_URL environment variable in your Vercel deployment',
+          step4: 'Uncomment and modify the fetch code above to call your MCP server',
+          example: 'Your MCP server should expose POST /search endpoint that accepts the searchParams and returns Airbnb listings'
+        }
+      })
+      
+    } catch (mcpError) {
+      console.error('MCP Server Error:', mcpError)
+      return res.status(503).json({ 
+        error: 'Airbnb search service unavailable',
+        details: mcpError instanceof Error ? mcpError.message : 'Unknown error'
+      })
+    }
   } catch (error) {
     console.error('Search error:', error)
     res.status(500).json({ error: 'Internal server error' })

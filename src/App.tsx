@@ -99,8 +99,12 @@ function App() {
         </Box>
 
         {error && (
-          <Box p={4} bg="red.50" borderLeft="4px" borderColor="red.500" color="red.700">
-            {error}
+          <Box p={4} bg="orange.50" borderLeft="4px" borderColor="orange.500" color="orange.700">
+            <Text fontWeight="semibold" mb={2}>🔧 MCP Server Setup Required</Text>
+            <Text fontSize="sm">
+              This app is ready for real Airbnb search! To enable it, deploy an MCP server and configure the connection. 
+              See the README for detailed setup instructions.
+            </Text>
           </Box>
         )}
 

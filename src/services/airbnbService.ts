@@ -119,6 +119,12 @@ async function callAirbnbMCPServer(params: SearchParams): Promise<any[]> {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+    
+    // Handle 501 (MCP server not configured) specifically
+    if (response.status === 501) {
+      throw new Error('MCP server setup required - see README for instructions')
+    }
+    
     throw new Error(errorData.error || `Search failed: ${response.statusText}`)
   }
 
