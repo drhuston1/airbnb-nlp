@@ -82,10 +82,10 @@ function App() {
 
   return (
     <Box minH="100vh" bg="gray.50" overflow="hidden">
-      <Container maxW="7xl" px={{ base: 4, md: 6 }} py={12}>
-        <Stack gap={10} align="stretch">
+      <Container maxW="7xl" px={{ base: 4, md: 6 }} py={8}>
+        <Stack gap={6} align="stretch">
           {/* Hero Section */}
-          <Box textAlign="center" py={{ base: 12, md: 16 }}>
+          <Box textAlign="center" py={{ base: 6, md: 8 }}>
             {/* Badge */}
             <Badge 
               colorScheme="blue" 
@@ -93,7 +93,7 @@ function App() {
               px={4} 
               py={2} 
               borderRadius="full" 
-              mb={6}
+              mb={4}
               fontSize="sm"
               fontWeight="600"
             >
@@ -104,7 +104,7 @@ function App() {
             <Heading 
               as="h1" 
               size={{ base: "2xl", md: "3xl", lg: "4xl" }}
-              mb={6} 
+              mb={4} 
               fontWeight="900"
               letterSpacing="-0.03em"
               lineHeight="1.1"
@@ -129,7 +129,7 @@ function App() {
               maxW="3xl" 
               mx="auto" 
               lineHeight="1.6" 
-              mb={8}
+              mb={6}
               fontWeight="400"
             >
               Skip the complex filters. Just tell us what you're looking for and we'll find the perfect Airbnb properties for you.
@@ -139,7 +139,7 @@ function App() {
             <HStack 
               justify="center" 
               gap={8} 
-              mb={10}
+              mb={6}
               flexWrap="wrap"
               fontSize="sm"
               color="gray.600"
@@ -200,7 +200,7 @@ function App() {
           </Box>
 
         {/* Search Section */}
-        <Box maxW="5xl" mx="auto">
+        <Box w="full" maxW="6xl" mx="auto">
           <Stack gap={6}>
             <Box 
               bg="white" 
@@ -210,6 +210,7 @@ function App() {
               border="1px" 
               borderColor="gray.200"
               position="relative"
+              w="full"
               _before={{
                 content: '""',
                 position: "absolute",
@@ -223,7 +224,7 @@ function App() {
                 opacity: 0.1
               }}
             >
-              <Stack gap={6}>
+              <Stack gap={6} w="full">
                 <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="700" color="gray.800" textAlign="center">
                   What kind of place are you looking for?
                 </Text>
@@ -246,6 +247,7 @@ function App() {
                   fontSize={{ base: "md", md: "lg" }}
                   h={{ base: "60px", md: "70px" }}
                   borderRadius="xl"
+                  w="full"
                 />
                 
                 <Button
