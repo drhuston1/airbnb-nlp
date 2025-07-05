@@ -105,7 +105,7 @@ function App() {
               lineHeight="1.1"
               color="gray.900"
             >
-              Find Your Perfect Airbnb
+              ChatAirbnb
             </Heading>
             
             <Text 
@@ -265,7 +265,7 @@ function App() {
                     {(minRating > 0 || minReviews > 0) ? (
                       <>Showing {filteredListings.length} of {allListings.length} properties</>
                     ) : (
-                      <>Found {allListings.length} Airbnb properties</>
+                      <>Found {allListings.length} properties</>
                     )}
                   </Heading>
                   <Text fontSize="sm" color="gray.600">Page {currentPage}</Text>
