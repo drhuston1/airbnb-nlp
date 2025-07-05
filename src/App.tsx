@@ -41,6 +41,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [currentQuery, setCurrentQuery] = useState('')
   
   // Filter states
   const [minRating, setMinRating] = useState(0)
@@ -87,17 +90,22 @@ function App() {
     setMessages(prev => [...prev, userMessage])
 
     setLoading(true)
-    const currentQuery = searchQuery
+    const query = searchQuery
     setSearchQuery('')
 
     try {
-      const searchResults = await searchAirbnbListings(currentQuery, page)
+      const searchResults = await searchAirbnbListings(query, page)
+      setCurrentPage(page)
+      setHasMore(searchResults.length === 18) // Assume more if we got full page
+      setCurrentQuery(query)
       
       // Add assistant response with results
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `I found ${searchResults.length} properties that match "${currentQuery}". Here are your options:`,
+        content: page === 1 
+          ? `I found ${searchResults.length} properties that match "${query}". Here are your options:`
+          : `Here are ${searchResults.length} more properties for "${query}" (page ${page}):`,
         listings: searchResults,
         timestamp: new Date()
       }
@@ -115,6 +123,18 @@ function App() {
       console.error(error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (hasMore && !loading && currentQuery) {
+      handleSearch(currentPage + 1)
+    }
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1 && !loading && currentQuery) {
+      handleSearch(currentPage - 1)
     }
   }
 
@@ -406,6 +426,40 @@ function App() {
                                 </Box>
                               ))}
                             </SimpleGrid>
+
+                            {/* Pagination Controls */}
+                            {currentListings.length > 0 && (
+                              <Box mt={6} pt={4} borderTop="1px" borderColor="gray.200">
+                                <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
+                                  <Text fontSize="sm" color="gray.600">
+                                    Page {currentPage} • Showing {filteredListings.length} properties
+                                    {(minRating > 0 || minReviews > 0) && currentListings.length !== filteredListings.length && 
+                                      ` (${currentListings.length} total)`
+                                    }
+                                  </Text>
+                                  <HStack>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={handlePrevPage}
+                                      disabled={currentPage === 1 || loading}
+                                      _hover={{ bg: "gray.50" }}
+                                    >
+                                      ← Previous
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={handleNextPage}
+                                      disabled={!hasMore || loading}
+                                      _hover={{ bg: "gray.50" }}
+                                    >
+                                      Next →
+                                    </Button>
+                                  </HStack>
+                                </Flex>
+                              </Box>
+                            )}
                           </Box>
                         )}
                       </VStack>
