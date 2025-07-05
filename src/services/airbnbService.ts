@@ -41,9 +41,9 @@ function parseNaturalLanguageQuery(query: string): SearchParams {
 
   // Extract location patterns
   const locationPatterns = [
-    /(?:in|at|near)\s+([^,\n]+?)(?:\s+(?:for|with|from|to|\d))/i,
+    /(?:in|at|near)\s+([^,\n]+?)(?:\s+(?:for|with|from|to|under|over|max|min|\d))/i,
     /(?:in|at|near)\s+([^,\n]+)$/i,
-    /^([^,\n]+?)(?:\s+(?:for|with|from|to))/i
+    /^([^,\n]+?)(?:\s+(?:for|with|from|to|under|over|max|min))/i
   ]
 
   for (const pattern of locationPatterns) {
@@ -51,6 +51,23 @@ function parseNaturalLanguageQuery(query: string): SearchParams {
     if (match) {
       params.location = match[1].trim()
       break
+    }
+  }
+
+  // If no pattern matched, try to extract location before price keywords
+  if (!params.location) {
+    const beforePrice = query.match(/^([^,\n]+?)(?:\s+(?:under|over|max|min|for)\s)/i)
+    if (beforePrice) {
+      params.location = beforePrice[1].trim()
+    } else {
+      // Fallback: use everything before the first price/number
+      const beforeNumber = query.match(/^([^,\n]+?)(?:\s+\$?\d)/i)
+      if (beforeNumber) {
+        params.location = beforeNumber[1].trim()
+      } else {
+        // Last resort: use the whole query
+        params.location = query.trim()
+      }
     }
   }
 

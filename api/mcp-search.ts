@@ -122,77 +122,18 @@ export default async function handler(
 }
 
 async function callMCPAirbnbSearch(params: any) {
-  // Since we're in a Vercel function, we need to call the MCP server via HTTP
+  // Call the MCP Airbnb search function directly
+  console.log('Calling MCP Airbnb search with params:', params)
   
-  console.log('MCP_SERVER_URL:', process.env.MCP_SERVER_URL)
-  console.log('Search params:', params)
-  
-  // Option 1: Call a deployed MCP server endpoint
-  if (process.env.MCP_SERVER_URL) {
-    const serverUrl = process.env.MCP_SERVER_URL.startsWith('http') 
-      ? process.env.MCP_SERVER_URL 
-      : `https://${process.env.MCP_SERVER_URL}`
-    
-    const fullUrl = `${serverUrl}/airbnb-search`
-    console.log('Calling MCP server at:', fullUrl)
-    
-    try {
-      const response = await fetch(fullUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Vercel-Function/1.0'
-        },
-        body: JSON.stringify(params),
-        timeout: 30000 // 30 second timeout
-      })
-      
-      console.log('MCP server response status:', response.status)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('MCP server error response:', errorText)
-        throw new Error(`MCP server responded with ${response.status}: ${response.statusText}. Response: ${errorText}`)
-      }
-      
-      const data = await response.json()
-      console.log('MCP server response data keys:', Object.keys(data))
-      return data
-      
-    } catch (fetchError) {
-      console.error('Fetch error:', fetchError)
-      throw new Error(`Failed to connect to MCP server: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`)
-    }
+  // Since we have access to MCP tools in this environment, call them directly
+  try {
+    // This is where we would call the actual MCP function
+    // For now, let's make sure we're properly set up to use MCP tools
+    throw new Error('MCP tools not available in Vercel serverless environment. Please use Railway approach.')
+  } catch (error) {
+    console.error('Direct MCP call failed:', error)
+    throw error
   }
-
-  // Option 2: Use the MCP server directly if running in a compatible environment
-  // This would work if you deploy this to a server that has MCP access
-  
-  // Option 3: For development/testing, simulate the MCP call
-  // You would replace this with actual MCP integration
-  throw new Error(`
-    MCP Server Configuration Required:
-    
-    To enable real Airbnb search via MCP server, you need to:
-    
-    1. Deploy an MCP server to a cloud service (Railway, Fly.io, Render, etc.)
-    2. Set up an HTTP endpoint that calls the mcp__openbnb-airbnb__airbnb_search function
-    3. Add environment variables to your Vercel deployment:
-       - MCP_SERVER_URL=https://your-mcp-server.railway.app
-       - MCP_SERVER_TOKEN=your-auth-token (optional)
-    
-    Example MCP server endpoint implementation:
-    
-    app.post('/airbnb-search', async (req, res) => {
-      const result = await mcpClient.callTool({
-        name: 'mcp__openbnb-airbnb__airbnb_search',
-        arguments: req.body
-      })
-      res.json(result)
-    })
-    
-    Search parameters received: ${JSON.stringify(params, null, 2)}
-  `)
 }
 
 function transformMCPResults(searchResults: AirbnbSearchResult[], location: string) {
