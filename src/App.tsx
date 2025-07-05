@@ -226,8 +226,8 @@ function App() {
                 opacity: 0.1
               }}
             >
-              <Stack gap={4}>
-                <Text fontSize="md" fontWeight="600" color="gray.700" textAlign="center" mb={2}>
+              <Stack gap={6}>
+                <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="700" color="gray.800" textAlign="center">
                   What kind of place are you looking for?
                 </Text>
                 
@@ -246,8 +246,8 @@ function App() {
                     shadow: "0 0 0 4px rgba(66, 153, 225, 0.1)"
                   }}
                   _hover={{ borderColor: "gray.300" }}
-                  fontSize="md"
-                  py={7}
+                  fontSize={{ base: "md", md: "lg" }}
+                  h={{ base: "60px", md: "70px" }}
                   borderRadius="xl"
                 />
                 
@@ -257,8 +257,8 @@ function App() {
                   onClick={() => handleSearch()}
                   loading={loading}
                   w="full"
-                  py={7}
-                  fontSize="md"
+                  h={{ base: "60px", md: "70px" }}
+                  fontSize={{ base: "md", md: "lg" }}
                   fontWeight="600"
                   _hover={{ transform: "translateY(-2px)", shadow: "xl" }}
                   transition="all 0.2s"
@@ -266,7 +266,7 @@ function App() {
                   bgGradient="linear(to-r, blue.500, blue.600)"
                   _active={{ transform: "translateY(0)" }}
                 >
-                  <Icon as={Search} mr={3} />
+                  <Icon as={Search} mr={3} boxSize={5} />
                   Search Airbnb Properties
                 </Button>
               </Stack>
