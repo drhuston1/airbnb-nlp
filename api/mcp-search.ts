@@ -110,31 +110,59 @@ export default async function handler(
     return res.status(500).json({
       error: 'Failed to search Airbnb listings via MCP',
       details: error instanceof Error ? error.message : 'Unknown error',
-      suggestion: 'Check MCP server configuration and network connectivity'
+      suggestion: 'Check MCP server configuration and network connectivity',
+      debugging: {
+        mcpServerUrl: process.env.MCP_SERVER_URL,
+        searchParams,
+        timestamp: new Date().toISOString(),
+        errorType: error instanceof Error ? error.constructor.name : typeof error
+      }
     })
   }
 }
 
 async function callMCPAirbnbSearch(params: any) {
   // Since we're in a Vercel function, we need to call the MCP server via HTTP
-  // This could be done in several ways:
+  
+  console.log('MCP_SERVER_URL:', process.env.MCP_SERVER_URL)
+  console.log('Search params:', params)
   
   // Option 1: Call a deployed MCP server endpoint
   if (process.env.MCP_SERVER_URL) {
-    const response = await fetch(`${process.env.MCP_SERVER_URL}/airbnb-search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.MCP_SERVER_TOKEN || ''}`
-      },
-      body: JSON.stringify(params)
-    })
+    const serverUrl = process.env.MCP_SERVER_URL.startsWith('http') 
+      ? process.env.MCP_SERVER_URL 
+      : `https://${process.env.MCP_SERVER_URL}`
     
-    if (!response.ok) {
-      throw new Error(`MCP server responded with ${response.status}: ${response.statusText}`)
+    const fullUrl = `${serverUrl}/airbnb-search`
+    console.log('Calling MCP server at:', fullUrl)
+    
+    try {
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Vercel-Function/1.0'
+        },
+        body: JSON.stringify(params),
+        timeout: 30000 // 30 second timeout
+      })
+      
+      console.log('MCP server response status:', response.status)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('MCP server error response:', errorText)
+        throw new Error(`MCP server responded with ${response.status}: ${response.statusText}. Response: ${errorText}`)
+      }
+      
+      const data = await response.json()
+      console.log('MCP server response data keys:', Object.keys(data))
+      return data
+      
+    } catch (fetchError) {
+      console.error('Fetch error:', fetchError)
+      throw new Error(`Failed to connect to MCP server: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`)
     }
-    
-    return await response.json()
   }
 
   // Option 2: Use the MCP server directly if running in a compatible environment
