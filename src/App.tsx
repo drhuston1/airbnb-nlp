@@ -14,8 +14,18 @@ import {
   Stack,
   Flex,
   Link,
-  ButtonGroup
+  ButtonGroup,
+  Icon
 } from '@chakra-ui/react'
+import { 
+  Search, 
+  MapPin, 
+  Star, 
+  Crown, 
+  AlertCircle, 
+  Settings,
+  ExternalLink 
+} from 'lucide-react'
 import { searchAirbnbListings, type AirbnbListing } from './services/airbnbService'
 
 function App() {
@@ -88,9 +98,43 @@ function App() {
               <Text as="span" color="gray.700">in</Text>{" "}
               <Text as="span" color="purple.500">Plain English</Text>
             </Heading>
-            <Text fontSize="xl" color="gray.600" maxW="2xl" mx="auto" lineHeight="1.6">
+            <Text fontSize="xl" color="gray.600" maxW="2xl" mx="auto" lineHeight="1.6" mb={8}>
               Search Airbnb properties using natural language - just describe what you want
             </Text>
+            
+            {/* Popular searches moved to top */}
+            <Box textAlign="center" mb={8}>
+              <Text fontSize="sm" fontWeight="500" color="gray.600" mb={4}>Popular searches:</Text>
+              <Flex gap={3} flexWrap="wrap" justify="center">
+                {[
+                  "Beach house in Malibu for 4 guests",
+                  "Studio apartment in Tokyo under $100",
+                  "Pet-friendly cabin in Colorado",
+                  "Luxury villa in Tuscany with pool"
+                ].map((example) => (
+                  <Button
+                    key={example}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="gray"
+                    onClick={() => setSearchQuery(example)}
+                    px={4}
+                    py={2}
+                    fontSize="xs"
+                    fontWeight="500"
+                    bg="white"
+                    border="1px"
+                    borderColor="gray.200"
+                    _hover={{ bg: "gray.50", borderColor: "gray.300", transform: "translateY(-1px)" }}
+                    transition="all 0.2s"
+                    borderRadius="full"
+                    shadow="sm"
+                  >
+                    {example}
+                  </Button>
+                ))}
+              </Flex>
+            </Box>
           </Box>
 
         <Box maxW="4xl" mx="auto">
@@ -127,15 +171,17 @@ function App() {
                 _hover={{ transform: "translateY(-1px)", shadow: "lg" }}
                 transition="all 0.2s"
               >
-                🔍 Search Airbnb
+                <Icon as={Search} mr={2} />
+                Search Airbnb
               </Button>
             </Box>
 
             {/* Quality Filters */}
             <Box bg="white" p={6} borderRadius="xl" shadow="md" border="1px" borderColor="gray.200">
               <HStack alignItems="center" mb={4}>
+                <Icon as={Settings} color="gray.600" mr={2} />
                 <Text fontSize="md" fontWeight="600" color="gray.700">
-                  🎯 Quality Filters
+                  Quality Filters
                 </Text>
                 <input 
                   type="checkbox"
@@ -196,41 +242,11 @@ function App() {
                     alignSelf="flex-start"
                     _hover={{ bg: "purple.50" }}
                   >
-                    ⭐ 4.9+ stars, 20+ reviews
+                    <Icon as={Star} mr={2} />
+                    4.9+ stars, 20+ reviews
                   </Button>
                 </Stack>
               )}
-            </Box>
-            
-            {/* Example queries */}
-            <Box textAlign="center" bg="white" p={6} borderRadius="xl" shadow="sm" border="1px" borderColor="gray.200">
-              <Text fontSize="sm" fontWeight="500" color="gray.600" mb={4}>Popular searches:</Text>
-              <Flex gap={3} flexWrap="wrap" justify="center">
-                {[
-                  "Beach house in Malibu for 4 guests",
-                  "Studio apartment in Tokyo under $100",
-                  "Pet-friendly cabin in Colorado",
-                  "Luxury villa in Tuscany with pool"
-                ].map((example) => (
-                  <Button
-                    key={example}
-                    size="sm"
-                    variant="ghost"
-                    colorScheme="gray"
-                    onClick={() => setSearchQuery(example)}
-                    px={4}
-                    py={2}
-                    fontSize="xs"
-                    fontWeight="500"
-                    bg="gray.50"
-                    _hover={{ bg: "gray.100", transform: "translateY(-1px)" }}
-                    transition="all 0.2s"
-                    borderRadius="full"
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </Flex>
             </Box>
           </Stack>
         </Box>
@@ -238,7 +254,7 @@ function App() {
         {error && (
           <Box maxW="4xl" mx="auto" bg="red.50" p={6} borderRadius="xl" border="1px" borderColor="red.200">
             <HStack mb={3}>
-              <Text fontSize="lg">⚠️</Text>
+              <Icon as={AlertCircle} color="red.600" />
               <Text fontWeight="600" color="red.800">Connection Issue</Text>
             </HStack>
             <Text fontSize="sm" color="red.700" mb={3}>
@@ -292,7 +308,7 @@ function App() {
               </Flex>
               <Box p={4} bg="blue.50" borderRadius="lg" border="1px" borderColor="blue.200">
                 <HStack>
-                  <Text fontSize="lg">🚀</Text>
+                  <Icon as={ExternalLink} color="blue.600" />
                   <Text fontSize="sm" color="blue.800" fontWeight="500">
                     Live data from Airbnb
                   </Text>
@@ -310,7 +326,7 @@ function App() {
 
             {enableFilters && filteredListings.length === 0 ? (
               <Box maxW="2xl" mx="auto" p={8} textAlign="center" bg="white" borderRadius="xl" shadow="sm" border="1px" borderColor="gray.200">
-                <Text fontSize="4xl" mb={4}>🔍</Text>
+                <Icon as={Search} boxSize={12} color="gray.400" mb={4} />
                 <Text fontSize="xl" fontWeight="600" color="gray.800" mb={3}>
                   No matches found
                 </Text>
@@ -354,12 +370,15 @@ function App() {
                         {listing.name}
                       </Heading>
                       <HStack justify="space-between" align="center">
-                        <Text fontSize="sm" color="gray.600" fontWeight="500">
-                          📍 {listing.location.country ? 
-                            `${listing.location.city}, ${listing.location.country}` : 
-                            listing.location.city
-                          }
-                        </Text>
+                        <HStack>
+                          <Icon as={MapPin} color="gray.500" size="sm" />
+                          <Text fontSize="sm" color="gray.600" fontWeight="500">
+                            {listing.location.country ? 
+                              `${listing.location.city}, ${listing.location.country}` : 
+                              listing.location.city
+                            }
+                          </Text>
+                        </HStack>
                         <Badge 
                           colorScheme={listing.rating >= 4.8 ? "green" : listing.rating >= 4.5 ? "blue" : "gray"}
                           fontSize="xs"
@@ -367,7 +386,10 @@ function App() {
                           py={1}
                           borderRadius="full"
                         >
-                          ⭐ {listing.rating} ({listing.reviewsCount})
+                          <HStack gap={1}>
+                            <Icon as={Star} size="xs" />
+                            <Text>{listing.rating} ({listing.reviewsCount})</Text>
+                          </HStack>
                         </Badge>
                       </HStack>
                       <Text fontSize="sm" color="gray.600" bg="gray.50" px={3} py={1} borderRadius="full" alignSelf="flex-start">
@@ -382,7 +404,10 @@ function App() {
                         </Box>
                         {listing.host.isSuperhost && (
                           <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">
-                            👑 Superhost
+                            <HStack gap={1}>
+                              <Icon as={Crown} size="xs" />
+                              <Text>Superhost</Text>
+                            </HStack>
                           </Badge>
                         )}
                       </HStack>
@@ -397,6 +422,7 @@ function App() {
                           transition="all 0.2s"
                         >
                           View on Airbnb
+                          <Icon as={ExternalLink} ml={2} />
                         </Button>
                       </Link>
                     </Stack>
