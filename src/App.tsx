@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   Box,
   Container,
@@ -39,6 +39,9 @@ function App() {
   // Filter states
   const [minRating, setMinRating] = useState(0)
   const [minReviews, setMinReviews] = useState(0)
+  
+  // Ref for auto-scrolling to filters
+  const filtersRef = useRef<HTMLDivElement>(null)
 
   // Filter listings based on client-side criteria
   const filteredListings = useMemo(() => {
@@ -60,6 +63,13 @@ function App() {
       setAllListings(searchResults)
       setCurrentPage(page)
       setHasMore(searchResults.length === 18) // Assume more if we got full page
+      
+      // Auto-scroll to filters after search completes
+      if (page === 1 && filtersRef.current) {
+        setTimeout(() => {
+          filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 100)
+      }
     } catch (error) {
       setError('Search failed. Please try again.')
       console.error(error)
@@ -84,127 +94,38 @@ function App() {
     <Box minH="100vh" bg="gray.50" overflow="hidden">
       <Container maxW="7xl" px={{ base: 4, md: 6 }} py={8}>
         <Stack gap={6} align="stretch">
-          {/* Hero Section */}
-          <Box textAlign="center" py={{ base: 6, md: 8 }}>
-            {/* Badge */}
-            <Badge 
-              colorScheme="blue" 
-              variant="subtle" 
-              px={4} 
-              py={2} 
-              borderRadius="full" 
-              mb={4}
-              fontSize="sm"
-              fontWeight="600"
-            >
-              Powered by AI
-            </Badge>
-            
-            {/* Main Heading */}
+          {/* Compact Hero Section */}
+          <Box textAlign="center" py={{ base: 2, md: 3 }}>
             <Heading 
               as="h1" 
-              size={{ base: "2xl", md: "3xl", lg: "4xl" }}
-              mb={4} 
-              fontWeight="900"
-              letterSpacing="-0.03em"
-              lineHeight="1.1"
+              size={{ base: "xl", md: "2xl" }}
+              mb={2} 
+              fontWeight="800"
+              letterSpacing="-0.02em"
+              lineHeight="1.2"
             >
-              <Text as="span" color="blue.600">
-                Airbnb
-              </Text>{" "}
+              <Text as="span" color="blue.600">Airbnb</Text>{" "}
               <Text as="span" color="gray.800">in</Text>{" "}
-              <Text as="span" 
-                bgGradient="linear(to-r, purple.500, pink.500)" 
-                bgClip="text"
-                color="purple.500"
-              >
-                Plain English
-              </Text>
+              <Text as="span" color="purple.500">Plain English</Text>
             </Heading>
             
-            {/* Subtitle */}
             <Text 
-              fontSize={{ base: "lg", md: "xl" }} 
+              fontSize={{ base: "sm", md: "md" }} 
               color="gray.600" 
-              maxW="3xl" 
+              maxW="2xl" 
               mx="auto" 
-              lineHeight="1.6" 
-              mb={6}
-              fontWeight="400"
+              mb={4}
             >
-              Skip the complex filters. Just tell us what you're looking for and we'll find the perfect Airbnb properties for you.
+              Just describe what you're looking for
             </Text>
-            
-            {/* Feature highlights */}
-            <HStack 
-              justify="center" 
-              gap={8} 
-              mb={6}
-              flexWrap="wrap"
-              fontSize="sm"
-              color="gray.600"
-            >
-              <HStack>
-                <Icon as={Search} color="blue.500" />
-                <Text>Natural Language</Text>
-              </HStack>
-              <HStack>
-                <Icon as={ExternalLink} color="blue.500" />
-                <Text>Real-time Data</Text>
-              </HStack>
-              <HStack>
-                <Icon as={Star} color="blue.500" />
-                <Text>Quality Filtering</Text>
-              </HStack>
-            </HStack>
-            
-            {/* Popular searches */}
-            <Box>
-              <Text fontSize="sm" fontWeight="600" color="gray.700" mb={4}>
-                Try these popular searches:
-              </Text>
-              <Flex gap={3} flexWrap="wrap" justify="center" maxW="4xl" mx="auto">
-                {[
-                  "Beach house in Malibu for 4 guests",
-                  "Studio apartment in Tokyo under $100", 
-                  "Pet-friendly cabin in Colorado",
-                  "Luxury villa in Tuscany with pool"
-                ].map((example) => (
-                  <Button
-                    key={example}
-                    size="sm"
-                    variant="outline"
-                    colorScheme="gray"
-                    onClick={() => setSearchQuery(example)}
-                    px={4}
-                    py={2}
-                    fontSize="xs"
-                    fontWeight="500"
-                    bg="white"
-                    borderColor="gray.300"
-                    _hover={{ 
-                      bg: "blue.50", 
-                      borderColor: "blue.300", 
-                      transform: "translateY(-1px)",
-                      color: "blue.700"
-                    }}
-                    transition="all 0.2s"
-                    borderRadius="full"
-                    shadow="sm"
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </Flex>
-            </Box>
           </Box>
 
         {/* Search Section */}
-        <Box w="full" maxW="6xl" mx="auto">
+        <Box w="full" maxW="7xl" mx="auto">
           <Stack gap={6}>
             <Box 
               bg="white" 
-              p={{ base: 6, md: 8 }} 
+              p={{ base: 4, md: 6 }} 
               borderRadius="2xl" 
               shadow="xl" 
               border="1px" 
@@ -224,8 +145,8 @@ function App() {
                 opacity: 0.1
               }}
             >
-              <Stack gap={6} w="full">
-                <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="700" color="gray.800" textAlign="center">
+              <Stack gap={4} w="full">
+                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="600" color="gray.800" textAlign="center">
                   What kind of place are you looking for?
                 </Text>
                 
@@ -245,7 +166,7 @@ function App() {
                   }}
                   _hover={{ borderColor: "gray.300" }}
                   fontSize={{ base: "md", md: "lg" }}
-                  h={{ base: "60px", md: "70px" }}
+                  h={{ base: "50px", md: "56px" }}
                   borderRadius="xl"
                   w="full"
                 />
@@ -256,7 +177,7 @@ function App() {
                   onClick={() => handleSearch()}
                   loading={loading}
                   w="full"
-                  h={{ base: "60px", md: "70px" }}
+                  h={{ base: "50px", md: "56px" }}
                   fontSize={{ base: "md", md: "lg" }}
                   fontWeight="600"
                   _hover={{ transform: "translateY(-2px)", shadow: "xl" }}
@@ -272,86 +193,125 @@ function App() {
             </Box>
 
             {/* Quality Filters */}
-            <Box bg="white" p={6} borderRadius="xl" shadow="md" border="1px" borderColor="gray.200">
-              <HStack alignItems="center" mb={6}>
+            <Box ref={filtersRef} bg="white" p={4} borderRadius="lg" shadow="sm" border="1px" borderColor="gray.200">
+              <HStack alignItems="center" mb={4}>
                 <Icon as={Settings} color="gray.600" mr={2} />
-                <Text fontSize="lg" fontWeight="600" color="gray.700">
+                <Text fontSize="md" fontWeight="600" color="gray.700">
                   Quality Filters
                 </Text>
               </HStack>
               
-              <Stack gap={5}>
-                <Flex gap={6} flexWrap="wrap" w="full">
-                  <Box flex="1" minW="180px">
-                    <Text fontSize="sm" fontWeight="600" color="gray.700" mb={3}>Minimum Rating</Text>
-                    <Input
-                      type="number"
-                      value={minRating}
-                      onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
-                      min={0}
-                      max={5}
-                      step={0.1}
-                      size="md"
-                      bg="gray.50"
-                      border="2px"
-                      borderColor="gray.200"
-                      _focus={{ borderColor: "blue.400", bg: "white" }}
-                      _hover={{ borderColor: "gray.300" }}
-                      borderRadius="lg"
-                      h="48px"
-                    />
-                  </Box>
-                  
-                  <Box flex="1" minW="180px">
-                    <Text fontSize="sm" fontWeight="600" color="gray.700" mb={3}>Minimum Reviews</Text>
-                    <Input
-                      type="number"
-                      value={minReviews}
-                      onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
-                      min={0}
-                      size="md"
-                      bg="gray.50"
-                      border="2px"
-                      borderColor="gray.200"
-                      _focus={{ borderColor: "blue.400", bg: "white" }}
-                      _hover={{ borderColor: "gray.300" }}
-                      borderRadius="lg"
-                      h="48px"
-                    />
-                  </Box>
-                </Flex>
+              <Flex gap={4} flexWrap="wrap" w="full" align="end">
+                <Box flex="1" minW="140px">
+                  <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Rating</Text>
+                  <Input
+                    type="number"
+                    value={minRating}
+                    onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
+                    min={0}
+                    max={5}
+                    step={0.1}
+                    size="sm"
+                    bg="gray.50"
+                    border="1px"
+                    borderColor="gray.200"
+                    _focus={{ borderColor: "blue.400", bg: "white" }}
+                    _hover={{ borderColor: "gray.300" }}
+                    borderRadius="md"
+                    h="36px"
+                  />
+                </Box>
                 
-                <HStack gap={3} flexWrap="wrap">
-                  <Button 
-                    size="md" 
-                    colorScheme="purple" 
-                    variant="outline"
-                    onClick={() => {
-                      setMinRating(4.9)
-                      setMinReviews(20)
-                    }}
-                    _hover={{ bg: "purple.50" }}
-                    borderRadius="lg"
-                  >
-                    <Icon as={Star} mr={2} />
-                    4.9+ stars, 20+ reviews
-                  </Button>
-                  
-                  <Button 
-                    size="md" 
+                <Box flex="1" minW="140px">
+                  <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Reviews</Text>
+                  <Input
+                    type="number"
+                    value={minReviews}
+                    onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
+                    min={0}
+                    size="sm"
+                    bg="gray.50"
+                    border="1px"
+                    borderColor="gray.200"
+                    _focus={{ borderColor: "blue.400", bg: "white" }}
+                    _hover={{ borderColor: "gray.300" }}
+                    borderRadius="md"
+                    h="36px"
+                  />
+                </Box>
+                
+                <Button 
+                  size="sm" 
+                  colorScheme="purple" 
+                  variant="outline"
+                  onClick={() => {
+                    setMinRating(4.9)
+                    setMinReviews(20)
+                  }}
+                  _hover={{ bg: "purple.50" }}
+                  borderRadius="md"
+                  h="36px"
+                  px={3}
+                >
+                  <Icon as={Star} mr={1} />
+                  High Quality
+                </Button>
+                
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  colorScheme="gray"
+                  onClick={() => {
+                    setMinRating(0)
+                    setMinReviews(0)
+                  }}
+                  _hover={{ bg: "gray.50" }}
+                  borderRadius="md"
+                  h="36px"
+                  px={3}
+                >
+                  Clear
+                </Button>
+              </Flex>
+            </Box>
+            
+            {/* Popular searches */}
+            <Box textAlign="center">
+              <Text fontSize="xs" fontWeight="500" color="gray.600" mb={3}>
+                Try these popular searches:
+              </Text>
+              <Flex gap={2} flexWrap="wrap" justify="center">
+                {[
+                  "Beach house in Malibu for 4 guests",
+                  "Studio apartment in Tokyo under $100", 
+                  "Pet-friendly cabin in Colorado",
+                  "Luxury villa in Tuscany with pool"
+                ].map((example) => (
+                  <Button
+                    key={example}
+                    size="xs"
                     variant="outline"
                     colorScheme="gray"
-                    onClick={() => {
-                      setMinRating(0)
-                      setMinReviews(0)
+                    onClick={() => setSearchQuery(example)}
+                    px={3}
+                    py={1}
+                    fontSize="xs"
+                    fontWeight="400"
+                    bg="white"
+                    borderColor="gray.300"
+                    _hover={{ 
+                      bg: "blue.50", 
+                      borderColor: "blue.300", 
+                      color: "blue.700"
                     }}
-                    _hover={{ bg: "gray.50" }}
-                    borderRadius="lg"
+                    transition="all 0.2s"
+                    borderRadius="full"
+                    h="28px"
                   >
-                    Clear Filters
+                    {example}
                   </Button>
-                </HStack>
-              </Stack>
+                ))}
+              </Flex>
             </Box>
           </Stack>
         </Box>
