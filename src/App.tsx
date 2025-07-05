@@ -44,7 +44,7 @@ function App() {
   }
 
   return (
-    <Container maxW="6xl" py={8}>
+    <Container maxW="full" px={8} py={8}>
       <Stack gap={8} align="stretch">
         <Box textAlign="center">
           <Heading as="h1" size="2xl" mb={4} color="pink.500">
