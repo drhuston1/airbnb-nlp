@@ -39,9 +39,6 @@ function App() {
   const [hasMore, setHasMore] = useState(false)
   const [currentQuery, setCurrentQuery] = useState('')
   
-  // Filter states
-  const [minRating, setMinRating] = useState(0)
-  const [minReviews, setMinReviews] = useState(0)
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -55,12 +52,6 @@ function App() {
     return latestAssistantMessage?.listings || []
   }, [messages])
 
-  // Filter listings based on client-side criteria
-  const filteredListings = useMemo(() => {
-    return currentListings.filter(listing => 
-      listing.rating >= minRating && listing.reviewsCount >= minReviews
-    )
-  }, [currentListings, minRating, minReviews])
 
   // Auto-scroll to bottom of chat
   const scrollToBottom = () => {
@@ -134,7 +125,7 @@ function App() {
 
 
   return (
-    <Box h="100vh" bg="white" display="flex" flexDirection="column">
+    <Box h="100vh" bg="slate.50" display="flex" flexDirection="column">
       {/* Chat Messages */}
       <Box 
         flex="1" 
@@ -173,7 +164,7 @@ function App() {
                   resize="none"
                   minH="52px"
                   maxH="120px"
-                  bg="white"
+                  bg="slate.25"
                   border="1px"
                   borderColor="slate.300"
                   _focus={{
@@ -237,7 +228,7 @@ function App() {
             </Box>
           </Flex>
         ) : (
-          <Box maxW="3xl" mx="auto" px={4} py={6} w="full">
+          <Box maxW="3xl" mx="auto" px={4} py={6} w="full" bg="white" borderRadius="lg" my={4} border="1px" borderColor="slate.200">
 
           {/* Chat Messages */}
           {messages.map((message) => (
@@ -263,87 +254,17 @@ function App() {
                     {/* Show listings if present */}
                     {message.listings && (
                       <Box w="full">
-                        {/* Quality Filters */}
-                        {currentListings.length > 0 && (
-                          <Box p={4} bg="slate.50" borderRadius="md" mb={6}>
-                            <Text fontSize="sm" fontWeight="500" color="slate.700" mb={3}>
-                              Refine Results
-                              {(minRating > 0 || minReviews > 0) && (
-                                <Text as="span" ml={2} color="slate.500">
-                                  • {filteredListings.length} matches
-                                </Text>
-                              )}
-                            </Text>
-                            
-                            <Flex gap={3} flexWrap="wrap" w="full" align="end">
-                              <Box>
-                                <Text fontSize="xs" color="slate.600" mb={1}>Min Rating</Text>
-                                <Input
-                                  type="number"
-                                  value={minRating}
-                                  onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
-                                  min={0}
-                                  max={5}
-                                  step={0.1}
-                                  size="sm"
-                                  w="20"
-                                  bg="white"
-                                  border="1px"
-                                  borderColor="slate.300"
-                                />
-                              </Box>
-                              
-                              <Box>
-                                <Text fontSize="xs" color="slate.600" mb={1}>Min Reviews</Text>
-                                <Input
-                                  type="number"
-                                  value={minReviews}
-                                  onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
-                                  min={0}
-                                  size="sm"
-                                  w="20"
-                                  bg="white"
-                                  border="1px"
-                                  borderColor="slate.300"
-                                />
-                              </Box>
-                              
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => {
-                                  setMinRating(4.9)
-                                  setMinReviews(20)
-                                }}
-                                borderColor="slate.300"
-                              >
-                                High Quality
-                              </Button>
-                              
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => {
-                                  setMinRating(0)
-                                  setMinReviews(0)
-                                }}
-                                borderColor="slate.300"
-                              >
-                                Clear
-                              </Button>
-                            </Flex>
-                          </Box>
-                        )}
 
                         {/* Property Grid */}
                         <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-                          {filteredListings.map((listing) => (
+                          {currentListings.map((listing) => (
                             <Box 
                               key={listing.id} 
                               border="1px" 
                               borderColor="slate.200"
                               borderRadius="md"
                               overflow="hidden"
+                              bg="white"
                               _hover={{ 
                                 borderColor: 'slate.300'
                               }}
@@ -411,13 +332,10 @@ function App() {
 
                         {/* Pagination Controls */}
                         {currentListings.length > 0 && (
-                          <Box mt={6} pt={4} borderTop="1px" borderColor="gray.200">
+                          <Box mt={6} pt={4} borderTop="1px" borderColor="slate.200">
                             <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
                               <Text fontSize="sm" color="slate.500">
-                                Page {currentPage} • {filteredListings.length} properties
-                                {(minRating > 0 || minReviews > 0) && currentListings.length !== filteredListings.length && 
-                                  ` (${currentListings.length} total)`
-                                }
+                                Page {currentPage} • {currentListings.length} properties
                               </Text>
                               <HStack>
                                 <Button 
