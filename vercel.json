@@ -1,13 +1,7 @@
 {
   "functions": {
-    "api/search.ts": {
-      "runtime": "nodejs18.x"
+    "api/*.ts": {
+      "runtime": "@vercel/node"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ]
+  }
 }
