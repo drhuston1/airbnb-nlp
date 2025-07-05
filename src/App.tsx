@@ -18,7 +18,10 @@ import {
   Crown,
   ExternalLink,
   Send,
-  Home
+  Home,
+  History,
+  Clock,
+  X
 } from 'lucide-react'
 import { searchAirbnbListings, type AirbnbListing } from './services/airbnbService'
 
@@ -31,6 +34,13 @@ interface ChatMessage {
   timestamp: Date
 }
 
+interface SearchHistory {
+  id: string
+  query: string
+  timestamp: Date
+  resultCount: number
+}
+
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -38,6 +48,8 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [currentQuery, setCurrentQuery] = useState('')
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
+  const [showHistory, setShowHistory] = useState(false)
   
   
   // Refs
@@ -51,9 +63,54 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // Load search history from localStorage on mount
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('airbnb-search-history')
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory)
+        setSearchHistory(parsed.map((item: any) => ({
+          ...item,
+          timestamp: new Date(item.timestamp)
+        })))
+      } catch (error) {
+        console.error('Error loading search history:', error)
+      }
+    }
+  }, [])
+
+  // Save search history to localStorage whenever it changes
+  useEffect(() => {
+    if (searchHistory.length > 0) {
+      localStorage.setItem('airbnb-search-history', JSON.stringify(searchHistory))
+    }
+  }, [searchHistory])
+
   useEffect(() => {
     scrollToBottom()
   }, [messages, loading])
+
+  // Add search to history
+  const addToHistory = (query: string, resultCount: number) => {
+    const newHistoryItem: SearchHistory = {
+      id: Date.now().toString(),
+      query,
+      timestamp: new Date(),
+      resultCount
+    }
+    
+    setSearchHistory(prev => {
+      // Remove duplicate queries and keep only the latest 20
+      const filtered = prev.filter(item => item.query !== query)
+      return [newHistoryItem, ...filtered].slice(0, 20)
+    })
+  }
+
+  // Clear search history
+  const clearHistory = () => {
+    setSearchHistory([])
+    localStorage.removeItem('airbnb-search-history')
+  }
 
   // Apply natural language filters to listings (more lenient)
   const applyNaturalLanguageFilters = (listings: AirbnbListing[], query: string) => {
@@ -266,6 +323,9 @@ function App() {
       }
       setMessages(prev => [...prev, assistantMessage])
 
+      // Add to search history
+      addToHistory(query, filteredResults.length)
+
     } catch (error) {
       // Add error message
       const errorMessage: ChatMessage = {
@@ -295,15 +355,120 @@ function App() {
 
 
   return (
-    <Box h="100vh" bg="gray.50" display="flex" flexDirection="column">
-      {/* Chat Messages */}
+    <Box h="100vh" bg="gray.50" display="flex" flexDirection="row">
+      {/* History Sidebar */}
       <Box 
-        flex="1" 
-        overflow="auto" 
-        ref={chatContainerRef}
+        w={showHistory ? "320px" : "0"} 
+        bg="white" 
+        borderRight="1px" 
+        borderColor="gray.200"
+        transition="width 0.3s ease"
+        overflow="hidden"
         display="flex"
         flexDirection="column"
       >
+        {showHistory && (
+          <>
+            <Box p={4} borderBottom="1px" borderColor="gray.200">
+              <HStack justify="space-between" align="center">
+                <HStack gap={2}>
+                  <Icon as={History} w={4} h={4} color="gray.600" />
+                  <Text fontSize="sm" fontWeight="500" color="gray.700">Search History</Text>
+                </HStack>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setShowHistory(false)}
+                >
+                  <Icon as={X} w={3} h={3} />
+                </Button>
+              </HStack>
+            </Box>
+            
+            <Box flex="1" overflow="auto" p={3}>
+              {searchHistory.length === 0 ? (
+                <Text fontSize="sm" color="gray.500" textAlign="center" mt={4}>
+                  No search history yet
+                </Text>
+              ) : (
+                <VStack gap={2} align="stretch">
+                  {searchHistory.map((item) => (
+                    <Box
+                      key={item.id}
+                      p={3}
+                      bg="gray.50"
+                      borderRadius="md"
+                      cursor="pointer"
+                      _hover={{ bg: "gray.100" }}
+                      onClick={() => {
+                        setSearchQuery(item.query)
+                        setShowHistory(false)
+                      }}
+                    >
+                      <Text fontSize="sm" color="gray.800" lineHeight="1.4" lineClamp={2}>
+                        {item.query}
+                      </Text>
+                      <HStack justify="space-between" mt={2}>
+                        <HStack gap={1}>
+                          <Icon as={Clock} w={3} h={3} color="gray.400" />
+                          <Text fontSize="xs" color="gray.500">
+                            {item.timestamp.toLocaleDateString()}
+                          </Text>
+                        </HStack>
+                        <Text fontSize="xs" color="gray.500">
+                          {item.resultCount} results
+                        </Text>
+                      </HStack>
+                    </Box>
+                  ))}
+                </VStack>
+              )}
+            </Box>
+            
+            {searchHistory.length > 0 && (
+              <Box p={3} borderTop="1px" borderColor="gray.200">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  w="full"
+                  onClick={clearHistory}
+                  borderColor="gray.300"
+                  color="gray.600"
+                  _hover={{ bg: "gray.50" }}
+                >
+                  Clear History
+                </Button>
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
+
+      {/* Main Content */}
+      <Box flex="1" display="flex" flexDirection="column">
+        {/* History Toggle Button */}
+        <Box p={3}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowHistory(!showHistory)}
+            borderColor="gray.300"
+            color="gray.600"
+            _hover={{ bg: "gray.50" }}
+          >
+            <Icon as={History} w={4} h={4} mr={2} />
+            {showHistory ? 'Hide History' : 'Show History'}
+          </Button>
+        </Box>
+
+        {/* Chat Messages */}
+        <Box 
+          flex="1" 
+          overflow="auto" 
+          ref={chatContainerRef}
+          display="flex"
+          flexDirection="column"
+        >
         {messages.length === 0 ? (
           <Flex flex="1" align="center" justify="center" direction="column" px={4}>
             <Box textAlign="center" mb={12}>
@@ -591,8 +756,8 @@ function App() {
         )}
       </Box>
 
-      {/* Chat Input - Only show when there are messages */}
-      {messages.length > 0 && (
+        {/* Chat Input - Only show when there are messages */}
+        {messages.length > 0 && (
         <Box bg="white" px={4} py={4} borderTop="1px" borderColor="gray.200">
           <Box maxW="3xl" mx="auto">
             <HStack gap={3}>
@@ -643,6 +808,7 @@ function App() {
           </Box>
         </Box>
       )}
+      </Box>
     </Box>
   )
 }
