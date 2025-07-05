@@ -26,27 +26,32 @@ app.get('/', (req, res) => {
 // Airbnb search endpoint using MCP tools
 app.post('/airbnb-search', async (req, res) => {
   try {
-    const { location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice } = req.body;
+    const { query, location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice } = req.body;
 
-    if (!location) {
-      return res.status(400).json({ error: 'Location is required' });
+    // Support both natural language query and structured parameters
+    if (!query && !location) {
+      return res.status(400).json({ error: 'Query or location is required' });
     }
 
-    console.log('Searching Airbnb for:', { location, adults, children, infants, pets });
+    console.log('Searching Airbnb for:', { query, location, adults, children, infants, pets });
 
     // Call the actual MCP function directly
-    const result = await callMCPAirbnbSearch({
-      location,
-      adults,
-      children,
-      infants,
-      pets,
-      ...(checkin && { checkin }),
-      ...(checkout && { checkout }),
-      ...(minPrice && { minPrice }),
-      ...(maxPrice && { maxPrice }),
-      ignoreRobotsText: true
-    });
+    const searchParams = query ? 
+      { query, ignoreRobotsText: true } :
+      {
+        location,
+        adults,
+        children,
+        infants,
+        pets,
+        ...(checkin && { checkin }),
+        ...(checkout && { checkout }),
+        ...(minPrice && { minPrice }),
+        ...(maxPrice && { maxPrice }),
+        ignoreRobotsText: true
+      };
+    
+    const result = await callMCPAirbnbSearch(searchParams);
 
     return res.json(result);
 
