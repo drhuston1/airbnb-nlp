@@ -78,66 +78,58 @@ async function callMCPAirbnbSearch(params) {
 }
 
 // Function to call OpenBNB MCP functions
-function callOpenBNBMCP(functionName, params) {
-  return new Promise((resolve, reject) => {
-    console.log(`Attempting to call MCP function: ${functionName}`);
-    console.log('With params:', JSON.stringify(params, null, 2));
+async function callOpenBNBMCP(functionName, params) {
+  console.log(`Attempting to call MCP function: ${functionName}`);
+  console.log('With params:', JSON.stringify(params, null, 2));
+  
+  try {
+    // Use dynamic import for ES modules
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+    const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
     
-    // Use the MCP SDK approach instead of spawning processes
+    // Create a client connection to the OpenBNB MCP server
+    const transport = new StdioClientTransport({
+      command: 'npx',
+      args: ['@openbnb/mcp-server-airbnb']
+    });
+    
+    const client = new Client({
+      name: 'airbnb-search-client',
+      version: '1.0.0'
+    }, {
+      capabilities: {}
+    });
+    
+    // Connect and call the tool
+    await client.connect(transport);
+    console.log('Connected to MCP server');
+    
     try {
-      // Import the MCP SDK
-      const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
-      const { StdioClientTransport } = require('@modelcontextprotocol/sdk/client/stdio.js');
-      
-      // Create a client connection to the OpenBNB MCP server
-      const transport = new StdioClientTransport({
-        command: 'npx',
-        args: ['@openbnb/mcp-server-airbnb']
+      const result = await client.callTool({
+        name: functionName,
+        arguments: params
       });
       
-      const client = new Client({
-        name: 'airbnb-search-client',
-        version: '1.0.0'
-      }, {
-        capabilities: {}
-      });
+      console.log('MCP tool call successful:', result);
+      await client.close();
       
-      // Connect and call the tool
-      client.connect(transport).then(async () => {
-        console.log('Connected to MCP server');
-        
-        try {
-          const result = await client.callTool({
-            name: functionName,
-            arguments: params
-          });
-          
-          console.log('MCP tool call successful:', result);
-          await client.close();
-          resolve(result.content[0].text ? JSON.parse(result.content[0].text) : result);
-          
-        } catch (toolError) {
-          console.error('MCP tool call failed:', toolError);
-          await client.close();
-          reject(new Error(`MCP tool call failed: ${toolError.message}`));
-        }
-        
-      }).catch(connectError => {
-        console.error('Failed to connect to MCP server:', connectError);
-        reject(new Error(`Failed to connect to MCP server: ${connectError.message}`));
-      });
+      // Handle different response formats
+      if (result.content && result.content[0] && result.content[0].text) {
+        return JSON.parse(result.content[0].text);
+      } else {
+        return result;
+      }
       
-    } catch (sdkError) {
-      console.error('MCP SDK error:', sdkError);
-      reject(new Error(`MCP SDK error: ${sdkError.message}`));
+    } catch (toolError) {
+      console.error('MCP tool call failed:', toolError);
+      await client.close();
+      throw new Error(`MCP tool call failed: ${toolError.message}`);
     }
     
-    // Set a timeout
-    setTimeout(() => {
-      console.log('MCP call timeout');
-      reject(new Error('MCP call timeout'));
-    }, 30000); // 30 second timeout
-  });
+  } catch (error) {
+    console.error('MCP SDK error:', error);
+    throw new Error(`MCP SDK error: ${error.message}`);
+  }
 }
 
 // Generate fallback listings in the expected format
