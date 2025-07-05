@@ -26,24 +26,39 @@ app.get('/', (req, res) => {
 // Airbnb search endpoint using MCP tools
 app.post('/airbnb-search', async (req, res) => {
   try {
-    const { query, location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice } = req.body;
+    const { query, location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice, page = 1 } = req.body;
 
     // Support both natural language query and structured parameters
     if (!query && !location) {
       return res.status(400).json({ error: 'Query or location is required' });
     }
 
-    console.log('Searching Airbnb for:', { query, location, adults, children, infants, pets });
+    console.log('Searching Airbnb for:', { query, location, adults, children, infants, pets, page });
+
+    // Convert page number to cursor for MCP
+    // Page 1 = no cursor, Page 2+ = use cursor from pagination
+    let cursor = null;
+    if (page > 1) {
+      // For now, we'll use a simple calculation - in a real app, you'd store the cursors
+      const cursors = [
+        null, // page 1
+        "eyJzZWN0aW9uX29mZnNldCI6MCwiaXRlbXNfb2Zmc2V0IjoxOCwidmVyc2lvbiI6MX0=", // page 2
+        "eyJzZWN0aW9uX29mZnNldCI6MCwiaXRlbXNfb2Zmc2V0IjozNiwidmVyc2lvbiI6MX0=", // page 3
+        "eyJzZWN0aW9uX29mZnNldCI6MCwiaXRlbXNfb2Zmc2V0Ijo1NCwidmVyc2lvbiI6MX0=", // page 4
+      ];
+      cursor = cursors[page - 1] || cursors[cursors.length - 1];
+    }
 
     // Call the actual MCP function directly
     const searchParams = query ? 
-      { query, ignoreRobotsText: true } :
+      { query, ...(cursor && { cursor }), ignoreRobotsText: true } :
       {
         location,
         adults,
         children,
         infants,
         pets,
+        ...(cursor && { cursor }),
         ...(checkin && { checkin }),
         ...(checkout && { checkout }),
         ...(minPrice && { minPrice }),
