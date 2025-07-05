@@ -61,6 +61,90 @@ function App() {
     scrollToBottom()
   }, [messages, loading])
 
+  // Apply natural language filters to listings
+  const applyNaturalLanguageFilters = (listings: AirbnbListing[], query: string) => {
+    const lowerQuery = query.toLowerCase()
+    let filtered = [...listings]
+
+    // Rating & Review Filters
+    if (lowerQuery.includes('superhost') || lowerQuery.includes('super host')) {
+      filtered = filtered.filter(listing => listing.host.isSuperhost)
+    }
+    
+    if (lowerQuery.includes('high rated') || lowerQuery.includes('highly rated')) {
+      filtered = filtered.filter(listing => listing.rating >= 4.5)
+    }
+    
+    if (lowerQuery.includes('well reviewed') || lowerQuery.includes('lots of reviews')) {
+      filtered = filtered.filter(listing => listing.reviewsCount >= 20)
+    }
+    
+    if (lowerQuery.includes('new listing') || lowerQuery.includes('recently added')) {
+      filtered = filtered.filter(listing => listing.reviewsCount < 5)
+    }
+
+    // Check for rating thresholds
+    const ratingMatch = lowerQuery.match(/(\d\.?\d?)\+?\s*rating|rating\s*(\d\.?\d?)\+?|above\s*(\d\.?\d?)|over\s*(\d\.?\d?)/)
+    if (ratingMatch) {
+      const minRating = parseFloat(ratingMatch[1] || ratingMatch[2] || ratingMatch[3] || ratingMatch[4])
+      if (minRating && minRating >= 3 && minRating <= 5) {
+        filtered = filtered.filter(listing => listing.rating >= minRating)
+      }
+    }
+
+    // Check for review count thresholds
+    const reviewMatch = lowerQuery.match(/(\d+)\+?\s*reviews?|reviews?\s*(\d+)\+?|above\s*(\d+)\s*reviews?|over\s*(\d+)\s*reviews?/)
+    if (reviewMatch) {
+      const minReviews = parseInt(reviewMatch[1] || reviewMatch[2] || reviewMatch[3] || reviewMatch[4])
+      if (minReviews && minReviews > 0) {
+        filtered = filtered.filter(listing => listing.reviewsCount >= minReviews)
+      }
+    }
+
+    // Price Range Filters
+    if (lowerQuery.includes('budget') || lowerQuery.includes('cheap') || lowerQuery.includes('affordable')) {
+      filtered = filtered.filter(listing => listing.price.rate <= 150)
+    }
+    
+    if (lowerQuery.includes('luxury') || lowerQuery.includes('high-end') || lowerQuery.includes('upscale')) {
+      filtered = filtered.filter(listing => listing.price.rate >= 300)
+    }
+    
+    if (lowerQuery.includes('mid-range') || lowerQuery.includes('moderate')) {
+      filtered = filtered.filter(listing => listing.price.rate >= 100 && listing.price.rate <= 250)
+    }
+
+    // Check for price under/below thresholds
+    const priceUnderMatch = lowerQuery.match(/under\s*\$?(\d+)|below\s*\$?(\d+)|less\s*than\s*\$?(\d+)|cheaper\s*than\s*\$?(\d+)/)
+    if (priceUnderMatch) {
+      const maxPrice = parseInt(priceUnderMatch[1] || priceUnderMatch[2] || priceUnderMatch[3] || priceUnderMatch[4])
+      if (maxPrice && maxPrice > 0) {
+        filtered = filtered.filter(listing => listing.price.rate <= maxPrice)
+      }
+    }
+
+    // Check for price over/above thresholds
+    const priceOverMatch = lowerQuery.match(/over\s*\$?(\d+)|above\s*\$?(\d+)|more\s*than\s*\$?(\d+)|expensive\s*than\s*\$?(\d+)/)
+    if (priceOverMatch) {
+      const minPrice = parseInt(priceOverMatch[1] || priceOverMatch[2] || priceOverMatch[3] || priceOverMatch[4])
+      if (minPrice && minPrice > 0) {
+        filtered = filtered.filter(listing => listing.price.rate >= minPrice)
+      }
+    }
+
+    // Check for price range (e.g., "$100-200", "between $150 and $300")
+    const priceRangeMatch = lowerQuery.match(/\$?(\d+)\s*[-–—]\s*\$?(\d+)|between\s*\$?(\d+)\s*and\s*\$?(\d+)/)
+    if (priceRangeMatch) {
+      const minPrice = parseInt(priceRangeMatch[1] || priceRangeMatch[3])
+      const maxPrice = parseInt(priceRangeMatch[2] || priceRangeMatch[4])
+      if (minPrice && maxPrice && minPrice < maxPrice) {
+        filtered = filtered.filter(listing => listing.price.rate >= minPrice && listing.price.rate <= maxPrice)
+      }
+    }
+
+    return filtered
+  }
+
   const handleSearch = async (page = 1) => {
     if (!searchQuery.trim()) return
 
@@ -79,18 +163,32 @@ function App() {
 
     try {
       const searchResults = await searchAirbnbListings(query, page)
+      
+      // Apply natural language filters
+      const filteredResults = applyNaturalLanguageFilters(searchResults, query)
+      
       setCurrentPage(page)
       setHasMore(searchResults.length === 18) // Assume more if we got full page
       setCurrentQuery(query)
+      
+      // Create response message based on filtering
+      let responseContent = ''
+      if (filteredResults.length === searchResults.length) {
+        responseContent = page === 1 
+          ? `I found ${searchResults.length} properties that match "${query}". Here are your options:`
+          : `Here are ${searchResults.length} more properties for "${query}" (page ${page}):`
+      } else {
+        responseContent = page === 1
+          ? `I found ${searchResults.length} properties and filtered them to ${filteredResults.length} that best match "${query}". Here are your options:`
+          : `Here are ${filteredResults.length} filtered properties from ${searchResults.length} results for "${query}" (page ${page}):`
+      }
       
       // Add assistant response with results
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: page === 1 
-          ? `I found ${searchResults.length} properties that match "${query}". Here are your options:`
-          : `Here are ${searchResults.length} more properties for "${query}" (page ${page}):`,
-        listings: searchResults,
+        content: responseContent,
+        listings: filteredResults,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
@@ -201,10 +299,10 @@ function App() {
               <Text fontSize="sm" color="slate.500" mb={4}>Try asking for:</Text>
               <Flex gap={3} flexWrap="wrap" justify="center" maxW="lg">
                 {[
-                  "Beachfront villa with pool",
-                  "Dog-friendly cabin", 
-                  "Modern downtown loft",
-                  "Romantic cottage under $200"
+                  "Budget beachfront under $150",
+                  "Luxury villa superhost above $300", 
+                  "Mid-range loft $100-250",
+                  "Affordable cabin well reviewed"
                 ].map((example) => (
                   <Button
                     key={example}
