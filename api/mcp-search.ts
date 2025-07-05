@@ -12,6 +12,7 @@ interface SearchRequest {
   pets?: number
   minPrice?: number
   maxPrice?: number
+  page?: number
 }
 
 interface AirbnbSearchResult {
@@ -65,18 +66,19 @@ export default async function handler(
   }
 
   try {
-    const { query, location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice }: SearchRequest = req.body
+    const { query, location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice, page = 1 }: SearchRequest = req.body
 
     // If we have a natural language query, use that directly
     // Otherwise fall back to the parsed parameters
     const searchParams = query ? 
-      { query, ignoreRobotsText: true } :
+      { query, page, ignoreRobotsText: true } :
       {
         location,
         adults,
         children,
         infants,
         pets,
+        page,
         ...(checkin && { checkin }),
         ...(checkout && { checkout }),
         ...(minPrice && { minPrice }),

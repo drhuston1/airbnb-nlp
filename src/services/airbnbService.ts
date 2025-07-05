@@ -9,6 +9,7 @@ interface SearchParams {
   pets?: number
   minPrice?: number
   maxPrice?: number
+  page?: number
 }
 
 interface AirbnbListing {
@@ -36,11 +37,11 @@ interface AirbnbListing {
 }
 
 
-export async function searchAirbnbListings(naturalLanguageQuery: string): Promise<AirbnbListing[]> {
+export async function searchAirbnbListings(naturalLanguageQuery: string, page: number = 1): Promise<AirbnbListing[]> {
   try {
     // Instead of parsing locally, pass the full natural language query to MCP
     // The OpenBNB MCP server is designed to handle natural language queries directly
-    const mcpResponse = await callAirbnbMCPServer({ query: naturalLanguageQuery })
+    const mcpResponse = await callAirbnbMCPServer({ query: naturalLanguageQuery, page })
     
     return mcpResponse.map(transformMCPListing)
   } catch (error) {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box,
   Container,
@@ -13,17 +13,34 @@ import {
   Center,
   Stack,
   Flex,
-  Link
+  Link,
+  ButtonGroup
 } from '@chakra-ui/react'
 import { searchAirbnbListings, type AirbnbListing } from './services/airbnbService'
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [listings, setListings] = useState<AirbnbListing[]>([])
+  const [allListings, setAllListings] = useState<AirbnbListing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  
+  // Filter states
+  const [enableFilters, setEnableFilters] = useState(false)
+  const [minRating, setMinRating] = useState(4.0)
+  const [minReviews, setMinReviews] = useState(0)
 
-  const handleSearch = async () => {
+  // Filter listings based on client-side criteria
+  const filteredListings = useMemo(() => {
+    if (!enableFilters) return allListings
+    
+    return allListings.filter(listing => 
+      listing.rating >= minRating && listing.reviewsCount >= minReviews
+    )
+  }, [allListings, enableFilters, minRating, minReviews])
+
+  const handleSearch = async (page = 1) => {
     if (!searchQuery.trim()) {
       setError('Please enter a search query')
       return
@@ -32,13 +49,27 @@ function App() {
     setLoading(true)
     setError(null)
     try {
-      const searchResults = await searchAirbnbListings(searchQuery)
-      setListings(searchResults)
+      const searchResults = await searchAirbnbListings(searchQuery, page)
+      setAllListings(searchResults)
+      setCurrentPage(page)
+      setHasMore(searchResults.length === 18) // Assume more if we got full page
     } catch (error) {
       setError('Search failed. Please try again.')
       console.error(error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (hasMore && !loading) {
+      handleSearch(currentPage + 1)
+    }
+  }
+
+  const handlePrevPage = () => {
+    if (currentPage > 1 && !loading) {
+      handleSearch(currentPage - 1)
     }
   }
 
@@ -66,11 +97,67 @@ function App() {
             <Button
               colorScheme="pink"
               size="lg"
-              onClick={handleSearch}
+              onClick={() => handleSearch()}
               loading={loading}
             >
               🔍 Search Listings
             </Button>
+
+            {/* Quality Filters */}
+            <Box p={4} bg="blue.50" borderRadius="md" borderLeft="4px" borderColor="blue.400">
+              <HStack alignItems="center" mb={3}>
+                <Text fontSize="sm" fontWeight="medium">
+                  🎯 Enable Quality Filters
+                </Text>
+                <input 
+                  type="checkbox"
+                  checked={enableFilters}
+                  onChange={(e) => setEnableFilters(e.target.checked)}
+                  style={{ marginLeft: '8px' }}
+                />
+              </HStack>
+              
+              {enableFilters && (
+                <HStack gap={4} flexWrap="wrap">
+                  <Box maxW="200px">
+                    <Text fontSize="xs" color="gray.600" mb={1}>Minimum Rating</Text>
+                    <Input
+                      type="number"
+                      value={minRating}
+                      onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
+                      min={0}
+                      max={5}
+                      step={0.1}
+                      size="sm"
+                    />
+                  </Box>
+                  
+                  <Box maxW="200px">
+                    <Text fontSize="xs" color="gray.600" mb={1}>Minimum Reviews</Text>
+                    <Input
+                      type="number"
+                      value={minReviews}
+                      onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
+                      min={0}
+                      size="sm"
+                    />
+                  </Box>
+                  
+                  <Button 
+                    size="sm" 
+                    colorScheme="blue" 
+                    variant="outline"
+                    onClick={() => {
+                      setMinRating(4.9)
+                      setMinReviews(20)
+                    }}
+                    mt={4}
+                  >
+                    4.9+ stars, 20+ reviews
+                  </Button>
+                </HStack>
+              )}
+            </Box>
             
             {/* Example queries */}
             <Box textAlign="center">
@@ -115,21 +202,68 @@ function App() {
           </Center>
         )}
 
-        {listings.length > 0 && !loading && (
+        {allListings.length > 0 && !loading && (
           <Box>
             <Box mb={4}>
-              <Heading as="h2" size="lg" mb={2}>
-                Found {listings.length} listing{listings.length !== 1 ? 's' : ''}
-              </Heading>
+              <HStack justify="space-between" align="center" mb={2}>
+                <Heading as="h2" size="lg">
+                  {enableFilters ? (
+                    <>Showing {filteredListings.length} of {allListings.length} listing{allListings.length !== 1 ? 's' : ''} (Page {currentPage})</>
+                  ) : (
+                    <>Found {allListings.length} listing{allListings.length !== 1 ? 's' : ''} (Page {currentPage})</>
+                  )}
+                </Heading>
+                <ButtonGroup size="sm" attached variant="outline">
+                  <Button 
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1 || loading}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    onClick={handleNextPage}
+                    disabled={!hasMore || loading}
+                  >
+                    Next
+                  </Button>
+                </ButtonGroup>
+              </HStack>
               <Box p={3} bg="green.50" borderLeft="4px" borderColor="green.400" borderRadius="md">
                 <Text fontSize="sm" color="green.700">
                   <Text as="span" fontWeight="semibold">🔥 Real Airbnb Data:</Text> Showing actual listings from Airbnb via MCP server. 
                   These are real properties with real prices and availability.
+                  {enableFilters && filteredListings.length < allListings.length && (
+                    <Text as="span" ml={2} fontWeight="normal">
+                      (Filtered by {minRating}+ stars, {minReviews}+ reviews)
+                    </Text>
+                  )}
                 </Text>
               </Box>
             </Box>
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-              {listings.map((listing) => (
+
+            {enableFilters && filteredListings.length === 0 ? (
+              <Box p={6} textAlign="center" bg="yellow.50" borderRadius="md" borderLeft="4px" borderColor="yellow.400">
+                <Text fontSize="lg" fontWeight="medium" color="yellow.800" mb={2}>
+                  🔍 No listings match your quality filters
+                </Text>
+                <Text fontSize="sm" color="yellow.700" mb={3}>
+                  Try lowering your minimum rating ({minRating}) or review count ({minReviews}) requirements.
+                </Text>
+                <Button 
+                  size="sm" 
+                  colorScheme="yellow" 
+                  variant="outline"
+                  onClick={() => {
+                    setMinRating(4.0)
+                    setMinReviews(0)
+                  }}
+                >
+                  Reset Filters
+                </Button>
+              </Box>
+            ) : (
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+                {filteredListings.map((listing) => (
                 <Box key={listing.id} borderWidth="1px" borderRadius="lg" p={4} shadow="md" _hover={{ shadow: 'lg' }}>
                   <Stack gap={3} align="stretch">
                     <Heading as="h3" size="md" lineClamp={2}>
@@ -169,8 +303,30 @@ function App() {
                     </Link>
                   </Stack>
                 </Box>
-              ))}
-            </SimpleGrid>
+                ))}
+              </SimpleGrid>
+            )}
+            
+            {/* Pagination controls at bottom */}
+            <Center mt={8}>
+              <ButtonGroup size="md" variant="outline" colorScheme="pink">
+                <Button 
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 1 || loading}
+                >
+                  ← Previous Page
+                </Button>
+                <Box px={4} py={2} display="flex" alignItems="center">
+                  <Text fontWeight="medium">Page {currentPage}</Text>
+                </Box>
+                <Button 
+                  onClick={handleNextPage}
+                  disabled={!hasMore || loading}
+                >
+                  Next Page →
+                </Button>
+              </ButtonGroup>
+            </Center>
           </Box>
         )}
       </Stack>
