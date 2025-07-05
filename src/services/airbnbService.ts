@@ -1,5 +1,6 @@
 interface SearchParams {
-  location: string
+  query?: string
+  location?: string
   checkin?: string
   checkout?: string
   adults?: number
@@ -34,74 +35,6 @@ interface AirbnbListing {
   roomType: string
 }
 
-function parseNaturalLanguageQuery(query: string): SearchParams {
-  const params: SearchParams = {
-    location: ''
-  }
-
-  // Extract location patterns
-  const locationPatterns = [
-    /(?:in|at|near)\s+([^,\n]+?)(?:\s+(?:for|with|from|to|under|over|max|min|\d))/i,
-    /(?:in|at|near)\s+([^,\n]+)$/i,
-    /^([^,\n]+?)(?:\s+(?:for|with|from|to|under|over|max|min))/i
-  ]
-
-  for (const pattern of locationPatterns) {
-    const match = query.match(pattern)
-    if (match) {
-      params.location = match[1].trim()
-      break
-    }
-  }
-
-  // If no pattern matched, try to extract location before price keywords
-  if (!params.location) {
-    const beforePrice = query.match(/^([^,\n]+?)(?:\s+(?:under|over|max|min|for)\s)/i)
-    if (beforePrice) {
-      params.location = beforePrice[1].trim()
-    } else {
-      // Fallback: use everything before the first price/number
-      const beforeNumber = query.match(/^([^,\n]+?)(?:\s+\$?\d)/i)
-      if (beforeNumber) {
-        params.location = beforeNumber[1].trim()
-      } else {
-        // Last resort: use the whole query
-        params.location = query.trim()
-      }
-    }
-  }
-
-  // Extract guest count
-  const guestMatch = query.match(/(\d+)\s*(?:guest|people|person|adult)/i)
-  if (guestMatch) {
-    params.adults = parseInt(guestMatch[1])
-  }
-
-  const childrenMatch = query.match(/(\d+)\s*(?:child|children|kid)/i)
-  if (childrenMatch) {
-    params.children = parseInt(childrenMatch[1])
-  }
-
-  // Extract price range
-  const priceMatch = query.match(/(?:under|below|less than|max|maximum)\s*\$?(\d+)/i)
-  if (priceMatch) {
-    params.maxPrice = parseInt(priceMatch[1])
-  }
-
-  const minPriceMatch = query.match(/(?:over|above|more than|min|minimum)\s*\$?(\d+)/i)
-  if (minPriceMatch) {
-    params.minPrice = parseInt(minPriceMatch[1])
-  }
-
-  // Extract dates (basic patterns)
-  const checkinMatch = query.match(/(?:check[- ]?in|from|starting)\s+([a-zA-Z]+\s+\d{1,2}(?:,?\s*\d{4})?|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{4})?)/i)
-  if (checkinMatch) {
-    // Would need proper date parsing here
-    params.checkin = checkinMatch[1]
-  }
-
-  return params
-}
 
 export async function searchAirbnbListings(naturalLanguageQuery: string): Promise<AirbnbListing[]> {
   try {
