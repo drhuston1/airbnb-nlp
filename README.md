@@ -65,9 +65,15 @@ The application is configured to work with Vercel's serverless functions out of 
 
 ## Search Implementation Options
 
-The app currently uses **Demo Mode** with realistic data. Here are all available options:
+The app is now configured for **Real MCP Integration**. Here are all available options:
 
-### 🎯 Demo Mode (Current - No Setup Required)
+### 🔥 Real MCP Integration (Current - Real Airbnb Data!)
+- **Endpoint**: `/api/mcp-search`
+- **Features**: Actual Airbnb listings via MCP server
+- **Pros**: Real data, real prices, real availability
+- **Setup**: Deploy the included MCP server (see instructions below)
+
+### 🎯 Demo Mode (Fallback)
 - **Endpoint**: `/api/demo-search`
 - **Features**: Realistic listings using real location data + market trends
 - **Pros**: Works immediately, no API keys needed, realistic results
@@ -114,18 +120,51 @@ SERPAPI_KEY=your_key_here
 - **Pros**: Full control, can integrate multiple sources
 - **Cons**: Requires server deployment
 
-## Switching Between Options
+## 🚀 Quick Setup for Real MCP Data
 
-1. **Change endpoint** in `src/services/airbnbService.ts`:
-```typescript
-// Current: demo-search
-// Options: proxy-search, direct-search, search-real
-const response = await fetch('/api/demo-search', {
+### Step 1: Deploy MCP Server
+Choose one of these options:
+
+#### Railway (Easiest)
+1. Go to [Railway.app](https://railway.app)
+2. Create new project from your GitHub repo
+3. Set root directory to `mcp-server`
+4. Deploy
+
+#### Fly.io
+```bash
+cd mcp-server
+flyctl launch
+flyctl deploy
 ```
 
-2. **Add environment variables** in Vercel dashboard for proxy services
+### Step 2: Configure MCP Server
+1. Install MCP dependencies in your deployed server:
+   ```bash
+   npm install @modelcontextprotocol/client
+   ```
 
-3. **Deploy and test**
+2. Edit `mcp-server/server.js` and uncomment the MCP integration code
+
+3. Redeploy your server
+
+### Step 3: Update Vercel Environment
+Add this environment variable in your Vercel dashboard:
+```
+MCP_SERVER_URL=https://your-mcp-server.railway.app
+```
+
+### Step 4: Deploy and Test
+Your app will now return real Airbnb listings! 🎉
+
+## Switching Between Options
+
+Change endpoint in `src/services/airbnbService.ts`:
+```typescript
+// Current: mcp-search (real data)
+// Options: demo-search, proxy-search, direct-search
+const response = await fetch('/api/mcp-search', {
+```
 
 ## Natural Language Processing
 

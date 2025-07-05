@@ -99,9 +99,14 @@ function App() {
         </Box>
 
         {error && (
-          <Box p={4} bg="red.50" borderLeft="4px" borderColor="red.500" color="red.700">
-            <Text fontWeight="semibold" mb={1}>Search Error</Text>
-            <Text fontSize="sm">{error}</Text>
+          <Box p={4} bg="orange.50" borderLeft="4px" borderColor="orange.500" color="orange.700">
+            <Text fontWeight="semibold" mb={2}>🔧 MCP Server Setup Required</Text>
+            <Text fontSize="sm" mb={2}>
+              To get real Airbnb data, deploy the included MCP server to Railway or Fly.io.
+            </Text>
+            <Text fontSize="xs" color="orange.600">
+              See README for step-by-step instructions. Current error: {error}
+            </Text>
           </Box>
         )}
 
@@ -117,10 +122,10 @@ function App() {
               <Heading as="h2" size="lg" mb={2}>
                 Found {listings.length} listing{listings.length !== 1 ? 's' : ''}
               </Heading>
-              <Box p={3} bg="blue.50" borderLeft="4px" borderColor="blue.400" borderRadius="md">
-                <Text fontSize="sm" color="blue.700">
-                  <Text as="span" fontWeight="semibold">🎯 Demo Mode:</Text> Showing realistic listings based on your search. 
-                  Prices and availability are generated using real location data and market trends.
+              <Box p={3} bg="green.50" borderLeft="4px" borderColor="green.400" borderRadius="md">
+                <Text fontSize="sm" color="green.700">
+                  <Text as="span" fontWeight="semibold">🔥 Real Airbnb Data:</Text> Showing actual listings from Airbnb via MCP server. 
+                  These are real properties with real prices and availability.
                 </Text>
               </Box>
             </Box>

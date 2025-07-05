@@ -106,7 +106,7 @@ export async function searchAirbnbListings(naturalLanguageQuery: string): Promis
 }
 
 async function callAirbnbMCPServer(params: SearchParams): Promise<any[]> {
-  const response = await fetch('/api/demo-search', {
+  const response = await fetch('/api/mcp-search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
