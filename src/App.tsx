@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Box,
   Container,
@@ -10,523 +10,485 @@ import {
   Badge,
   HStack,
   Spinner,
-  Center,
   Stack,
   Flex,
   Link,
-  ButtonGroup,
-  Icon
+  Icon,
+  VStack,
+  Textarea
 } from '@chakra-ui/react'
 import { 
-  Search, 
   MapPin, 
   Star, 
   Crown, 
-  AlertCircle, 
   Settings,
-  ExternalLink 
+  ExternalLink,
+  Send,
+  Bot,
+  User
 } from 'lucide-react'
 import { searchAirbnbListings, type AirbnbListing } from './services/airbnbService'
 
+interface ChatMessage {
+  id: string
+  type: 'user' | 'assistant'
+  content: string
+  listings?: AirbnbListing[]
+  timestamp: Date
+}
+
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [allListings, setAllListings] = useState<AirbnbListing[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
   
   // Filter states
   const [minRating, setMinRating] = useState(0)
   const [minReviews, setMinReviews] = useState(0)
   
-  // Ref for auto-scrolling to filters
-  const filtersRef = useRef<HTMLDivElement>(null)
+  // Refs
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+
+  // Get current listings from the latest assistant message
+  const currentListings = useMemo(() => {
+    const latestAssistantMessage = messages
+      .filter(m => m.type === 'assistant' && m.listings)
+      .slice(-1)[0]
+    return latestAssistantMessage?.listings || []
+  }, [messages])
 
   // Filter listings based on client-side criteria
   const filteredListings = useMemo(() => {
-    return allListings.filter(listing => 
+    return currentListings.filter(listing => 
       listing.rating >= minRating && listing.reviewsCount >= minReviews
     )
-  }, [allListings, minRating, minReviews])
+  }, [currentListings, minRating, minReviews])
+
+  // Auto-scroll to bottom of chat
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, loading])
 
   const handleSearch = async (page = 1) => {
-    if (!searchQuery.trim()) {
-      setError('Please enter a search query')
-      return
+    if (!searchQuery.trim()) return
+
+    // Add user message
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: searchQuery,
+      timestamp: new Date()
     }
+    setMessages(prev => [...prev, userMessage])
 
     setLoading(true)
-    setError(null)
+    const currentQuery = searchQuery
+    setSearchQuery('')
+
     try {
-      const searchResults = await searchAirbnbListings(searchQuery, page)
-      setAllListings(searchResults)
-      setCurrentPage(page)
-      setHasMore(searchResults.length === 18) // Assume more if we got full page
+      const searchResults = await searchAirbnbListings(currentQuery, page)
       
-      // Auto-scroll to filters after search completes
-      if (page === 1 && filtersRef.current) {
-        setTimeout(() => {
-          filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 100)
+      // Add assistant response with results
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: `I found ${searchResults.length} properties that match "${currentQuery}". Here are your options:`,
+        listings: searchResults,
+        timestamp: new Date()
       }
+      setMessages(prev => [...prev, assistantMessage])
+
     } catch (error) {
-      setError('Search failed. Please try again.')
+      // Add error message
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: 'Sorry, I had trouble searching for properties. Please try again.',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
       console.error(error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleNextPage = () => {
-    if (hasMore && !loading) {
-      handleSearch(currentPage + 1)
-    }
-  }
-
-  const handlePrevPage = () => {
-    if (currentPage > 1 && !loading) {
-      handleSearch(currentPage - 1)
-    }
-  }
 
   return (
-    <Box minH="100vh" bg="gray.50" overflow="hidden">
-      <Container maxW="7xl" px={{ base: 4, md: 6 }} py={8}>
-        <Stack gap={6} align="stretch">
-          {/* Hero Section */}
-          <Box textAlign="center" py={{ base: 4, md: 6 }}>
-            <Heading 
-              as="h1" 
-              size={{ base: "2xl", md: "3xl" }}
-              mb={3} 
-              fontWeight="900"
-              letterSpacing="-0.03em"
-              lineHeight="1.1"
-              color="gray.900"
-            >
-              ChatAirbnb
-            </Heading>
-            
-            <Text 
-              fontSize={{ base: "lg", md: "xl" }} 
-              color="gray.600" 
-              maxW="3xl" 
-              mx="auto" 
-              mb={6}
-              fontWeight="400"
-              lineHeight="1.5"
-            >
-              Skip the filters. Just tell us what you want in plain English.
-            </Text>
-            
-            {/* Example searches */}
-            <Box mb={8}>
-              <Text fontSize="sm" fontWeight="500" color="gray.700" mb={4}>
-                Try these searches:
-              </Text>
-              <Flex gap={3} flexWrap="wrap" justify="center" maxW="5xl" mx="auto">
-                {[
-                  "Beachfront villa with pool for family reunion",
-                  "Dog-friendly cabin near hiking trails", 
-                  "Modern loft in downtown for business trip",
-                  "Romantic cottage with hot tub under $200/night"
-                ].map((example) => (
-                  <Button
-                    key={example}
-                    size="sm"
-                    variant="outline"
-                    colorScheme="gray"
-                    onClick={() => setSearchQuery(example)}
-                    px={4}
-                    py={2}
-                    fontSize="sm"
-                    fontWeight="500"
+    <Box h="100vh" bg="gray.50" display="flex" flexDirection="column">
+      {/* Chat Header */}
+      <Box bg="white" px={6} py={4} borderBottom="1px" borderColor="gray.200" shadow="sm">
+        <HStack>
+          <Box bg="blue.500" borderRadius="full" w={8} h={8} display="flex" alignItems="center" justifyContent="center">
+            <Icon as={Bot} color="white" w={4} h={4} />
+          </Box>
+          <VStack align="start" gap={0}>
+            <Heading size="md" color="gray.900">ChatAirbnb</Heading>
+            <Text fontSize="sm" color="gray.600">Your AI property search assistant</Text>
+          </VStack>
+        </HStack>
+      </Box>
+
+      {/* Chat Messages */}
+      <Box 
+        flex="1" 
+        overflow="auto" 
+        ref={chatContainerRef}
+        px={{ base: 4, md: 6 }}
+        py={6}
+      >
+        <Container maxW="4xl" mx="auto">
+          <VStack gap={6} align="stretch">
+            {messages.length === 0 && (
+              <Box textAlign="center" py={12}>
+                <Box bg="blue.500" borderRadius="full" w={16} h={16} display="flex" alignItems="center" justifyContent="center" mb={4} mx="auto">
+                  <Icon as={Bot} color="white" w={8} h={8} />
+                </Box>
+                <Heading size="lg" mb={3} color="gray.800">
+                  Hi! I'm your ChatAirbnb assistant
+                </Heading>
+                <Text fontSize="lg" color="gray.600" mb={8} maxW="2xl" mx="auto">
+                  Tell me what kind of place you're looking for and I'll find the perfect properties for you.
+                </Text>
+                
+                {/* Example searches */}
+                <Box>
+                  <Text fontSize="sm" fontWeight="500" color="gray.700" mb={4}>
+                    Try these searches:
+                  </Text>
+                  <Flex gap={3} flexWrap="wrap" justify="center" maxW="3xl" mx="auto">
+                    {[
+                      "Beachfront villa with pool for family reunion",
+                      "Dog-friendly cabin near hiking trails", 
+                      "Modern loft in downtown for business trip",
+                      "Romantic cottage with hot tub under $200/night"
+                    ].map((example) => (
+                      <Button
+                        key={example}
+                        size="sm"
+                        variant="outline"
+                        colorScheme="gray"
+                        onClick={() => setSearchQuery(example)}
+                        px={4}
+                        py={2}
+                        fontSize="sm"
+                        fontWeight="500"
+                        bg="white"
+                        borderColor="gray.300"
+                        _hover={{ 
+                          bg: "blue.50", 
+                          borderColor: "blue.300", 
+                          color: "blue.700"
+                        }}
+                        transition="all 0.2s"
+                        borderRadius="full"
+                        shadow="sm"
+                      >
+                        {example}
+                      </Button>
+                    ))}
+                  </Flex>
+                </Box>
+              </Box>
+            )}
+
+            {/* Chat Messages */}
+            {messages.map((message) => (
+              <Box key={message.id} w="full">
+                {message.type === 'user' ? (
+                  <Flex justify="flex-end" mb={4}>
+                    <HStack maxW="80%" align="start" gap={3}>
+                      <Box
+                        bg="blue.500"
+                        color="white"
+                        px={4}
+                        py={3}
+                        borderRadius="2xl"
+                        borderBottomRightRadius="md"
+                        maxW="full"
+                      >
+                        <Text fontSize="md">{message.content}</Text>
+                      </Box>
+                      <Box bg="gray.300" borderRadius="full" w={8} h={8} display="flex" alignItems="center" justifyContent="center">
+                        <Icon as={User} color="white" w={4} h={4} />
+                      </Box>
+                    </HStack>
+                  </Flex>
+                ) : (
+                  <Flex justify="flex-start" mb={6}>
+                    <HStack maxW="100%" align="start" gap={3}>
+                      <Box bg="blue.500" borderRadius="full" w={8} h={8} display="flex" alignItems="center" justifyContent="center">
+                        <Icon as={Bot} color="white" w={4} h={4} />
+                      </Box>
+                      <VStack align="start" gap={4} flex="1">
+                        <Box
+                          bg="white"
+                          border="1px"
+                          borderColor="gray.200"
+                          px={4}
+                          py={3}
+                          borderRadius="2xl"
+                          borderBottomLeftRadius="md"
+                          shadow="sm"
+                        >
+                          <Text fontSize="md" color="gray.800">{message.content}</Text>
+                        </Box>
+                        
+                        {/* Show listings if present */}
+                        {message.listings && (
+                          <Box w="full">
+                            {/* Quality Filters */}
+                            {currentListings.length > 0 && (
+                              <Box p={4} bg="gray.50" borderRadius="lg" border="1px" borderColor="gray.200" mb={4}>
+                                <HStack alignItems="center" mb={4}>
+                                  <Icon as={Settings} color="gray.600" mr={2} />
+                                  <Text fontSize="sm" fontWeight="600" color="gray.700">
+                                    Refine Results
+                                  </Text>
+                                  {(minRating > 0 || minReviews > 0) && (
+                                    <Badge colorScheme="purple" variant="subtle" fontSize="xs" px={2} py={1}>
+                                      {filteredListings.length} matches
+                                    </Badge>
+                                  )}
+                                </HStack>
+                                
+                                <Flex gap={3} flexWrap="wrap" w="full" align="end">
+                                  <Box flex="1" minW="120px">
+                                    <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Rating</Text>
+                                    <Input
+                                      type="number"
+                                      value={minRating}
+                                      onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
+                                      min={0}
+                                      max={5}
+                                      step={0.1}
+                                      size="sm"
+                                      bg="white"
+                                      h="32px"
+                                    />
+                                  </Box>
+                                  
+                                  <Box flex="1" minW="120px">
+                                    <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Reviews</Text>
+                                    <Input
+                                      type="number"
+                                      value={minReviews}
+                                      onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
+                                      min={0}
+                                      size="sm"
+                                      bg="white"
+                                      h="32px"
+                                    />
+                                  </Box>
+                                  
+                                  <Button 
+                                    size="sm" 
+                                    colorScheme="purple" 
+                                    variant="outline"
+                                    onClick={() => {
+                                      setMinRating(4.9)
+                                      setMinReviews(20)
+                                    }}
+                                    h="32px"
+                                    px={3}
+                                  >
+                                    <Icon as={Star} mr={1} />
+                                    High Quality
+                                  </Button>
+                                  
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    colorScheme="gray"
+                                    onClick={() => {
+                                      setMinRating(0)
+                                      setMinReviews(0)
+                                    }}
+                                    h="32px"
+                                    px={3}
+                                  >
+                                    Clear
+                                  </Button>
+                                </Flex>
+                              </Box>
+                            )}
+
+                            {/* Property Grid */}
+                            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+                              {filteredListings.map((listing) => (
+                                <Box 
+                                  key={listing.id} 
+                                  bg="white" 
+                                  borderRadius="lg" 
+                                  overflow="hidden"
+                                  shadow="sm" 
+                                  border="1px" 
+                                  borderColor="gray.200"
+                                  _hover={{ 
+                                    shadow: 'md', 
+                                    transform: 'translateY(-1px)',
+                                    borderColor: 'blue.300'
+                                  }}
+                                  transition="all 0.2s"
+                                >
+                                  <Box p={4}>
+                                    <Stack gap={2}>
+                                      <Heading as="h3" size="sm" color="gray.900" lineHeight="1.3" lineClamp={2}>
+                                        {listing.name}
+                                      </Heading>
+                                      <HStack justify="space-between" align="center">
+                                        <HStack gap={1}>
+                                          <Icon as={MapPin} color="gray.500" w={3} h={3} />
+                                          <Text fontSize="sm" color="gray.600">
+                                            {listing.location.country ? 
+                                              `${listing.location.city}, ${listing.location.country}` : 
+                                              listing.location.city
+                                            }
+                                          </Text>
+                                        </HStack>
+                                        <HStack gap={1}>
+                                          <Icon as={Star} color="yellow.400" w={3} h={3} />
+                                          <Text fontSize="sm" fontWeight="600" color="gray.700">
+                                            {listing.rating}
+                                          </Text>
+                                          <Text fontSize="xs" color="gray.500">
+                                            ({listing.reviewsCount})
+                                          </Text>
+                                        </HStack>
+                                      </HStack>
+
+                                      <Text fontSize="xs" color="gray.600" bg="gray.100" px={2} py={1} borderRadius="md" alignSelf="flex-start" fontWeight="500">
+                                        {listing.roomType}
+                                      </Text>
+
+                                      <HStack justify="space-between" align="end">
+                                        <Box>
+                                          <HStack align="baseline" gap={1}>
+                                            <Text fontWeight="700" fontSize="lg" color="gray.900">
+                                              ${listing.price.rate}
+                                            </Text>
+                                            <Text fontSize="sm" color="gray.500">
+                                              /night
+                                            </Text>
+                                          </HStack>
+                                        </Box>
+                                        {listing.host.isSuperhost && (
+                                          <Badge colorScheme="purple" variant="subtle" fontSize="xs" px={2} py={1}>
+                                            <HStack gap={1}>
+                                              <Icon as={Crown} w={3} h={3} />
+                                              <Text>Superhost</Text>
+                                            </HStack>
+                                          </Badge>
+                                        )}
+                                      </HStack>
+
+                                      <Link href={listing.url} target="_blank" rel="noopener noreferrer">
+                                        <Button
+                                          colorScheme="blue"
+                                          size="sm"
+                                          w="full"
+                                          fontWeight="500"
+                                          _hover={{ transform: "translateY(-1px)" }}
+                                          transition="all 0.2s"
+                                          mt={2}
+                                        >
+                                          View Details
+                                          <Icon as={ExternalLink} ml={2} w={3} h={3} />
+                                        </Button>
+                                      </Link>
+                                    </Stack>
+                                  </Box>
+                                </Box>
+                              ))}
+                            </SimpleGrid>
+                          </Box>
+                        )}
+                      </VStack>
+                    </HStack>
+                  </Flex>
+                )}
+              </Box>
+            ))}
+
+            {/* Loading indicator */}
+            {loading && (
+              <Flex justify="flex-start" mb={6}>
+                <HStack align="start" gap={3}>
+                  <Box bg="blue.500" borderRadius="full" w={8} h={8} display="flex" alignItems="center" justifyContent="center">
+                    <Icon as={Bot} color="white" w={4} h={4} />
+                  </Box>
+                  <Box
                     bg="white"
-                    borderColor="gray.300"
-                    _hover={{ 
-                      bg: "blue.50", 
-                      borderColor: "blue.300", 
-                      color: "blue.700"
-                    }}
-                    transition="all 0.2s"
-                    borderRadius="full"
+                    border="1px"
+                    borderColor="gray.200"
+                    px={4}
+                    py={3}
+                    borderRadius="2xl"
+                    borderBottomLeftRadius="md"
                     shadow="sm"
                   >
-                    {example}
-                  </Button>
-                ))}
-              </Flex>
-            </Box>
-          </Box>
-
-        {/* Search Section */}
-        <Box w="full" maxW="7xl" mx="auto">
-          <Stack gap={6}>
-            <Box 
-              bg="white" 
-              p={{ base: 6, md: 8 }} 
-              borderRadius="2xl" 
-              shadow="xl" 
-              border="1px" 
-              borderColor="gray.200"
-              position="relative"
-              w="full"
-              _before={{
-                content: '""',
-                position: "absolute",
-                top: "-1px",
-                left: "-1px",
-                right: "-1px", 
-                bottom: "-1px",
-                bgGradient: "linear(to-r, blue.400, purple.400)",
-                borderRadius: "2xl",
-                zIndex: -1,
-                opacity: 0.1
-              }}
-            >
-              <Stack gap={6} w="full">
-                
-                <Input
-                  placeholder="3 bedroom house near beach, downtown loft with pool, family cabin with kitchen..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  size="lg"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  bg="gray.50"
-                  border="2px"
-                  borderColor="gray.200"
-                  _focus={{
-                    borderColor: "blue.400",
-                    bg: "white",
-                    shadow: "0 0 0 4px rgba(66, 153, 225, 0.1)"
-                  }}
-                  _hover={{ borderColor: "gray.300" }}
-                  fontSize={{ base: "md", md: "lg" }}
-                  h={{ base: "60px", md: "70px" }}
-                  borderRadius="xl"
-                  w="full"
-                />
-                
-                <Button
-                  colorScheme="blue"
-                  size="lg"
-                  onClick={() => handleSearch()}
-                  loading={loading}
-                  w="full"
-                  h={{ base: "60px", md: "70px" }}
-                  fontSize={{ base: "md", md: "lg" }}
-                  fontWeight="600"
-                  _hover={{ transform: "translateY(-2px)", shadow: "xl" }}
-                  transition="all 0.2s"
-                  borderRadius="xl"
-                  bgGradient="linear(to-r, blue.500, blue.600)"
-                  _active={{ transform: "translateY(0)" }}
-                >
-                  <Icon as={Search} mr={3} boxSize={5} />
-                  Search Properties
-                </Button>
-              </Stack>
-            </Box>
-
-          </Stack>
-        </Box>
-
-        {error && (
-          <Box maxW="4xl" mx="auto" bg="red.50" p={6} borderRadius="xl" border="1px" borderColor="red.200">
-            <HStack mb={3}>
-              <Icon as={AlertCircle} color="red.600" />
-              <Text fontWeight="600" color="red.800">Connection Issue</Text>
-            </HStack>
-            <Text fontSize="sm" color="red.700" mb={3}>
-              Unable to connect to the search service. Please try again in a moment.
-            </Text>
-            <Text fontSize="xs" color="red.600">
-              Error: {error}
-            </Text>
-          </Box>
-        )}
-
-        {loading && (
-          <Center py={12}>
-            <Stack align="center" gap={4}>
-              <Spinner size="xl" color="blue.500" />
-              <Text color="gray.600" fontWeight="500">Searching Airbnb...</Text>
-            </Stack>
-          </Center>
-        )}
-
-        {allListings.length > 0 && !loading && (
-          <Box ref={filtersRef} maxW="7xl" mx="auto">
-            <Box mb={8} bg="white" p={6} borderRadius="xl" shadow="sm" border="1px" borderColor="gray.200">
-              <Flex justify="space-between" align="center" mb={6} flexWrap="wrap" gap={4}>
-                <Box>
-                  <Heading as="h2" size="lg" color="gray.800" mb={2}>
-                    {(minRating > 0 || minReviews > 0) ? (
-                      <>Showing {filteredListings.length} of {allListings.length} properties</>
-                    ) : (
-                      <>Found {allListings.length} properties</>
-                    )}
-                  </Heading>
-                  <Text fontSize="sm" color="gray.600">Page {currentPage}</Text>
-                </Box>
-                <ButtonGroup size="sm" variant="outline" colorScheme="gray">
-                  <Button 
-                    onClick={handlePrevPage}
-                    disabled={currentPage === 1 || loading}
-                    _hover={{ bg: "gray.50" }}
-                  >
-                    ← Previous
-                  </Button>
-                  <Button 
-                    onClick={handleNextPage}
-                    disabled={!hasMore || loading}
-                    _hover={{ bg: "gray.50" }}
-                  >
-                    Next →
-                  </Button>
-                </ButtonGroup>
-              </Flex>
-              
-              {/* Quality Filters */}
-              <Box p={4} bg="gray.50" borderRadius="lg" border="1px" borderColor="gray.200">
-                <HStack alignItems="center" mb={4}>
-                  <Icon as={Settings} color="gray.600" mr={2} />
-                  <Text fontSize="md" fontWeight="600" color="gray.700">
-                    Quality Filters
-                  </Text>
-                  {(minRating > 0 || minReviews > 0) && (
-                    <Badge colorScheme="purple" variant="subtle" fontSize="xs" px={2} py={1}>
-                      {filteredListings.length} matches
-                    </Badge>
-                  )}
+                    <HStack>
+                      <Spinner size="sm" color="blue.500" />
+                      <Text fontSize="md" color="gray.600">Searching for properties...</Text>
+                    </HStack>
+                  </Box>
                 </HStack>
-                
-                <Flex gap={4} flexWrap="wrap" w="full" align="end">
-                  <Box flex="1" minW="140px">
-                    <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Rating</Text>
-                    <Input
-                      type="number"
-                      value={minRating}
-                      onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
-                      min={0}
-                      max={5}
-                      step={0.1}
-                      size="sm"
-                      bg="white"
-                      border="1px"
-                      borderColor="gray.200"
-                      _focus={{ borderColor: "blue.400", bg: "white" }}
-                      _hover={{ borderColor: "gray.300" }}
-                      borderRadius="md"
-                      h="36px"
-                    />
-                  </Box>
-                  
-                  <Box flex="1" minW="140px">
-                    <Text fontSize="xs" fontWeight="500" color="gray.600" mb={2}>Min Reviews</Text>
-                    <Input
-                      type="number"
-                      value={minReviews}
-                      onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
-                      min={0}
-                      size="sm"
-                      bg="white"
-                      border="1px"
-                      borderColor="gray.200"
-                      _focus={{ borderColor: "blue.400", bg: "white" }}
-                      _hover={{ borderColor: "gray.300" }}
-                      borderRadius="md"
-                      h="36px"
-                    />
-                  </Box>
-                  
-                  <Button 
-                    size="sm" 
-                    colorScheme="purple" 
-                    variant="outline"
-                    onClick={() => {
-                      setMinRating(4.9)
-                      setMinReviews(20)
-                    }}
-                    _hover={{ bg: "purple.50" }}
-                    borderRadius="md"
-                    h="36px"
-                    px={3}
-                  >
-                    <Icon as={Star} mr={1} />
-                    High Quality
-                  </Button>
-                  
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    colorScheme="gray"
-                    onClick={() => {
-                      setMinRating(0)
-                      setMinReviews(0)
-                    }}
-                    _hover={{ bg: "gray.50" }}
-                    borderRadius="md"
-                    h="36px"
-                    px={3}
-                  >
-                    Clear
-                  </Button>
-                </Flex>
-              </Box>
-            </Box>
-
-            {(minRating > 0 || minReviews > 0) && filteredListings.length === 0 ? (
-              <Box maxW="2xl" mx="auto" p={8} textAlign="center" bg="white" borderRadius="xl" shadow="sm" border="1px" borderColor="gray.200">
-                <Icon as={Search} boxSize={12} color="gray.400" mb={4} />
-                <Text fontSize="xl" fontWeight="600" color="gray.800" mb={3}>
-                  No matches found
-                </Text>
-                <Text fontSize="sm" color="gray.600" mb={6}>
-                  Try adjusting your filters. Currently set to {minRating > 0 ? `${minRating}+ stars` : ''}{minRating > 0 && minReviews > 0 ? ' with ' : ''}{minReviews > 0 ? `${minReviews}+ reviews` : ''}.
-                </Text>
-                <Button 
-                  size="md" 
-                  colorScheme="blue" 
-                  variant="outline"
-                  onClick={() => {
-                    setMinRating(0)
-                    setMinReviews(0)
-                  }}
-                  _hover={{ bg: "blue.50" }}
-                >
-                  Clear Filters
-                </Button>
-              </Box>
-            ) : (
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-                {filteredListings.map((listing) => (
-                  <Box 
-                    key={listing.id} 
-                    bg="white" 
-                    borderRadius="lg" 
-                    overflow="hidden"
-                    shadow="sm" 
-                    border="1px" 
-                    borderColor="gray.200"
-                    _hover={{ 
-                      shadow: 'md', 
-                      transform: 'translateY(-1px)',
-                      borderColor: 'blue.300'
-                    }}
-                    transition="all 0.2s"
-                  >
-                    <Box p={5}>
-                      <Stack gap={3}>
-                        {/* Title and Rating Row */}
-                        <Box>
-                          <Heading as="h3" size="sm" color="gray.900" lineHeight="1.3" mb={2} lineClamp={2}>
-                            {listing.name}
-                          </Heading>
-                          <HStack justify="space-between" align="center">
-                            <HStack gap={1}>
-                              <Icon as={MapPin} color="gray.500" w={3} h={3} />
-                              <Text fontSize="sm" color="gray.600">
-                                {listing.location.country ? 
-                                  `${listing.location.city}, ${listing.location.country}` : 
-                                  listing.location.city
-                                }
-                              </Text>
-                            </HStack>
-                            <HStack gap={1}>
-                              <Icon as={Star} color="yellow.400" w={3} h={3} />
-                              <Text fontSize="sm" fontWeight="600" color="gray.700">
-                                {listing.rating}
-                              </Text>
-                              <Text fontSize="xs" color="gray.500">
-                                ({listing.reviewsCount})
-                              </Text>
-                            </HStack>
-                          </HStack>
-                        </Box>
-
-                        {/* Room Type */}
-                        <Text fontSize="xs" color="gray.600" bg="gray.100" px={2} py={1} borderRadius="md" alignSelf="flex-start" fontWeight="500">
-                          {listing.roomType}
-                        </Text>
-
-                        {/* Price and Superhost */}
-                        <HStack justify="space-between" align="end">
-                          <Box>
-                            <HStack align="baseline" gap={1}>
-                              <Text fontWeight="700" fontSize="lg" color="gray.900">
-                                ${listing.price.rate}
-                              </Text>
-                              <Text fontSize="sm" color="gray.500">
-                                /night
-                              </Text>
-                            </HStack>
-                          </Box>
-                          {listing.host.isSuperhost && (
-                            <Badge colorScheme="purple" variant="subtle" fontSize="xs" px={2} py={1}>
-                              <HStack gap={1}>
-                                <Icon as={Crown} w={3} h={3} />
-                                <Text>Superhost</Text>
-                              </HStack>
-                            </Badge>
-                          )}
-                        </HStack>
-
-                        {/* View Button */}
-                        <Link href={listing.url} target="_blank" rel="noopener noreferrer">
-                          <Button
-                            colorScheme="blue"
-                            size="sm"
-                            w="full"
-                            fontWeight="500"
-                            _hover={{ transform: "translateY(-1px)" }}
-                            transition="all 0.2s"
-                            mt={2}
-                          >
-                            View Details
-                            <Icon as={ExternalLink} ml={2} w={3} h={3} />
-                          </Button>
-                        </Link>
-                      </Stack>
-                    </Box>
-                  </Box>
-                ))}
-              </SimpleGrid>
+              </Flex>
             )}
-            
-            {/* Pagination controls at bottom */}
-            <Center mt={12}>
-              <Box bg="white" p={4} borderRadius="xl" shadow="sm" border="1px" borderColor="gray.200">
-                <HStack gap={4}>
-                  <Button 
-                    onClick={handlePrevPage}
-                    disabled={currentPage === 1 || loading}
-                    variant="outline"
-                    colorScheme="gray"
-                    _hover={{ bg: "gray.50" }}
-                  >
-                    ← Previous
-                  </Button>
-                  <Box px={6} py={2} bg="gray.50" borderRadius="lg">
-                    <Text fontWeight="600" color="gray.700">Page {currentPage}</Text>
-                  </Box>
-                  <Button 
-                    onClick={handleNextPage}
-                    disabled={!hasMore || loading}
-                    variant="outline"
-                    colorScheme="gray"
-                    _hover={{ bg: "gray.50" }}
-                  >
-                    Next →
-                  </Button>
-                </HStack>
-              </Box>
-            </Center>
-          </Box>
-        )}
-        </Stack>
-      </Container>
+
+            <div ref={messagesEndRef} />
+          </VStack>
+        </Container>
+      </Box>
+
+      {/* Chat Input */}
+      <Box bg="white" px={6} py={4} borderTop="1px" borderColor="gray.200">
+        <Container maxW="4xl" mx="auto">
+          <HStack gap={3}>
+            <Textarea
+              placeholder="Describe the perfect place for your stay..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSearch()
+                }
+              }}
+              resize="none"
+              minH="20px"
+              maxH="120px"
+              bg="gray.50"
+              border="1px"
+              borderColor="gray.300"
+              _focus={{
+                borderColor: "blue.400",
+                bg: "white"
+              }}
+              _hover={{ borderColor: "gray.400" }}
+              borderRadius="xl"
+              py={3}
+              px={4}
+            />
+            <Button
+              colorScheme="blue"
+              onClick={() => handleSearch()}
+              disabled={!searchQuery.trim() || loading}
+              size="lg"
+              h="48px"
+              px={6}
+              borderRadius="xl"
+            >
+              <Icon as={Send} w={4} h={4} />
+            </Button>
+          </HStack>
+        </Container>
+      </Box>
     </Box>
   )
 }
