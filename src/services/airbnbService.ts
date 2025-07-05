@@ -105,15 +105,9 @@ function parseNaturalLanguageQuery(query: string): SearchParams {
 
 export async function searchAirbnbListings(naturalLanguageQuery: string): Promise<AirbnbListing[]> {
   try {
-    const searchParams = parseNaturalLanguageQuery(naturalLanguageQuery)
-    
-    if (!searchParams.location) {
-      throw new Error('Could not extract location from query')
-    }
-
-    // Call the MCP server - this would typically be done through your backend
-    // For now, we'll simulate the response structure
-    const mcpResponse = await callAirbnbMCPServer(searchParams)
+    // Instead of parsing locally, pass the full natural language query to MCP
+    // The OpenBNB MCP server is designed to handle natural language queries directly
+    const mcpResponse = await callAirbnbMCPServer({ query: naturalLanguageQuery })
     
     return mcpResponse.map(transformMCPListing)
   } catch (error) {

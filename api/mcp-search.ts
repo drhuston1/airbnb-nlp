@@ -65,24 +65,27 @@ export default async function handler(
   }
 
   try {
-    const { location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice }: SearchRequest = req.body
+    const { query, location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice }: SearchRequest = req.body
 
-    if (!location) {
-      return res.status(400).json({ error: 'Location is required' })
-    }
+    // If we have a natural language query, use that directly
+    // Otherwise fall back to the parsed parameters
+    const searchParams = query ? 
+      { query, ignoreRobotsText: true } :
+      {
+        location,
+        adults,
+        children,
+        infants,
+        pets,
+        ...(checkin && { checkin }),
+        ...(checkout && { checkout }),
+        ...(minPrice && { minPrice }),
+        ...(maxPrice && { maxPrice }),
+        ignoreRobotsText: true
+      }
 
-    // Build search parameters for MCP
-    const searchParams = {
-      location,
-      adults,
-      children,
-      infants,
-      pets,
-      ...(checkin && { checkin }),
-      ...(checkout && { checkout }),
-      ...(minPrice && { minPrice }),
-      ...(maxPrice && { maxPrice }),
-      ignoreRobotsText: true // Required for Airbnb scraping
+    if (!query && !location) {
+      return res.status(400).json({ error: 'Query or location is required' })
     }
 
     console.log('Calling MCP server with params:', searchParams)
@@ -102,7 +105,7 @@ export default async function handler(
     }
 
     // Transform MCP results to our format
-    const listings = transformMCPResults(mcpResult.searchResults, location)
+    const listings = transformMCPResults(mcpResult.searchResults, query || location)
 
     return res.status(200).json({
       listings,
