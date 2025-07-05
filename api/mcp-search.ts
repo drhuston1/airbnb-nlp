@@ -47,10 +47,10 @@ interface AirbnbSearchResult {
   }
 }
 
-export default async function handler(
+const handler = async (
   req: VercelRequest,
   res: VercelResponse
-) {
+) => {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -248,3 +248,5 @@ function transformMCPResults(searchResults: AirbnbSearchResult[], location: stri
     }
   })
 }
+
+export default handler
