@@ -79,15 +79,16 @@ function App() {
         <Stack gap={10} align="stretch">
           <Box textAlign="center" py={8}>
             <Heading as="h1" size="3xl" mb={6} 
-              bgGradient="linear(to-r, blue.500, purple.600)" 
-              bgClip="text"
               fontWeight="800"
               letterSpacing="-0.02em"
             >
-              Airbnb Search
+              <Text as="span" color="blue.600">
+                StayFinder
+              </Text>{" "}
+              <Text as="span" color="purple.500">AI</Text>
             </Heading>
             <Text fontSize="xl" color="gray.600" maxW="2xl" mx="auto" lineHeight="1.6">
-              Discover amazing stays worldwide using natural language search powered by AI
+              Discover amazing stays worldwide using intelligent natural language search
             </Text>
           </Box>
 
@@ -125,7 +126,7 @@ function App() {
                 _hover={{ transform: "translateY(-1px)", shadow: "lg" }}
                 transition="all 0.2s"
               >
-                🔍 Search Amazing Stays
+🔍 Find Perfect Stays
               </Button>
             </Box>
 
@@ -252,7 +253,7 @@ function App() {
           <Center py={12}>
             <Stack align="center" gap={4}>
               <Spinner size="xl" color="blue.500" />
-              <Text color="gray.600" fontWeight="500">Searching amazing stays...</Text>
+              <Text color="gray.600" fontWeight="500">Finding perfect stays...</Text>
             </Stack>
           </Center>
         )}
@@ -266,7 +267,7 @@ function App() {
                     {enableFilters ? (
                       <>Showing {filteredListings.length} of {allListings.length} stays</>
                     ) : (
-                      <>Found {allListings.length} amazing stays</>
+                      <>Found {allListings.length} perfect stays</>
                     )}
                   </Heading>
                   <Text fontSize="sm" color="gray.600">Page {currentPage}</Text>
