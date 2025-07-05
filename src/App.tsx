@@ -37,18 +37,15 @@ function App() {
   const [hasMore, setHasMore] = useState(false)
   
   // Filter states
-  const [enableFilters, setEnableFilters] = useState(false)
-  const [minRating, setMinRating] = useState(4.0)
+  const [minRating, setMinRating] = useState(0)
   const [minReviews, setMinReviews] = useState(0)
 
   // Filter listings based on client-side criteria
   const filteredListings = useMemo(() => {
-    if (!enableFilters) return allListings
-    
     return allListings.filter(listing => 
       listing.rating >= minRating && listing.reviewsCount >= minReviews
     )
-  }, [allListings, enableFilters, minRating, minReviews])
+  }, [allListings, minRating, minReviews])
 
   const handleSearch = async (page = 1) => {
     if (!searchQuery.trim()) {
@@ -274,75 +271,85 @@ function App() {
 
             {/* Quality Filters */}
             <Box bg="white" p={6} borderRadius="xl" shadow="md" border="1px" borderColor="gray.200">
-              <HStack alignItems="center" mb={4}>
+              <HStack alignItems="center" mb={6}>
                 <Icon as={Settings} color="gray.600" mr={2} />
-                <Text fontSize="md" fontWeight="600" color="gray.700">
+                <Text fontSize="lg" fontWeight="600" color="gray.700">
                   Quality Filters
                 </Text>
-                <input 
-                  type="checkbox"
-                  checked={enableFilters}
-                  onChange={(e) => setEnableFilters(e.target.checked)}
-                  style={{ 
-                    marginLeft: '12px',
-                    transform: 'scale(1.2)',
-                    accentColor: '#3182ce'
-                  }}
-                />
               </HStack>
               
-              {enableFilters && (
-                <Stack gap={4}>
-                  <Flex gap={4} flexWrap="wrap" w="full">
-                    <Box flex="1" minW="160px">
-                      <Text fontSize="sm" fontWeight="500" color="gray.700" mb={2}>Minimum Rating</Text>
-                      <Input
-                        type="number"
-                        value={minRating}
-                        onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
-                        min={0}
-                        max={5}
-                        step={0.1}
-                        size="sm"
-                        bg="gray.50"
-                        border="1px"
-                        borderColor="gray.300"
-                        _focus={{ borderColor: "blue.400", bg: "white" }}
-                      />
-                    </Box>
-                    
-                    <Box flex="1" minW="160px">
-                      <Text fontSize="sm" fontWeight="500" color="gray.700" mb={2}>Minimum Reviews</Text>
-                      <Input
-                        type="number"
-                        value={minReviews}
-                        onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
-                        min={0}
-                        size="sm"
-                        bg="gray.50"
-                        border="1px"
-                        borderColor="gray.300"
-                        _focus={{ borderColor: "blue.400", bg: "white" }}
-                      />
-                    </Box>
-                  </Flex>
+              <Stack gap={5}>
+                <Flex gap={6} flexWrap="wrap" w="full">
+                  <Box flex="1" minW="180px">
+                    <Text fontSize="sm" fontWeight="600" color="gray.700" mb={3}>Minimum Rating</Text>
+                    <Input
+                      type="number"
+                      value={minRating}
+                      onChange={(e) => setMinRating(parseFloat(e.target.value) || 0)}
+                      min={0}
+                      max={5}
+                      step={0.1}
+                      size="md"
+                      bg="gray.50"
+                      border="2px"
+                      borderColor="gray.200"
+                      _focus={{ borderColor: "blue.400", bg: "white" }}
+                      _hover={{ borderColor: "gray.300" }}
+                      borderRadius="lg"
+                      h="48px"
+                    />
+                  </Box>
                   
+                  <Box flex="1" minW="180px">
+                    <Text fontSize="sm" fontWeight="600" color="gray.700" mb={3}>Minimum Reviews</Text>
+                    <Input
+                      type="number"
+                      value={minReviews}
+                      onChange={(e) => setMinReviews(parseInt(e.target.value) || 0)}
+                      min={0}
+                      size="md"
+                      bg="gray.50"
+                      border="2px"
+                      borderColor="gray.200"
+                      _focus={{ borderColor: "blue.400", bg: "white" }}
+                      _hover={{ borderColor: "gray.300" }}
+                      borderRadius="lg"
+                      h="48px"
+                    />
+                  </Box>
+                </Flex>
+                
+                <HStack gap={3} flexWrap="wrap">
                   <Button 
-                    size="sm" 
+                    size="md" 
                     colorScheme="purple" 
                     variant="outline"
                     onClick={() => {
                       setMinRating(4.9)
                       setMinReviews(20)
                     }}
-                    alignSelf="flex-start"
                     _hover={{ bg: "purple.50" }}
+                    borderRadius="lg"
                   >
                     <Icon as={Star} mr={2} />
                     4.9+ stars, 20+ reviews
                   </Button>
-                </Stack>
-              )}
+                  
+                  <Button 
+                    size="md" 
+                    variant="outline"
+                    colorScheme="gray"
+                    onClick={() => {
+                      setMinRating(0)
+                      setMinReviews(0)
+                    }}
+                    _hover={{ bg: "gray.50" }}
+                    borderRadius="lg"
+                  >
+                    Clear Filters
+                  </Button>
+                </HStack>
+              </Stack>
             </Box>
           </Stack>
         </Box>
@@ -377,7 +384,7 @@ function App() {
               <Flex justify="space-between" align="center" mb={4} flexWrap="wrap" gap={4}>
                 <Box>
                   <Heading as="h2" size="lg" color="gray.800" mb={2}>
-                    {enableFilters ? (
+                    {(minRating > 0 || minReviews > 0) ? (
                       <>Showing {filteredListings.length} of {allListings.length} properties</>
                     ) : (
                       <>Found {allListings.length} Airbnb properties</>
@@ -411,35 +418,35 @@ function App() {
                 </HStack>
                 <Text fontSize="xs" color="blue.700" mt={1}>
                   Real properties with current prices and availability
-                  {enableFilters && filteredListings.length < allListings.length && (
+                  {(minRating > 0 || minReviews > 0) && filteredListings.length < allListings.length && (
                     <Text as="span" ml={2}>
-                      • Filtered by {minRating}+ stars, {minReviews}+ reviews
+                      • Filtered by {minRating > 0 ? `${minRating}+ stars` : ''}{minRating > 0 && minReviews > 0 ? ', ' : ''}{minReviews > 0 ? `${minReviews}+ reviews` : ''}
                     </Text>
                   )}
                 </Text>
               </Box>
             </Box>
 
-            {enableFilters && filteredListings.length === 0 ? (
+            {(minRating > 0 || minReviews > 0) && filteredListings.length === 0 ? (
               <Box maxW="2xl" mx="auto" p={8} textAlign="center" bg="white" borderRadius="xl" shadow="sm" border="1px" borderColor="gray.200">
                 <Icon as={Search} boxSize={12} color="gray.400" mb={4} />
                 <Text fontSize="xl" fontWeight="600" color="gray.800" mb={3}>
                   No matches found
                 </Text>
                 <Text fontSize="sm" color="gray.600" mb={6}>
-                  Try adjusting your filters. Currently set to {minRating}+ stars with {minReviews}+ reviews.
+                  Try adjusting your filters. Currently set to {minRating > 0 ? `${minRating}+ stars` : ''}{minRating > 0 && minReviews > 0 ? ' with ' : ''}{minReviews > 0 ? `${minReviews}+ reviews` : ''}.
                 </Text>
                 <Button 
                   size="md" 
                   colorScheme="blue" 
                   variant="outline"
                   onClick={() => {
-                    setMinRating(4.0)
+                    setMinRating(0)
                     setMinReviews(0)
                   }}
                   _hover={{ bg: "blue.50" }}
                 >
-                  Reset Filters
+                  Clear Filters
                 </Button>
               </Box>
             ) : (
