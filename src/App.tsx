@@ -231,6 +231,11 @@ function App() {
       // Apply natural language filters
       const filteredResults = applyNaturalLanguageFilters(searchResults, query)
       
+      // Debug: log the first listing to see its structure
+      if (filteredResults.length > 0) {
+        console.log('First listing structure:', filteredResults[0])
+      }
+      
       setCurrentPage(page)
       setHasMore(searchResults.length === 18) // Assume more if we got full page
       setCurrentQuery(query)
@@ -445,7 +450,9 @@ function App() {
                               <Box p={4}>
                                 <VStack align="start" gap={3}>
                                   <Text fontWeight="600" color="gray.900" lineHeight="1.4" lineClamp={2}>
-                                    {listing.name}
+                                    {(listing.name && typeof listing.name === 'string' && listing.name.length < 200) 
+                                      ? listing.name 
+                                      : 'Property name not available'}
                                   </Text>
                                   
                                   <HStack justify="space-between" w="full">
