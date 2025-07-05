@@ -113,12 +113,51 @@ function App() {
               color="gray.600" 
               maxW="3xl" 
               mx="auto" 
-              mb={8}
+              mb={6}
               fontWeight="400"
               lineHeight="1.5"
             >
               Skip the filters. Just tell us what you want in plain English.
             </Text>
+            
+            {/* Example searches */}
+            <Box mb={8}>
+              <Text fontSize="sm" fontWeight="500" color="gray.700" mb={4}>
+                Try these searches:
+              </Text>
+              <Flex gap={3} flexWrap="wrap" justify="center" maxW="5xl" mx="auto">
+                {[
+                  "Beachfront villa with pool for family reunion",
+                  "Dog-friendly cabin near hiking trails", 
+                  "Modern loft in downtown for business trip",
+                  "Romantic cottage with hot tub under $200/night"
+                ].map((example) => (
+                  <Button
+                    key={example}
+                    size="sm"
+                    variant="outline"
+                    colorScheme="gray"
+                    onClick={() => setSearchQuery(example)}
+                    px={4}
+                    py={2}
+                    fontSize="sm"
+                    fontWeight="500"
+                    bg="white"
+                    borderColor="gray.300"
+                    _hover={{ 
+                      bg: "blue.50", 
+                      borderColor: "blue.300", 
+                      color: "blue.700"
+                    }}
+                    transition="all 0.2s"
+                    borderRadius="full"
+                    shadow="sm"
+                  >
+                    {example}
+                  </Button>
+                ))}
+              </Flex>
+            </Box>
           </Box>
 
         {/* Search Section */}
@@ -149,7 +188,7 @@ function App() {
               <Stack gap={6} w="full">
                 
                 <Input
-                  placeholder="Beach house in Malibu, pet-friendly cabin in Colorado, studio in Tokyo under $100..."
+                  placeholder="3 bedroom house near beach, downtown loft with pool, family cabin with kitchen..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   size="lg"
@@ -272,45 +311,6 @@ function App() {
                 </Button>
               </Flex>
             </Box>
-            
-            {/* Popular searches */}
-            <Box textAlign="center">
-              <Text fontSize="xs" fontWeight="500" color="gray.600" mb={3}>
-                Try these popular searches:
-              </Text>
-              <Flex gap={2} flexWrap="wrap" justify="center">
-                {[
-                  "Beach house in Malibu for 4 guests",
-                  "Studio apartment in Tokyo under $100", 
-                  "Pet-friendly cabin in Colorado",
-                  "Luxury villa in Tuscany with pool"
-                ].map((example) => (
-                  <Button
-                    key={example}
-                    size="xs"
-                    variant="outline"
-                    colorScheme="gray"
-                    onClick={() => setSearchQuery(example)}
-                    px={3}
-                    py={1}
-                    fontSize="xs"
-                    fontWeight="400"
-                    bg="white"
-                    borderColor="gray.300"
-                    _hover={{ 
-                      bg: "blue.50", 
-                      borderColor: "blue.300", 
-                      color: "blue.700"
-                    }}
-                    transition="all 0.2s"
-                    borderRadius="full"
-                    h="28px"
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </Flex>
-            </Box>
           </Stack>
         </Box>
 
@@ -401,87 +401,97 @@ function App() {
                 </Button>
               </Box>
             ) : (
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={8}>
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
                 {filteredListings.map((listing) => (
-                <Box 
-                  key={listing.id} 
-                  bg="white" 
-                  borderRadius="xl" 
-                  overflow="hidden"
-                  shadow="md" 
-                  border="1px" 
-                  borderColor="gray.200"
-                  _hover={{ 
-                    shadow: 'xl', 
-                    transform: 'translateY(-2px)',
-                    borderColor: 'gray.300'
-                  }}
-                  transition="all 0.2s"
-                >
-                  <Box p={6}>
-                    <Stack gap={4} align="stretch">
-                      <Heading as="h3" size="md" lineClamp={2} color="gray.800" lineHeight="1.3">
-                        {listing.name}
-                      </Heading>
-                      <HStack justify="space-between" align="center">
-                        <HStack>
-                          <Icon as={MapPin} color="gray.500" size="sm" />
-                          <Text fontSize="sm" color="gray.600" fontWeight="500">
-                            {listing.location.country ? 
-                              `${listing.location.city}, ${listing.location.country}` : 
-                              listing.location.city
-                            }
-                          </Text>
-                        </HStack>
-                        <Badge 
-                          colorScheme={listing.rating >= 4.8 ? "green" : listing.rating >= 4.5 ? "blue" : "gray"}
-                          fontSize="xs"
-                          px={2}
-                          py={1}
-                          borderRadius="full"
-                        >
-                          <HStack gap={1}>
-                            <Icon as={Star} size="xs" />
-                            <Text>{listing.rating} ({listing.reviewsCount})</Text>
-                          </HStack>
-                        </Badge>
-                      </HStack>
-                      <Text fontSize="sm" color="gray.600" bg="gray.50" px={3} py={1} borderRadius="full" alignSelf="flex-start">
-                        {listing.roomType}
-                      </Text>
-                      <HStack justify="space-between" align="center" pt={2}>
+                  <Box 
+                    key={listing.id} 
+                    bg="white" 
+                    borderRadius="lg" 
+                    overflow="hidden"
+                    shadow="sm" 
+                    border="1px" 
+                    borderColor="gray.200"
+                    _hover={{ 
+                      shadow: 'md', 
+                      transform: 'translateY(-1px)',
+                      borderColor: 'blue.300'
+                    }}
+                    transition="all 0.2s"
+                  >
+                    <Box p={5}>
+                      <Stack gap={3}>
+                        {/* Title and Rating Row */}
                         <Box>
-                          <Text fontWeight="700" fontSize="xl" color="gray.800">
-                            ${listing.price.rate}
-                          </Text>
-                          <Text fontSize="xs" color="gray.500">per night</Text>
-                        </Box>
-                        {listing.host.isSuperhost && (
-                          <Badge colorScheme="purple" variant="subtle" px={3} py={1} borderRadius="full">
+                          <Heading as="h3" size="sm" color="gray.900" lineHeight="1.3" mb={2} lineClamp={2}>
+                            {listing.name}
+                          </Heading>
+                          <HStack justify="space-between" align="center">
                             <HStack gap={1}>
-                              <Icon as={Crown} size="xs" />
-                              <Text>Superhost</Text>
+                              <Icon as={MapPin} color="gray.500" w={3} h={3} />
+                              <Text fontSize="sm" color="gray.600">
+                                {listing.location.country ? 
+                                  `${listing.location.city}, ${listing.location.country}` : 
+                                  listing.location.city
+                                }
+                              </Text>
                             </HStack>
-                          </Badge>
-                        )}
-                      </HStack>
-                      <Link href={listing.url} target="_blank" rel="noopener noreferrer">
-                        <Button
-                          colorScheme="blue"
-                          size="md"
-                          w="full"
-                          mt={2}
-                          fontWeight="600"
-                          _hover={{ transform: "translateY(-1px)" }}
-                          transition="all 0.2s"
-                        >
-                          View on Airbnb
-                          <Icon as={ExternalLink} ml={2} />
-                        </Button>
-                      </Link>
-                    </Stack>
+                            <HStack gap={1}>
+                              <Icon as={Star} color="yellow.400" w={3} h={3} />
+                              <Text fontSize="sm" fontWeight="600" color="gray.700">
+                                {listing.rating}
+                              </Text>
+                              <Text fontSize="xs" color="gray.500">
+                                ({listing.reviewsCount})
+                              </Text>
+                            </HStack>
+                          </HStack>
+                        </Box>
+
+                        {/* Room Type */}
+                        <Text fontSize="xs" color="gray.600" bg="gray.100" px={2} py={1} borderRadius="md" alignSelf="flex-start" fontWeight="500">
+                          {listing.roomType}
+                        </Text>
+
+                        {/* Price and Superhost */}
+                        <HStack justify="space-between" align="end">
+                          <Box>
+                            <HStack align="baseline" gap={1}>
+                              <Text fontWeight="700" fontSize="lg" color="gray.900">
+                                ${listing.price.rate}
+                              </Text>
+                              <Text fontSize="sm" color="gray.500">
+                                /night
+                              </Text>
+                            </HStack>
+                          </Box>
+                          {listing.host.isSuperhost && (
+                            <Badge colorScheme="purple" variant="subtle" fontSize="xs" px={2} py={1}>
+                              <HStack gap={1}>
+                                <Icon as={Crown} w={3} h={3} />
+                                <Text>Superhost</Text>
+                              </HStack>
+                            </Badge>
+                          )}
+                        </HStack>
+
+                        {/* View Button */}
+                        <Link href={listing.url} target="_blank" rel="noopener noreferrer">
+                          <Button
+                            colorScheme="blue"
+                            size="sm"
+                            w="full"
+                            fontWeight="500"
+                            _hover={{ transform: "translateY(-1px)" }}
+                            transition="all 0.2s"
+                            mt={2}
+                          >
+                            View Details
+                            <Icon as={ExternalLink} ml={2} w={3} h={3} />
+                          </Button>
+                        </Link>
+                      </Stack>
+                    </Box>
                   </Box>
-                </Box>
                 ))}
               </SimpleGrid>
             )}
