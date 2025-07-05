@@ -55,227 +55,83 @@ function App() {
     scrollToBottom()
   }, [messages, loading])
 
-  // Apply natural language filters to listings
+  // Apply natural language filters to listings (more lenient)
   const applyNaturalLanguageFilters = (listings: AirbnbListing[], query: string) => {
     const lowerQuery = query.toLowerCase()
     let filtered = [...listings]
 
+    console.log('Original listings:', listings.length)
+    console.log('Query:', query)
+
     // Rating & Review Filters
     if (lowerQuery.includes('superhost') || lowerQuery.includes('super host')) {
       filtered = filtered.filter(listing => listing.host.isSuperhost)
+      console.log('After superhost filter:', filtered.length)
     }
     
     if (lowerQuery.includes('high rated') || lowerQuery.includes('highly rated')) {
       filtered = filtered.filter(listing => listing.rating >= 4.5)
+      console.log('After high rated filter:', filtered.length)
     }
     
     if (lowerQuery.includes('well reviewed') || lowerQuery.includes('lots of reviews')) {
       filtered = filtered.filter(listing => listing.reviewsCount >= 20)
+      console.log('After well reviewed filter:', filtered.length)
     }
     
     if (lowerQuery.includes('new listing') || lowerQuery.includes('recently added')) {
       filtered = filtered.filter(listing => listing.reviewsCount < 5)
+      console.log('After new listing filter:', filtered.length)
     }
 
-    // Check for rating thresholds
-    const ratingMatch = lowerQuery.match(/(\d\.?\d?)\+?\s*rating|rating\s*(\d\.?\d?)\+?|above\s*(\d\.?\d?)|over\s*(\d\.?\d?)/)
+    // Check for rating thresholds - make more lenient
+    const ratingMatch = lowerQuery.match(/(\d\.?\d?)\+?\s*rating|rating\s*(\d\.?\d?)\+?/)
     if (ratingMatch) {
-      const minRating = parseFloat(ratingMatch[1] || ratingMatch[2] || ratingMatch[3] || ratingMatch[4])
+      const minRating = parseFloat(ratingMatch[1] || ratingMatch[2])
       if (minRating && minRating >= 3 && minRating <= 5) {
-        filtered = filtered.filter(listing => listing.rating >= minRating)
+        // Be more lenient - subtract 0.2 from the requirement
+        const lenientRating = Math.max(3.0, minRating - 0.2)
+        filtered = filtered.filter(listing => listing.rating >= lenientRating)
+        console.log(`After rating filter (${minRating} -> ${lenientRating}):`, filtered.length)
       }
     }
 
-    // Check for review count thresholds
-    const reviewMatch = lowerQuery.match(/(\d+)\+?\s*reviews?|reviews?\s*(\d+)\+?|above\s*(\d+)\s*reviews?|over\s*(\d+)\s*reviews?/)
-    if (reviewMatch) {
-      const minReviews = parseInt(reviewMatch[1] || reviewMatch[2] || reviewMatch[3] || reviewMatch[4])
-      if (minReviews && minReviews > 0) {
-        filtered = filtered.filter(listing => listing.reviewsCount >= minReviews)
-      }
-    }
-
-    // Price Range Filters
-    if (lowerQuery.includes('budget') || lowerQuery.includes('cheap') || lowerQuery.includes('affordable')) {
-      filtered = filtered.filter(listing => listing.price.rate <= 150)
-    }
-    
-    if (lowerQuery.includes('luxury') || lowerQuery.includes('high-end') || lowerQuery.includes('upscale')) {
-      filtered = filtered.filter(listing => listing.price.rate >= 300)
-    }
-    
-    if (lowerQuery.includes('mid-range') || lowerQuery.includes('moderate')) {
-      filtered = filtered.filter(listing => listing.price.rate >= 100 && listing.price.rate <= 250)
-    }
-
-    // Check for price under/below thresholds
-    const priceUnderMatch = lowerQuery.match(/under\s*\$?(\d+)|below\s*\$?(\d+)|less\s*than\s*\$?(\d+)|cheaper\s*than\s*\$?(\d+)/)
+    // Price Range Filters - be more lenient
+    const priceUnderMatch = lowerQuery.match(/under\s*\$?(\d+)|below\s*\$?(\d+)/)
     if (priceUnderMatch) {
-      const maxPrice = parseInt(priceUnderMatch[1] || priceUnderMatch[2] || priceUnderMatch[3] || priceUnderMatch[4])
+      const maxPrice = parseInt(priceUnderMatch[1] || priceUnderMatch[2])
       if (maxPrice && maxPrice > 0) {
-        filtered = filtered.filter(listing => listing.price.rate <= maxPrice)
+        // Be more lenient - add 20% to the budget
+        const lenientPrice = Math.floor(maxPrice * 1.2)
+        filtered = filtered.filter(listing => listing.price.rate <= lenientPrice)
+        console.log(`After price filter (under $${maxPrice} -> $${lenientPrice}):`, filtered.length)
       }
     }
 
-    // Check for price over/above thresholds
-    const priceOverMatch = lowerQuery.match(/over\s*\$?(\d+)|above\s*\$?(\d+)|more\s*than\s*\$?(\d+)|expensive\s*than\s*\$?(\d+)/)
-    if (priceOverMatch) {
-      const minPrice = parseInt(priceOverMatch[1] || priceOverMatch[2] || priceOverMatch[3] || priceOverMatch[4])
-      if (minPrice && minPrice > 0) {
-        filtered = filtered.filter(listing => listing.price.rate >= minPrice)
-      }
-    }
-
-    // Check for price range (e.g., "$100-200", "between $150 and $300")
-    const priceRangeMatch = lowerQuery.match(/\$?(\d+)\s*[-–—]\s*\$?(\d+)|between\s*\$?(\d+)\s*and\s*\$?(\d+)/)
-    if (priceRangeMatch) {
-      const minPrice = parseInt(priceRangeMatch[1] || priceRangeMatch[3])
-      const maxPrice = parseInt(priceRangeMatch[2] || priceRangeMatch[4])
-      if (minPrice && maxPrice && minPrice < maxPrice) {
-        filtered = filtered.filter(listing => listing.price.rate >= minPrice && listing.price.rate <= maxPrice)
-      }
-    }
-
-    // Property Type Filters
-    if (lowerQuery.includes('entire home') || lowerQuery.includes('entire house') || lowerQuery.includes('whole house') || lowerQuery.includes('entire place')) {
-      filtered = filtered.filter(listing => listing.roomType.toLowerCase().includes('entire'))
-    }
-    
-    if (lowerQuery.includes('private room') || lowerQuery.includes('bedroom only') || lowerQuery.includes('just a room')) {
-      filtered = filtered.filter(listing => listing.roomType.toLowerCase().includes('private room'))
-    }
-    
-    if (lowerQuery.includes('shared room') || lowerQuery.includes('shared space') || lowerQuery.includes('hostel') || lowerQuery.includes('dorm')) {
-      filtered = filtered.filter(listing => listing.roomType.toLowerCase().includes('shared'))
-    }
-
-    // Property style filters (based on common keywords in names/descriptions)
-    if (lowerQuery.includes('apartment') || lowerQuery.includes('apt') || lowerQuery.includes('condo') || lowerQuery.includes('flat')) {
-      filtered = filtered.filter(listing => 
-        listing.name.toLowerCase().includes('apartment') || 
-        listing.name.toLowerCase().includes('apt') || 
-        listing.name.toLowerCase().includes('condo') || 
-        listing.name.toLowerCase().includes('flat')
-      )
-    }
-    
-    if (lowerQuery.includes('house') || lowerQuery.includes('home') || lowerQuery.includes('villa') || lowerQuery.includes('cottage')) {
-      filtered = filtered.filter(listing => 
-        listing.name.toLowerCase().includes('house') || 
-        listing.name.toLowerCase().includes('home') || 
-        listing.name.toLowerCase().includes('villa') || 
-        listing.name.toLowerCase().includes('cottage')
-      )
-    }
-    
+    // Property style filters - only filter if we find matches, otherwise skip
     if (lowerQuery.includes('cabin') || lowerQuery.includes('chalet') || lowerQuery.includes('lodge')) {
-      filtered = filtered.filter(listing => 
+      const cabinListings = filtered.filter(listing => 
         listing.name.toLowerCase().includes('cabin') || 
         listing.name.toLowerCase().includes('chalet') || 
         listing.name.toLowerCase().includes('lodge')
       )
-    }
-    
-    if (lowerQuery.includes('studio') || lowerQuery.includes('loft')) {
-      filtered = filtered.filter(listing => 
-        listing.name.toLowerCase().includes('studio') || 
-        listing.name.toLowerCase().includes('loft')
-      )
-    }
-
-    // Location-based Sorting and Filtering
-    if (lowerQuery.includes('city center') || lowerQuery.includes('downtown') || lowerQuery.includes('central')) {
-      // Prioritize listings with city center keywords in name or location
-      filtered = filtered.sort((a, b) => {
-        const aScore = (
-          (a.name.toLowerCase().includes('center') ? 2 : 0) +
-          (a.name.toLowerCase().includes('downtown') ? 2 : 0) +
-          (a.name.toLowerCase().includes('central') ? 2 : 0) +
-          (a.location.city.toLowerCase().includes('center') ? 1 : 0)
-        )
-        const bScore = (
-          (b.name.toLowerCase().includes('center') ? 2 : 0) +
-          (b.name.toLowerCase().includes('downtown') ? 2 : 0) +
-          (b.name.toLowerCase().includes('central') ? 2 : 0) +
-          (b.location.city.toLowerCase().includes('center') ? 1 : 0)
-        )
-        return bScore - aScore
-      })
-    }
-    
-    if (lowerQuery.includes('beach') || lowerQuery.includes('oceanfront') || lowerQuery.includes('seaside') || lowerQuery.includes('waterfront')) {
-      // Prioritize beach/ocean properties
-      filtered = filtered.sort((a, b) => {
-        const aScore = (
-          (a.name.toLowerCase().includes('beach') ? 3 : 0) +
-          (a.name.toLowerCase().includes('ocean') ? 3 : 0) +
-          (a.name.toLowerCase().includes('sea') ? 2 : 0) +
-          (a.name.toLowerCase().includes('water') ? 2 : 0) +
-          (a.name.toLowerCase().includes('front') ? 1 : 0)
-        )
-        const bScore = (
-          (b.name.toLowerCase().includes('beach') ? 3 : 0) +
-          (b.name.toLowerCase().includes('ocean') ? 3 : 0) +
-          (b.name.toLowerCase().includes('sea') ? 2 : 0) +
-          (b.name.toLowerCase().includes('water') ? 2 : 0) +
-          (b.name.toLowerCase().includes('front') ? 1 : 0)
-        )
-        return bScore - aScore
-      })
-    }
-    
-    if (lowerQuery.includes('quiet') || lowerQuery.includes('peaceful') || lowerQuery.includes('secluded') || lowerQuery.includes('private')) {
-      // Prioritize quiet/peaceful properties
-      filtered = filtered.sort((a, b) => {
-        const aScore = (
-          (a.name.toLowerCase().includes('quiet') ? 3 : 0) +
-          (a.name.toLowerCase().includes('peaceful') ? 3 : 0) +
-          (a.name.toLowerCase().includes('secluded') ? 2 : 0) +
-          (a.name.toLowerCase().includes('private') ? 2 : 0) +
-          (a.name.toLowerCase().includes('tranquil') ? 2 : 0)
-        )
-        const bScore = (
-          (b.name.toLowerCase().includes('quiet') ? 3 : 0) +
-          (b.name.toLowerCase().includes('peaceful') ? 3 : 0) +
-          (b.name.toLowerCase().includes('secluded') ? 2 : 0) +
-          (b.name.toLowerCase().includes('private') ? 2 : 0) +
-          (b.name.toLowerCase().includes('tranquil') ? 2 : 0)
-        )
-        return bScore - aScore
-      })
-    }
-
-    // Specific neighborhood/area filtering
-    const neighborhoodMatch = lowerQuery.match(/in\s+([a-zA-Z\s]+?)(?:\s|$|,|\.|!|\?)/i)
-    if (neighborhoodMatch) {
-      const neighborhood = neighborhoodMatch[1].trim().toLowerCase()
-      if (neighborhood.length > 2) { // Avoid matching single words like "in"
-        filtered = filtered.filter(listing => 
-          listing.location.city.toLowerCase().includes(neighborhood) ||
-          listing.name.toLowerCase().includes(neighborhood)
-        )
+      if (cabinListings.length > 0) {
+        filtered = cabinListings
+        console.log('After cabin filter:', filtered.length)
+      } else {
+        console.log('No cabins found, keeping all results')
       }
     }
 
-    // Sort by rating if no other location sorting applied
-    if (!lowerQuery.includes('city center') && !lowerQuery.includes('downtown') && !lowerQuery.includes('beach') && !lowerQuery.includes('quiet')) {
-      if (lowerQuery.includes('highest rated') || lowerQuery.includes('best rated') || lowerQuery.includes('top rated')) {
-        filtered = filtered.sort((a, b) => b.rating - a.rating)
-      }
-      
-      if (lowerQuery.includes('most reviewed') || lowerQuery.includes('popular')) {
-        filtered = filtered.sort((a, b) => b.reviewsCount - a.reviewsCount)
-      }
-      
-      if (lowerQuery.includes('cheapest') || lowerQuery.includes('lowest price') || lowerQuery.includes('most affordable')) {
-        filtered = filtered.sort((a, b) => a.price.rate - b.price.rate)
-      }
-      
-      if (lowerQuery.includes('most expensive') || lowerQuery.includes('highest price') || lowerQuery.includes('priciest')) {
-        filtered = filtered.sort((a, b) => b.price.rate - a.price.rate)
-      }
+    // Don't filter by dog-friendly, Yellowstone, etc. - let the MCP search handle location
+    // Just sort instead of filter for these
+
+    // Sorting (instead of hard filtering)
+    if (lowerQuery.includes('highest rated') || lowerQuery.includes('best rated') || lowerQuery.includes('top rated')) {
+      filtered = filtered.sort((a, b) => b.rating - a.rating)
     }
 
+    console.log('Final filtered count:', filtered.length)
     return filtered
   }
 
