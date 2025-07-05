@@ -87,35 +87,96 @@ function App() {
     <Box minH="100vh" bg="gray.50" overflow="hidden">
       <Container maxW="7xl" px={{ base: 4, md: 6 }} py={12}>
         <Stack gap={10} align="stretch">
-          <Box textAlign="center" py={8}>
-            <Heading as="h1" size="3xl" mb={6} 
-              fontWeight="800"
-              letterSpacing="-0.02em"
+          {/* Hero Section */}
+          <Box textAlign="center" py={{ base: 12, md: 16 }}>
+            {/* Badge */}
+            <Badge 
+              colorScheme="blue" 
+              variant="subtle" 
+              px={4} 
+              py={2} 
+              borderRadius="full" 
+              mb={6}
+              fontSize="sm"
+              fontWeight="600"
+            >
+              Powered by AI
+            </Badge>
+            
+            {/* Main Heading */}
+            <Heading 
+              as="h1" 
+              size={{ base: "2xl", md: "3xl", lg: "4xl" }}
+              mb={6} 
+              fontWeight="900"
+              letterSpacing="-0.03em"
+              lineHeight="1.1"
             >
               <Text as="span" color="blue.600">
                 Airbnb
               </Text>{" "}
-              <Text as="span" color="gray.700">in</Text>{" "}
-              <Text as="span" color="purple.500">Plain English</Text>
+              <Text as="span" color="gray.800">in</Text>{" "}
+              <Text as="span" 
+                bgGradient="linear(to-r, purple.500, pink.500)" 
+                bgClip="text"
+                color="purple.500"
+              >
+                Plain English
+              </Text>
             </Heading>
-            <Text fontSize="xl" color="gray.600" maxW="2xl" mx="auto" lineHeight="1.6" mb={8}>
-              Search Airbnb properties using natural language - just describe what you want
+            
+            {/* Subtitle */}
+            <Text 
+              fontSize={{ base: "lg", md: "xl" }} 
+              color="gray.600" 
+              maxW="3xl" 
+              mx="auto" 
+              lineHeight="1.6" 
+              mb={8}
+              fontWeight="400"
+            >
+              Skip the complex filters. Just tell us what you're looking for and we'll find the perfect Airbnb properties for you.
             </Text>
             
-            {/* Popular searches moved to top */}
-            <Box textAlign="center" mb={8}>
-              <Text fontSize="sm" fontWeight="500" color="gray.600" mb={4}>Popular searches:</Text>
-              <Flex gap={3} flexWrap="wrap" justify="center">
+            {/* Feature highlights */}
+            <HStack 
+              justify="center" 
+              gap={8} 
+              mb={10}
+              flexWrap="wrap"
+              fontSize="sm"
+              color="gray.600"
+            >
+              <HStack>
+                <Icon as={Search} color="blue.500" />
+                <Text>Natural Language</Text>
+              </HStack>
+              <HStack>
+                <Icon as={ExternalLink} color="blue.500" />
+                <Text>Real-time Data</Text>
+              </HStack>
+              <HStack>
+                <Icon as={Star} color="blue.500" />
+                <Text>Quality Filtering</Text>
+              </HStack>
+            </HStack>
+            
+            {/* Popular searches */}
+            <Box>
+              <Text fontSize="sm" fontWeight="600" color="gray.700" mb={4}>
+                Try these popular searches:
+              </Text>
+              <Flex gap={3} flexWrap="wrap" justify="center" maxW="4xl" mx="auto">
                 {[
                   "Beach house in Malibu for 4 guests",
-                  "Studio apartment in Tokyo under $100",
+                  "Studio apartment in Tokyo under $100", 
                   "Pet-friendly cabin in Colorado",
                   "Luxury villa in Tuscany with pool"
                 ].map((example) => (
                   <Button
                     key={example}
                     size="sm"
-                    variant="ghost"
+                    variant="outline"
                     colorScheme="gray"
                     onClick={() => setSearchQuery(example)}
                     px={4}
@@ -123,9 +184,13 @@ function App() {
                     fontSize="xs"
                     fontWeight="500"
                     bg="white"
-                    border="1px"
-                    borderColor="gray.200"
-                    _hover={{ bg: "gray.50", borderColor: "gray.300", transform: "translateY(-1px)" }}
+                    borderColor="gray.300"
+                    _hover={{ 
+                      bg: "blue.50", 
+                      borderColor: "blue.300", 
+                      transform: "translateY(-1px)",
+                      color: "blue.700"
+                    }}
                     transition="all 0.2s"
                     borderRadius="full"
                     shadow="sm"
@@ -137,43 +202,74 @@ function App() {
             </Box>
           </Box>
 
-        <Box maxW="4xl" mx="auto">
+        {/* Search Section */}
+        <Box maxW="5xl" mx="auto">
           <Stack gap={6}>
-            <Box bg="white" p={8} borderRadius="xl" shadow="lg" border="1px" borderColor="gray.200">
-              <Input
-                placeholder="Try: 'Beachfront condo in Miami under $200' or 'Pet-friendly cabin in Colorado'"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                size="lg"
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                bg="gray.50"
-                border="2px"
-                borderColor="gray.200"
-                _focus={{
-                  borderColor: "blue.400",
-                  bg: "white",
-                  shadow: "0 0 0 3px rgba(66, 153, 225, 0.1)"
-                }}
-                _hover={{ borderColor: "gray.300" }}
-                fontSize="md"
-                py={6}
-              />
-              <Button
-                colorScheme="blue"
-                size="lg"
-                onClick={() => handleSearch()}
-                loading={loading}
-                w="full"
-                mt={4}
-                py={6}
-                fontSize="md"
-                fontWeight="600"
-                _hover={{ transform: "translateY(-1px)", shadow: "lg" }}
-                transition="all 0.2s"
-              >
-                <Icon as={Search} mr={2} />
-                Search Airbnb
-              </Button>
+            <Box 
+              bg="white" 
+              p={{ base: 6, md: 8 }} 
+              borderRadius="2xl" 
+              shadow="xl" 
+              border="1px" 
+              borderColor="gray.200"
+              position="relative"
+              _before={{
+                content: '""',
+                position: "absolute",
+                top: "-1px",
+                left: "-1px",
+                right: "-1px", 
+                bottom: "-1px",
+                bgGradient: "linear(to-r, blue.400, purple.400)",
+                borderRadius: "2xl",
+                zIndex: -1,
+                opacity: 0.1
+              }}
+            >
+              <Stack gap={4}>
+                <Text fontSize="md" fontWeight="600" color="gray.700" textAlign="center" mb={2}>
+                  What kind of place are you looking for?
+                </Text>
+                
+                <Input
+                  placeholder="Describe your ideal stay... 'Oceanfront villa in Santorini for a romantic getaway'"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  size="lg"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  bg="gray.50"
+                  border="2px"
+                  borderColor="gray.200"
+                  _focus={{
+                    borderColor: "blue.400",
+                    bg: "white",
+                    shadow: "0 0 0 4px rgba(66, 153, 225, 0.1)"
+                  }}
+                  _hover={{ borderColor: "gray.300" }}
+                  fontSize="md"
+                  py={7}
+                  borderRadius="xl"
+                />
+                
+                <Button
+                  colorScheme="blue"
+                  size="lg"
+                  onClick={() => handleSearch()}
+                  loading={loading}
+                  w="full"
+                  py={7}
+                  fontSize="md"
+                  fontWeight="600"
+                  _hover={{ transform: "translateY(-2px)", shadow: "xl" }}
+                  transition="all 0.2s"
+                  borderRadius="xl"
+                  bgGradient="linear(to-r, blue.500, blue.600)"
+                  _active={{ transform: "translateY(0)" }}
+                >
+                  <Icon as={Search} mr={3} />
+                  Search Airbnb Properties
+                </Button>
+              </Stack>
             </Box>
 
             {/* Quality Filters */}
