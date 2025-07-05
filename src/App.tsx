@@ -27,6 +27,7 @@ interface ChatMessage {
   type: 'user' | 'assistant'
   content: string
   listings?: AirbnbListing[]
+  followUps?: string[]
   timestamp: Date
 }
 
@@ -142,7 +143,221 @@ function App() {
       }
     }
 
+    // Property Type Filters
+    if (lowerQuery.includes('entire home') || lowerQuery.includes('entire house') || lowerQuery.includes('whole house') || lowerQuery.includes('entire place')) {
+      filtered = filtered.filter(listing => listing.roomType.toLowerCase().includes('entire'))
+    }
+    
+    if (lowerQuery.includes('private room') || lowerQuery.includes('bedroom only') || lowerQuery.includes('just a room')) {
+      filtered = filtered.filter(listing => listing.roomType.toLowerCase().includes('private room'))
+    }
+    
+    if (lowerQuery.includes('shared room') || lowerQuery.includes('shared space') || lowerQuery.includes('hostel') || lowerQuery.includes('dorm')) {
+      filtered = filtered.filter(listing => listing.roomType.toLowerCase().includes('shared'))
+    }
+
+    // Property style filters (based on common keywords in names/descriptions)
+    if (lowerQuery.includes('apartment') || lowerQuery.includes('apt') || lowerQuery.includes('condo') || lowerQuery.includes('flat')) {
+      filtered = filtered.filter(listing => 
+        listing.name.toLowerCase().includes('apartment') || 
+        listing.name.toLowerCase().includes('apt') || 
+        listing.name.toLowerCase().includes('condo') || 
+        listing.name.toLowerCase().includes('flat')
+      )
+    }
+    
+    if (lowerQuery.includes('house') || lowerQuery.includes('home') || lowerQuery.includes('villa') || lowerQuery.includes('cottage')) {
+      filtered = filtered.filter(listing => 
+        listing.name.toLowerCase().includes('house') || 
+        listing.name.toLowerCase().includes('home') || 
+        listing.name.toLowerCase().includes('villa') || 
+        listing.name.toLowerCase().includes('cottage')
+      )
+    }
+    
+    if (lowerQuery.includes('cabin') || lowerQuery.includes('chalet') || lowerQuery.includes('lodge')) {
+      filtered = filtered.filter(listing => 
+        listing.name.toLowerCase().includes('cabin') || 
+        listing.name.toLowerCase().includes('chalet') || 
+        listing.name.toLowerCase().includes('lodge')
+      )
+    }
+    
+    if (lowerQuery.includes('studio') || lowerQuery.includes('loft')) {
+      filtered = filtered.filter(listing => 
+        listing.name.toLowerCase().includes('studio') || 
+        listing.name.toLowerCase().includes('loft')
+      )
+    }
+
+    // Location-based Sorting and Filtering
+    if (lowerQuery.includes('city center') || lowerQuery.includes('downtown') || lowerQuery.includes('central')) {
+      // Prioritize listings with city center keywords in name or location
+      filtered = filtered.sort((a, b) => {
+        const aScore = (
+          (a.name.toLowerCase().includes('center') ? 2 : 0) +
+          (a.name.toLowerCase().includes('downtown') ? 2 : 0) +
+          (a.name.toLowerCase().includes('central') ? 2 : 0) +
+          (a.location.city.toLowerCase().includes('center') ? 1 : 0)
+        )
+        const bScore = (
+          (b.name.toLowerCase().includes('center') ? 2 : 0) +
+          (b.name.toLowerCase().includes('downtown') ? 2 : 0) +
+          (b.name.toLowerCase().includes('central') ? 2 : 0) +
+          (b.location.city.toLowerCase().includes('center') ? 1 : 0)
+        )
+        return bScore - aScore
+      })
+    }
+    
+    if (lowerQuery.includes('beach') || lowerQuery.includes('oceanfront') || lowerQuery.includes('seaside') || lowerQuery.includes('waterfront')) {
+      // Prioritize beach/ocean properties
+      filtered = filtered.sort((a, b) => {
+        const aScore = (
+          (a.name.toLowerCase().includes('beach') ? 3 : 0) +
+          (a.name.toLowerCase().includes('ocean') ? 3 : 0) +
+          (a.name.toLowerCase().includes('sea') ? 2 : 0) +
+          (a.name.toLowerCase().includes('water') ? 2 : 0) +
+          (a.name.toLowerCase().includes('front') ? 1 : 0)
+        )
+        const bScore = (
+          (b.name.toLowerCase().includes('beach') ? 3 : 0) +
+          (b.name.toLowerCase().includes('ocean') ? 3 : 0) +
+          (b.name.toLowerCase().includes('sea') ? 2 : 0) +
+          (b.name.toLowerCase().includes('water') ? 2 : 0) +
+          (b.name.toLowerCase().includes('front') ? 1 : 0)
+        )
+        return bScore - aScore
+      })
+    }
+    
+    if (lowerQuery.includes('quiet') || lowerQuery.includes('peaceful') || lowerQuery.includes('secluded') || lowerQuery.includes('private')) {
+      // Prioritize quiet/peaceful properties
+      filtered = filtered.sort((a, b) => {
+        const aScore = (
+          (a.name.toLowerCase().includes('quiet') ? 3 : 0) +
+          (a.name.toLowerCase().includes('peaceful') ? 3 : 0) +
+          (a.name.toLowerCase().includes('secluded') ? 2 : 0) +
+          (a.name.toLowerCase().includes('private') ? 2 : 0) +
+          (a.name.toLowerCase().includes('tranquil') ? 2 : 0)
+        )
+        const bScore = (
+          (b.name.toLowerCase().includes('quiet') ? 3 : 0) +
+          (b.name.toLowerCase().includes('peaceful') ? 3 : 0) +
+          (b.name.toLowerCase().includes('secluded') ? 2 : 0) +
+          (b.name.toLowerCase().includes('private') ? 2 : 0) +
+          (b.name.toLowerCase().includes('tranquil') ? 2 : 0)
+        )
+        return bScore - aScore
+      })
+    }
+
+    // Specific neighborhood/area filtering
+    const neighborhoodMatch = lowerQuery.match(/in\s+([a-zA-Z\s]+?)(?:\s|$|,|\.|!|\?)/i)
+    if (neighborhoodMatch) {
+      const neighborhood = neighborhoodMatch[1].trim().toLowerCase()
+      if (neighborhood.length > 2) { // Avoid matching single words like "in"
+        filtered = filtered.filter(listing => 
+          listing.location.city.toLowerCase().includes(neighborhood) ||
+          listing.name.toLowerCase().includes(neighborhood)
+        )
+      }
+    }
+
+    // Sort by rating if no other location sorting applied
+    if (!lowerQuery.includes('city center') && !lowerQuery.includes('downtown') && !lowerQuery.includes('beach') && !lowerQuery.includes('quiet')) {
+      if (lowerQuery.includes('highest rated') || lowerQuery.includes('best rated') || lowerQuery.includes('top rated')) {
+        filtered = filtered.sort((a, b) => b.rating - a.rating)
+      }
+      
+      if (lowerQuery.includes('most reviewed') || lowerQuery.includes('popular')) {
+        filtered = filtered.sort((a, b) => b.reviewsCount - a.reviewsCount)
+      }
+      
+      if (lowerQuery.includes('cheapest') || lowerQuery.includes('lowest price') || lowerQuery.includes('most affordable')) {
+        filtered = filtered.sort((a, b) => a.price.rate - b.price.rate)
+      }
+      
+      if (lowerQuery.includes('most expensive') || lowerQuery.includes('highest price') || lowerQuery.includes('priciest')) {
+        filtered = filtered.sort((a, b) => b.price.rate - a.price.rate)
+      }
+    }
+
     return filtered
+  }
+
+  // Generate contextual follow-up suggestions based on search results
+  const generateFollowUps = (listings: AirbnbListing[], originalQuery: string) => {
+    const followUps: string[] = []
+    const lowerQuery = originalQuery.toLowerCase()
+
+    if (listings.length === 0) {
+      return ["Try a different location", "Expand your search criteria", "Search for nearby areas"]
+    }
+
+    // Price-based follow-ups
+    const prices = listings.map(l => l.price.rate)
+    const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length
+    const minPrice = Math.min(...prices)
+    const maxPrice = Math.max(...prices)
+
+    if (!lowerQuery.includes('under') && !lowerQuery.includes('below') && avgPrice > 150) {
+      followUps.push(`Show options under $${Math.round(avgPrice * 0.8)}`)
+    }
+    if (!lowerQuery.includes('luxury') && maxPrice > 300) {
+      followUps.push("Show only luxury properties")
+    }
+    if (!lowerQuery.includes('budget') && minPrice < 150) {
+      followUps.push("Show only budget options")
+    }
+
+    // Rating-based follow-ups
+    const ratings = listings.map(l => l.rating)
+    const avgRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+    if (!lowerQuery.includes('superhost') && listings.some(l => l.host.isSuperhost)) {
+      followUps.push("Show only superhosts")
+    }
+    if (!lowerQuery.includes('rated') && avgRating < 4.8) {
+      followUps.push("Show only 4.8+ rated properties")
+    }
+
+    // Property type follow-ups
+    const roomTypes = [...new Set(listings.map(l => l.roomType))]
+    if (roomTypes.length > 1) {
+      if (!lowerQuery.includes('entire') && roomTypes.some(rt => rt.toLowerCase().includes('entire'))) {
+        followUps.push("Show only entire homes")
+      }
+      if (!lowerQuery.includes('private room') && roomTypes.some(rt => rt.toLowerCase().includes('private'))) {
+        followUps.push("Show only private rooms")
+      }
+    }
+
+    // Location-based follow-ups
+    if (!lowerQuery.includes('beach') && listings.some(l => l.name.toLowerCase().includes('beach'))) {
+      followUps.push("Show only beachfront properties")
+    }
+    if (!lowerQuery.includes('downtown') && !lowerQuery.includes('center') && 
+        listings.some(l => l.name.toLowerCase().includes('center') || l.name.toLowerCase().includes('downtown'))) {
+      followUps.push("Show only city center locations")
+    }
+
+    // Sorting follow-ups
+    if (!lowerQuery.includes('highest') && !lowerQuery.includes('best rated')) {
+      followUps.push("Sort by highest rated first")
+    }
+    if (!lowerQuery.includes('cheapest') && !lowerQuery.includes('lowest price')) {
+      followUps.push("Sort by lowest price first")
+    }
+
+    // Review count follow-ups
+    const reviewCounts = listings.map(l => l.reviewsCount)
+    const avgReviews = reviewCounts.reduce((sum, count) => sum + count, 0) / reviewCounts.length
+    if (!lowerQuery.includes('well reviewed') && avgReviews > 20) {
+      followUps.push("Show only well-reviewed properties")
+    }
+
+    // Return 3-4 most relevant follow-ups
+    return followUps.slice(0, 4)
   }
 
   const handleSearch = async (page = 1) => {
@@ -183,12 +398,16 @@ function App() {
           : `Here are ${filteredResults.length} filtered properties from ${searchResults.length} results for "${query}" (page ${page}):`
       }
       
+      // Generate follow-up suggestions
+      const followUpSuggestions = generateFollowUps(filteredResults, query)
+      
       // Add assistant response with results
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: responseContent,
         listings: filteredResults,
+        followUps: followUpSuggestions,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
@@ -299,10 +518,10 @@ function App() {
               <Text fontSize="sm" color="slate.500" mb={4}>Try asking for:</Text>
               <Flex gap={3} flexWrap="wrap" justify="center" maxW="lg">
                 {[
-                  "Budget beachfront under $150",
-                  "Luxury villa superhost above $300", 
-                  "Mid-range loft $100-250",
-                  "Affordable cabin well reviewed"
+                  "Beachfront villa highest rated",
+                  "Downtown apartment under $200", 
+                  "Quiet cabin in mountains",
+                  "City center loft superhost"
                 ].map((example) => (
                   <Button
                     key={example}
@@ -459,6 +678,34 @@ function App() {
                             </Flex>
                           </Box>
                         )}
+                      </Box>
+                    )}
+
+                    {/* Follow-up Suggestions */}
+                    {message.followUps && message.followUps.length > 0 && (
+                      <Box mt={6}>
+                        <Text fontSize="sm" color="slate.600" mb={3}>You might also want to:</Text>
+                        <Flex gap={2} flexWrap="wrap">
+                          {message.followUps.map((followUp, index) => (
+                            <Button
+                              key={index}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSearchQuery(followUp)}
+                              borderColor="emerald.200"
+                              color="emerald.700"
+                              _hover={{ 
+                                bg: "emerald.50",
+                                borderColor: "emerald.300"
+                              }}
+                              borderRadius="full"
+                              px={3}
+                              fontSize="xs"
+                            >
+                              {followUp}
+                            </Button>
+                          ))}
+                        </Flex>
                       </Box>
                     )}
                   </Box>
