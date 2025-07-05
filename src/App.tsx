@@ -18,7 +18,8 @@ import {
   Star, 
   Crown,
   ExternalLink,
-  Send
+  Send,
+  Home
 } from 'lucide-react'
 import { searchAirbnbListings, type AirbnbListing } from './services/airbnbService'
 
@@ -134,57 +135,109 @@ function App() {
 
   return (
     <Box h="100vh" bg="white" display="flex" flexDirection="column">
-      {/* Chat Header */}
-      <Box bg="white" px={4} py={3} borderBottom="1px" borderColor="gray.200">
-        <Flex justify="center">
-          <Text fontSize="lg" fontWeight="600" color="gray.900">ChatAirbnb</Text>
-        </Flex>
-      </Box>
-
       {/* Chat Messages */}
       <Box 
         flex="1" 
         overflow="auto" 
         ref={chatContainerRef}
+        display="flex"
+        flexDirection="column"
       >
-        <Box maxW="3xl" mx="auto" px={4} py={6}>
-          {messages.length === 0 && (
-            <Box textAlign="center" py={20}>
-              <Text fontSize="xl" color="gray.600" mb={8} maxW="md" mx="auto" lineHeight="1.6">
-                Find your perfect Airbnb by describing what you're looking for in plain English.
+        {messages.length === 0 ? (
+          <Flex flex="1" align="center" justify="center" direction="column" px={4}>
+            <Box textAlign="center" mb={12}>
+              <HStack justify="center" mb={4}>
+                <Icon as={Home} w={8} h={8} color="slate.600" />
+                <Text fontSize="3xl" color="slate.800" fontWeight="500">
+                  Find your perfect Airbnb
+                </Text>
+              </HStack>
+              <Text fontSize="lg" color="slate.500" mb={12} maxW="md" mx="auto" lineHeight="1.6">
+                Describe what you're looking for in plain English
               </Text>
-              
-              {/* Example searches */}
-              <VStack gap={3} align="stretch" maxW="sm" mx="auto">
+            </Box>
+
+            {/* Chat Input - Centered */}
+            <Box w="full" maxW="2xl" mb={8}>
+              <HStack gap={3}>
+                <Textarea
+                  placeholder="Beach house in Malibu, dog-friendly cabin, modern loft downtown..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSearch()
+                    }
+                  }}
+                  resize="none"
+                  minH="52px"
+                  maxH="120px"
+                  bg="white"
+                  border="1px"
+                  borderColor="slate.300"
+                  _focus={{
+                    borderColor: "emerald.500",
+                    boxShadow: "0 0 0 3px rgba(16, 185, 129, 0.1)"
+                  }}
+                  _hover={{ borderColor: "slate.400" }}
+                  borderRadius="xl"
+                  py={4}
+                  px={4}
+                  fontSize="md"
+                />
+                <Button
+                  onClick={() => handleSearch()}
+                  disabled={!searchQuery.trim() || loading}
+                  size="md"
+                  bg="emerald.600"
+                  color="white"
+                  _hover={{ bg: "emerald.700" }}
+                  _disabled={{ 
+                    bg: "slate.300",
+                    color: "slate.500"
+                  }}
+                  borderRadius="xl"
+                  px={6}
+                  h="52px"
+                >
+                  <Icon as={Send} w={4} h={4} />
+                </Button>
+              </HStack>
+            </Box>
+
+            {/* Example searches */}
+            <Box textAlign="center">
+              <Text fontSize="sm" color="slate.500" mb={4}>Try asking for:</Text>
+              <Flex gap={3} flexWrap="wrap" justify="center" maxW="lg">
                 {[
-                  "Beachfront villa with pool for family reunion",
-                  "Dog-friendly cabin near hiking trails", 
-                  "Modern loft in downtown for business trip",
-                  "Romantic cottage with hot tub under $200/night"
+                  "Beachfront villa with pool",
+                  "Dog-friendly cabin", 
+                  "Modern downtown loft",
+                  "Romantic cottage under $200"
                 ].map((example) => (
                   <Button
                     key={example}
-                    variant="ghost"
+                    variant="outline"
+                    size="sm"
                     onClick={() => setSearchQuery(example)}
-                    py={6}
-                    h="auto"
-                    whiteSpace="normal"
-                    textAlign="left"
-                    justifyContent="flex-start"
-                    fontWeight="400"
-                    color="gray.700"
+                    borderColor="slate.300"
+                    color="slate.700"
                     _hover={{ 
-                      bg: "gray.50",
-                      color: "gray.900"
+                      bg: "slate.50",
+                      borderColor: "slate.400"
                     }}
-                    borderRadius="lg"
+                    borderRadius="full"
+                    px={4}
                   >
                     {example}
                   </Button>
                 ))}
-              </VStack>
+              </Flex>
             </Box>
-          )}
+          </Flex>
+        ) : (
+          <Box maxW="3xl" mx="auto" px={4} py={6} w="full">
 
           {/* Chat Messages */}
           {messages.map((message) => (
@@ -192,18 +245,18 @@ function App() {
               {message.type === 'user' ? (
                 <Flex justify="flex-end">
                   <Box
-                    bg="gray.100"
+                    bg="emerald.500"
                     px={4}
                     py={3}
                     borderRadius="xl"
                     maxW="80%"
                   >
-                    <Text fontSize="md" color="gray.900">{message.content}</Text>
+                    <Text fontSize="md" color="white">{message.content}</Text>
                   </Box>
                 </Flex>
               ) : (
                 <Box>
-                    <Text fontSize="md" color="gray.900" mb={4} lineHeight="1.6">
+                    <Text fontSize="md" color="slate.800" mb={4} lineHeight="1.6">
                       {message.content}
                     </Text>
                         
@@ -212,11 +265,11 @@ function App() {
                       <Box w="full">
                         {/* Quality Filters */}
                         {currentListings.length > 0 && (
-                          <Box p={4} bg="gray.50" borderRadius="md" mb={6}>
-                            <Text fontSize="sm" fontWeight="500" color="gray.700" mb={3}>
+                          <Box p={4} bg="slate.50" borderRadius="md" mb={6}>
+                            <Text fontSize="sm" fontWeight="500" color="slate.700" mb={3}>
                               Refine Results
                               {(minRating > 0 || minReviews > 0) && (
-                                <Text as="span" ml={2} color="gray.500">
+                                <Text as="span" ml={2} color="slate.500">
                                   • {filteredListings.length} matches
                                 </Text>
                               )}
@@ -224,7 +277,7 @@ function App() {
                             
                             <Flex gap={3} flexWrap="wrap" w="full" align="end">
                               <Box>
-                                <Text fontSize="xs" color="gray.600" mb={1}>Min Rating</Text>
+                                <Text fontSize="xs" color="slate.600" mb={1}>Min Rating</Text>
                                 <Input
                                   type="number"
                                   value={minRating}
@@ -236,12 +289,12 @@ function App() {
                                   w="20"
                                   bg="white"
                                   border="1px"
-                                  borderColor="gray.300"
+                                  borderColor="slate.300"
                                 />
                               </Box>
                               
                               <Box>
-                                <Text fontSize="xs" color="gray.600" mb={1}>Min Reviews</Text>
+                                <Text fontSize="xs" color="slate.600" mb={1}>Min Reviews</Text>
                                 <Input
                                   type="number"
                                   value={minReviews}
@@ -251,7 +304,7 @@ function App() {
                                   w="20"
                                   bg="white"
                                   border="1px"
-                                  borderColor="gray.300"
+                                  borderColor="slate.300"
                                 />
                               </Box>
                               
@@ -262,7 +315,7 @@ function App() {
                                   setMinRating(4.9)
                                   setMinReviews(20)
                                 }}
-                                borderColor="gray.300"
+                                borderColor="slate.300"
                               >
                                 High Quality
                               </Button>
@@ -274,7 +327,7 @@ function App() {
                                   setMinRating(0)
                                   setMinReviews(0)
                                 }}
-                                borderColor="gray.300"
+                                borderColor="slate.300"
                               >
                                 Clear
                               </Button>
@@ -288,24 +341,24 @@ function App() {
                             <Box 
                               key={listing.id} 
                               border="1px" 
-                              borderColor="gray.200"
+                              borderColor="slate.200"
                               borderRadius="md"
                               overflow="hidden"
                               _hover={{ 
-                                borderColor: 'gray.300'
+                                borderColor: 'slate.300'
                               }}
                               transition="border-color 0.2s"
                             >
                               <Box p={4}>
                                 <VStack align="start" gap={3}>
-                                  <Text fontWeight="600" color="gray.900" lineHeight="1.4" lineClamp={2}>
+                                  <Text fontWeight="600" color="slate.900" lineHeight="1.4" lineClamp={2}>
                                     {listing.name}
                                   </Text>
                                   
                                   <HStack justify="space-between" w="full">
                                     <HStack gap={1}>
-                                      <Icon as={MapPin} color="gray.400" w={4} h={4} />
-                                      <Text fontSize="sm" color="gray.600">
+                                      <Icon as={MapPin} color="slate.400" w={4} h={4} />
+                                      <Text fontSize="sm" color="slate.600">
                                         {listing.location.country ? 
                                           `${listing.location.city}, ${listing.location.country}` : 
                                           listing.location.city
@@ -313,8 +366,8 @@ function App() {
                                       </Text>
                                     </HStack>
                                     <HStack gap={1}>
-                                      <Icon as={Star} color="gray.400" w={4} h={4} />
-                                      <Text fontSize="sm" color="gray.600">
+                                      <Icon as={Star} color="amber.400" w={4} h={4} />
+                                      <Text fontSize="sm" color="slate.600">
                                         {listing.rating} ({listing.reviewsCount})
                                       </Text>
                                     </HStack>
@@ -322,10 +375,10 @@ function App() {
 
                                   <HStack justify="space-between" w="full" align="center">
                                     <VStack align="start" gap={1}>
-                                      <Text fontSize="sm" color="gray.500">
+                                      <Text fontSize="sm" color="slate.500">
                                         {listing.roomType}
                                       </Text>
-                                      <Text fontWeight="600" color="gray.900">
+                                      <Text fontWeight="600" color="slate.900">
                                         ${listing.price.rate}/night
                                       </Text>
                                     </VStack>
@@ -333,16 +386,16 @@ function App() {
                                     <VStack align="end" gap={1}>
                                       {listing.host.isSuperhost && (
                                         <HStack gap={1}>
-                                          <Icon as={Crown} w={3} h={3} color="gray.400" />
-                                          <Text fontSize="xs" color="gray.500">Superhost</Text>
+                                          <Icon as={Crown} w={3} h={3} color="amber.400" />
+                                          <Text fontSize="xs" color="slate.500">Superhost</Text>
                                         </HStack>
                                       )}
                                       <Link href={listing.url} target="_blank" rel="noopener noreferrer">
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          borderColor="gray.300"
-                                          _hover={{ bg: "gray.50" }}
+                                          borderColor="slate.300"
+                                          _hover={{ bg: "slate.50" }}
                                         >
                                           View
                                           <Icon as={ExternalLink} ml={1} w={3} h={3} />
@@ -360,7 +413,7 @@ function App() {
                         {currentListings.length > 0 && (
                           <Box mt={6} pt={4} borderTop="1px" borderColor="gray.200">
                             <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
-                              <Text fontSize="sm" color="gray.500">
+                              <Text fontSize="sm" color="slate.500">
                                 Page {currentPage} • {filteredListings.length} properties
                                 {(minRating > 0 || minReviews > 0) && currentListings.length !== filteredListings.length && 
                                   ` (${currentListings.length} total)`
@@ -372,7 +425,7 @@ function App() {
                                   variant="outline"
                                   onClick={handlePrevPage}
                                   disabled={currentPage === 1 || loading}
-                                  borderColor="gray.300"
+                                  borderColor="slate.300"
                                   _hover={{ bg: "gray.50" }}
                                 >
                                   ← Previous
@@ -382,7 +435,7 @@ function App() {
                                   variant="outline"
                                   onClick={handleNextPage}
                                   disabled={!hasMore || loading}
-                                  borderColor="gray.300"
+                                  borderColor="slate.300"
                                   _hover={{ bg: "gray.50" }}
                                 >
                                   Next →
@@ -402,66 +455,69 @@ function App() {
           {loading && (
             <Box mb={8}>
               <HStack>
-                <Spinner size="sm" color="gray.400" />
-                <Text fontSize="md" color="gray.600">Searching for properties...</Text>
+                <Spinner size="sm" color="emerald.500" />
+                <Text fontSize="md" color="slate.600">Searching for properties...</Text>
               </HStack>
             </Box>
           )}
 
-          <div ref={messagesEndRef} />
-        </Box>
+            <div ref={messagesEndRef} />
+          </Box>
+        )}
       </Box>
 
-      {/* Chat Input */}
-      <Box bg="white" px={4} py={4} borderTop="1px" borderColor="gray.200">
-        <Box maxW="3xl" mx="auto">
-          <HStack gap={3}>
-            <Textarea
-              placeholder="Describe the perfect place for your stay..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSearch()
-                }
-              }}
-              resize="none"
-              minH="44px"
-              maxH="120px"
-              bg="white"
-              border="1px"
-              borderColor="gray.300"
-              _focus={{
-                borderColor: "gray.400",
-                boxShadow: "none"
-              }}
-              _hover={{ borderColor: "gray.400" }}
-              borderRadius="md"
-              py={3}
-              px={3}
-              fontSize="md"
-            />
-            <Button
-              onClick={() => handleSearch()}
-              disabled={!searchQuery.trim() || loading}
-              size="md"
-              bg="gray.900"
-              color="white"
-              _hover={{ bg: "gray.800" }}
-              _disabled={{ 
-                bg: "gray.300",
-                color: "gray.500"
-              }}
-              borderRadius="md"
-              px={4}
-              minW="auto"
-            >
-              <Icon as={Send} w={4} h={4} />
-            </Button>
-          </HStack>
+      {/* Chat Input - Only show when there are messages */}
+      {messages.length > 0 && (
+        <Box bg="white" px={4} py={4} borderTop="1px" borderColor="slate.200">
+          <Box maxW="3xl" mx="auto">
+            <HStack gap={3}>
+              <Textarea
+                placeholder="Ask for more properties or refine your search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSearch()
+                  }
+                }}
+                resize="none"
+                minH="44px"
+                maxH="120px"
+                bg="white"
+                border="1px"
+                borderColor="slate.300"
+                _focus={{
+                  borderColor: "emerald.500",
+                  boxShadow: "0 0 0 3px rgba(16, 185, 129, 0.1)"
+                }}
+                _hover={{ borderColor: "slate.400" }}
+                borderRadius="xl"
+                py={3}
+                px={4}
+                fontSize="md"
+              />
+              <Button
+                onClick={() => handleSearch()}
+                disabled={!searchQuery.trim() || loading}
+                size="md"
+                bg="emerald.600"
+                color="white"
+                _hover={{ bg: "emerald.700" }}
+                _disabled={{ 
+                  bg: "slate.300",
+                  color: "slate.500"
+                }}
+                borderRadius="xl"
+                px={4}
+                h="44px"
+              >
+                <Icon as={Send} w={4} h={4} />
+              </Button>
+            </HStack>
+          </Box>
         </Box>
-      </Box>
+      )}
     </Box>
   )
 }
