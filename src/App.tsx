@@ -94,29 +94,30 @@ function App() {
     <Box minH="100vh" bg="gray.50" overflow="hidden">
       <Container maxW="7xl" px={{ base: 4, md: 6 }} py={8}>
         <Stack gap={6} align="stretch">
-          {/* Compact Hero Section */}
-          <Box textAlign="center" py={{ base: 2, md: 3 }}>
+          {/* Hero Section */}
+          <Box textAlign="center" py={{ base: 4, md: 6 }}>
             <Heading 
               as="h1" 
-              size={{ base: "xl", md: "2xl" }}
-              mb={2} 
-              fontWeight="800"
-              letterSpacing="-0.02em"
-              lineHeight="1.2"
+              size={{ base: "2xl", md: "3xl" }}
+              mb={3} 
+              fontWeight="900"
+              letterSpacing="-0.03em"
+              lineHeight="1.1"
+              color="gray.900"
             >
-              <Text as="span" color="blue.600">Airbnb</Text>{" "}
-              <Text as="span" color="gray.800">in</Text>{" "}
-              <Text as="span" color="purple.500">Plain English</Text>
+              Find Your Perfect Airbnb
             </Heading>
             
             <Text 
-              fontSize={{ base: "sm", md: "md" }} 
+              fontSize={{ base: "lg", md: "xl" }} 
               color="gray.600" 
-              maxW="2xl" 
+              maxW="3xl" 
               mx="auto" 
-              mb={4}
+              mb={8}
+              fontWeight="400"
+              lineHeight="1.5"
             >
-              Just describe what you're looking for
+              Skip the filters. Just tell us what you want in plain English.
             </Text>
           </Box>
 
@@ -125,7 +126,7 @@ function App() {
           <Stack gap={6}>
             <Box 
               bg="white" 
-              p={{ base: 4, md: 6 }} 
+              p={{ base: 6, md: 8 }} 
               borderRadius="2xl" 
               shadow="xl" 
               border="1px" 
@@ -145,13 +146,10 @@ function App() {
                 opacity: 0.1
               }}
             >
-              <Stack gap={4} w="full">
-                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="600" color="gray.800" textAlign="center">
-                  What kind of place are you looking for?
-                </Text>
+              <Stack gap={6} w="full">
                 
                 <Input
-                  placeholder="Describe your ideal stay... 'Oceanfront villa in Santorini for a romantic getaway'"
+                  placeholder="Beach house in Malibu, pet-friendly cabin in Colorado, studio in Tokyo under $100..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   size="lg"
@@ -166,7 +164,7 @@ function App() {
                   }}
                   _hover={{ borderColor: "gray.300" }}
                   fontSize={{ base: "md", md: "lg" }}
-                  h={{ base: "50px", md: "56px" }}
+                  h={{ base: "60px", md: "70px" }}
                   borderRadius="xl"
                   w="full"
                 />
@@ -177,7 +175,7 @@ function App() {
                   onClick={() => handleSearch()}
                   loading={loading}
                   w="full"
-                  h={{ base: "50px", md: "56px" }}
+                  h={{ base: "60px", md: "70px" }}
                   fontSize={{ base: "md", md: "lg" }}
                   fontWeight="600"
                   _hover={{ transform: "translateY(-2px)", shadow: "xl" }}
@@ -187,7 +185,7 @@ function App() {
                   _active={{ transform: "translateY(0)" }}
                 >
                   <Icon as={Search} mr={3} boxSize={5} />
-                  Search Airbnb Properties
+                  Search Properties
                 </Button>
               </Stack>
             </Box>
@@ -371,22 +369,13 @@ function App() {
                   </Button>
                 </ButtonGroup>
               </Flex>
-              <Box p={4} bg="blue.50" borderRadius="lg" border="1px" borderColor="blue.200">
-                <HStack>
-                  <Icon as={ExternalLink} color="blue.600" />
-                  <Text fontSize="sm" color="blue.800" fontWeight="500">
-                    Live data from Airbnb
+              {(minRating > 0 || minReviews > 0) && filteredListings.length < allListings.length && (
+                <Box p={3} bg="purple.50" borderRadius="lg" border="1px" borderColor="purple.200">
+                  <Text fontSize="sm" color="purple.800" fontWeight="500">
+                    Filtered by {minRating > 0 ? `${minRating}+ stars` : ''}{minRating > 0 && minReviews > 0 ? ', ' : ''}{minReviews > 0 ? `${minReviews}+ reviews` : ''}
                   </Text>
-                </HStack>
-                <Text fontSize="xs" color="blue.700" mt={1}>
-                  Real properties with current prices and availability
-                  {(minRating > 0 || minReviews > 0) && filteredListings.length < allListings.length && (
-                    <Text as="span" ml={2}>
-                      • Filtered by {minRating > 0 ? `${minRating}+ stars` : ''}{minRating > 0 && minReviews > 0 ? ', ' : ''}{minReviews > 0 ? `${minReviews}+ reviews` : ''}
-                    </Text>
-                  )}
-                </Text>
-              </Box>
+                </Box>
+              )}
             </Box>
 
             {(minRating > 0 || minReviews > 0) && filteredListings.length === 0 ? (
