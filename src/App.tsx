@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Box,
   Text,
@@ -44,13 +44,6 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  // Get current listings from the latest assistant message
-  const currentListings = useMemo(() => {
-    const latestAssistantMessage = messages
-      .filter(m => m.type === 'assistant' && m.listings)
-      .slice(-1)[0]
-    return latestAssistantMessage?.listings || []
-  }, [messages])
 
 
   // Auto-scroll to bottom of chat
@@ -441,7 +434,7 @@ function App() {
 
 
   return (
-    <Box h="100vh" bg="slate.50" display="flex" flexDirection="column">
+    <Box h="100vh" bg="gray.50" display="flex" flexDirection="column">
       {/* Chat Messages */}
       <Box 
         flex="1" 
@@ -454,12 +447,12 @@ function App() {
           <Flex flex="1" align="center" justify="center" direction="column" px={4}>
             <Box textAlign="center" mb={12}>
               <HStack justify="center" mb={4}>
-                <Icon as={Home} w={8} h={8} color="slate.600" />
-                <Text fontSize="3xl" color="slate.800" fontWeight="500">
+                <Icon as={Home} w={8} h={8} color="gray.600" />
+                <Text fontSize="3xl" color="gray.800" fontWeight="500">
                   Find your perfect Airbnb
                 </Text>
               </HStack>
-              <Text fontSize="lg" color="slate.500" mb={12} maxW="md" mx="auto" lineHeight="1.6">
+              <Text fontSize="lg" color="gray.500" mb={12} maxW="md" mx="auto" lineHeight="1.6">
                 Describe what you're looking for in plain English
               </Text>
             </Box>
@@ -480,14 +473,14 @@ function App() {
                   resize="none"
                   minH="52px"
                   maxH="120px"
-                  bg="slate.25"
+                  bg="gray.100"
                   border="1px"
-                  borderColor="slate.300"
+                  borderColor="gray.300"
                   _focus={{
-                    borderColor: "emerald.500",
-                    boxShadow: "0 0 0 3px rgba(16, 185, 129, 0.1)"
+                    borderColor: "green.500",
+                    boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
                   }}
-                  _hover={{ borderColor: "slate.400" }}
+                  _hover={{ borderColor: "gray.400" }}
                   borderRadius="xl"
                   py={4}
                   px={4}
@@ -497,12 +490,12 @@ function App() {
                   onClick={() => handleSearch()}
                   disabled={!searchQuery.trim() || loading}
                   size="md"
-                  bg="emerald.600"
+                  bg="green.600"
                   color="white"
-                  _hover={{ bg: "emerald.700" }}
+                  _hover={{ bg: "green.700" }}
                   _disabled={{ 
-                    bg: "slate.300",
-                    color: "slate.500"
+                    bg: "gray.300",
+                    color: "gray.500"
                   }}
                   borderRadius="xl"
                   px={6}
@@ -515,7 +508,7 @@ function App() {
 
             {/* Example searches */}
             <Box textAlign="center">
-              <Text fontSize="sm" color="slate.500" mb={4}>Ask complex questions in plain English:</Text>
+              <Text fontSize="sm" color="gray.500" mb={4}>Ask complex questions in plain English:</Text>
               <Flex gap={3} flexWrap="wrap" justify="center" maxW="4xl">
                 {[
                   "Luxury beachfront villa in Malibu for 6 people with pool, superhost only",
@@ -530,11 +523,11 @@ function App() {
                     variant="outline"
                     size="sm"
                     onClick={() => setSearchQuery(example)}
-                    borderColor="slate.300"
-                    color="slate.700"
+                    borderColor="gray.300"
+                    color="gray.700"
                     _hover={{ 
-                      bg: "slate.50",
-                      borderColor: "slate.400"
+                      bg: "gray.50",
+                      borderColor: "gray.400"
                     }}
                     borderRadius="md"
                     px={4}
@@ -551,7 +544,7 @@ function App() {
             </Box>
           </Flex>
         ) : (
-          <Box maxW="3xl" mx="auto" px={4} py={6} w="full" bg="white" borderRadius="lg" my={4} border="1px" borderColor="slate.200">
+          <Box maxW="3xl" mx="auto" px={4} py={6} w="full" bg="white" borderRadius="lg" my={4} border="1px" borderColor="gray.200">
 
           {/* Chat Messages */}
           {messages.map((message) => (
@@ -559,7 +552,7 @@ function App() {
               {message.type === 'user' ? (
                 <Flex justify="flex-end">
                   <Box
-                    bg="emerald.500"
+                    bg="green.500"
                     px={4}
                     py={3}
                     borderRadius="xl"
@@ -570,7 +563,7 @@ function App() {
                 </Flex>
               ) : (
                 <Box>
-                    <Text fontSize="md" color="slate.800" mb={4} lineHeight="1.6">
+                    <Text fontSize="md" color="gray.800" mb={4} lineHeight="1.6">
                       {message.content}
                     </Text>
                         
@@ -584,25 +577,25 @@ function App() {
                             <Box 
                               key={listing.id} 
                               border="1px" 
-                              borderColor="slate.200"
+                              borderColor="gray.200"
                               borderRadius="md"
                               overflow="hidden"
                               bg="white"
                               _hover={{ 
-                                borderColor: 'slate.300'
+                                borderColor: 'gray.300'
                               }}
                               transition="border-color 0.2s"
                             >
                               <Box p={4}>
                                 <VStack align="start" gap={3}>
-                                  <Text fontWeight="600" color="slate.900" lineHeight="1.4" lineClamp={2}>
+                                  <Text fontWeight="600" color="gray.900" lineHeight="1.4" lineClamp={2}>
                                     {listing.name}
                                   </Text>
                                   
                                   <HStack justify="space-between" w="full">
                                     <HStack gap={1}>
-                                      <Icon as={MapPin} color="slate.400" w={4} h={4} />
-                                      <Text fontSize="sm" color="slate.600">
+                                      <Icon as={MapPin} color="gray.400" w={4} h={4} />
+                                      <Text fontSize="sm" color="gray.600">
                                         {listing.location.country ? 
                                           `${listing.location.city}, ${listing.location.country}` : 
                                           listing.location.city
@@ -610,8 +603,8 @@ function App() {
                                       </Text>
                                     </HStack>
                                     <HStack gap={1}>
-                                      <Icon as={Star} color="amber.400" w={4} h={4} />
-                                      <Text fontSize="sm" color="slate.600">
+                                      <Icon as={Star} color="yellow.400" w={4} h={4} />
+                                      <Text fontSize="sm" color="gray.600">
                                         {listing.rating} ({listing.reviewsCount})
                                       </Text>
                                     </HStack>
@@ -619,10 +612,10 @@ function App() {
 
                                   <HStack justify="space-between" w="full" align="center">
                                     <VStack align="start" gap={1}>
-                                      <Text fontSize="sm" color="slate.500">
+                                      <Text fontSize="sm" color="gray.500">
                                         {listing.roomType}
                                       </Text>
-                                      <Text fontWeight="600" color="slate.900">
+                                      <Text fontWeight="600" color="gray.900">
                                         ${listing.price.rate}/night
                                       </Text>
                                     </VStack>
@@ -630,16 +623,16 @@ function App() {
                                     <VStack align="end" gap={1}>
                                       {listing.host.isSuperhost && (
                                         <HStack gap={1}>
-                                          <Icon as={Crown} w={3} h={3} color="amber.400" />
-                                          <Text fontSize="xs" color="slate.500">Superhost</Text>
+                                          <Icon as={Crown} w={3} h={3} color="yellow.400" />
+                                          <Text fontSize="xs" color="gray.500">Superhost</Text>
                                         </HStack>
                                       )}
                                       <Link href={listing.url} target="_blank" rel="noopener noreferrer">
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          borderColor="slate.300"
-                                          _hover={{ bg: "slate.50" }}
+                                          borderColor="gray.300"
+                                          _hover={{ bg: "gray.50" }}
                                         >
                                           View
                                           <Icon as={ExternalLink} ml={1} w={3} h={3} />
@@ -655,9 +648,9 @@ function App() {
 
                         {/* Pagination Controls */}
                         {message.listings.length > 0 && (
-                          <Box mt={6} pt={4} borderTop="1px" borderColor="slate.200">
+                          <Box mt={6} pt={4} borderTop="1px" borderColor="gray.200">
                             <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
-                              <Text fontSize="sm" color="slate.500">
+                              <Text fontSize="sm" color="gray.500">
                                 Page {currentPage} • {message.listings.length} properties
                               </Text>
                               <HStack>
@@ -666,7 +659,7 @@ function App() {
                                   variant="outline"
                                   onClick={handlePrevPage}
                                   disabled={currentPage === 1 || loading}
-                                  borderColor="slate.300"
+                                  borderColor="gray.300"
                                   _hover={{ bg: "gray.50" }}
                                 >
                                   ← Previous
@@ -676,7 +669,7 @@ function App() {
                                   variant="outline"
                                   onClick={handleNextPage}
                                   disabled={!hasMore || loading}
-                                  borderColor="slate.300"
+                                  borderColor="gray.300"
                                   _hover={{ bg: "gray.50" }}
                                 >
                                   Next →
@@ -693,7 +686,7 @@ function App() {
                 {/* Follow-up Suggestions - Outside the main content */}
                 {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && (
                   <Box mt={4}>
-                    <Text fontSize="sm" color="slate.600" mb={3}>You might also want to:</Text>
+                    <Text fontSize="sm" color="gray.600" mb={3}>You might also want to:</Text>
                     <Flex gap={2} flexWrap="wrap">
                       {message.followUps.map((followUp, index) => (
                         <Button
@@ -701,11 +694,11 @@ function App() {
                           variant="outline"
                           size="sm"
                           onClick={() => setSearchQuery(followUp)}
-                          borderColor="emerald.200"
-                          color="emerald.700"
+                          borderColor="green.200"
+                          color="green.700"
                           _hover={{ 
-                            bg: "emerald.50",
-                            borderColor: "emerald.300"
+                            bg: "green.50",
+                            borderColor: "green.300"
                           }}
                           borderRadius="full"
                           px={3}
@@ -724,8 +717,8 @@ function App() {
           {loading && (
             <Box mb={8}>
               <HStack>
-                <Spinner size="sm" color="emerald.500" />
-                <Text fontSize="md" color="slate.600">Searching for properties...</Text>
+                <Spinner size="sm" color="green.500" />
+                <Text fontSize="md" color="gray.600">Searching for properties...</Text>
               </HStack>
             </Box>
           )}
@@ -737,7 +730,7 @@ function App() {
 
       {/* Chat Input - Only show when there are messages */}
       {messages.length > 0 && (
-        <Box bg="white" px={4} py={4} borderTop="1px" borderColor="slate.200">
+        <Box bg="white" px={4} py={4} borderTop="1px" borderColor="gray.200">
           <Box maxW="3xl" mx="auto">
             <HStack gap={3}>
               <Textarea
@@ -755,12 +748,12 @@ function App() {
                 maxH="120px"
                 bg="white"
                 border="1px"
-                borderColor="slate.300"
+                borderColor="gray.300"
                 _focus={{
-                  borderColor: "emerald.500",
-                  boxShadow: "0 0 0 3px rgba(16, 185, 129, 0.1)"
+                  borderColor: "green.500",
+                  boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
                 }}
-                _hover={{ borderColor: "slate.400" }}
+                _hover={{ borderColor: "gray.400" }}
                 borderRadius="xl"
                 py={3}
                 px={4}
@@ -770,12 +763,12 @@ function App() {
                 onClick={() => handleSearch()}
                 disabled={!searchQuery.trim() || loading}
                 size="md"
-                bg="emerald.600"
+                bg="green.600"
                 color="white"
-                _hover={{ bg: "emerald.700" }}
+                _hover={{ bg: "green.700" }}
                 _disabled={{ 
-                  bg: "slate.300",
-                  color: "slate.500"
+                  bg: "gray.300",
+                  color: "gray.500"
                 }}
                 borderRadius="xl"
                 px={4}
