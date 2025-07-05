@@ -120,7 +120,7 @@ export default async function handler(
       suggestion: 'Check MCP server configuration and network connectivity',
       debugging: {
         mcpServerUrl: process.env.MCP_SERVER_URL,
-        searchParams,
+        searchParams: searchParams,
         timestamp: new Date().toISOString(),
         errorType: error instanceof Error ? error.constructor.name : typeof error
       }

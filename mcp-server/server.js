@@ -66,7 +66,31 @@ async function callMCPAirbnbSearch(params) {
     console.log('Calling OpenBNB MCP server with params:', params);
     
     // Call the real MCP function with proper error handling
-    const result = await callOpenBNBMCP('mcp__openbnb-airbnb__airbnb_search', params);
+    // Try different function names that might be available
+    const functionNames = [
+      'mcp__openbnb-airbnb__airbnb_search',
+      'airbnb_search',
+      'search'
+    ];
+    
+    let result = null;
+    let lastError = null;
+    
+    for (const funcName of functionNames) {
+      try {
+        console.log(`Trying MCP function: ${funcName}`);
+        result = await callOpenBNBMCP(funcName, params);
+        console.log(`Success with function: ${funcName}`);
+        break;
+      } catch (error) {
+        console.log(`Failed with function ${funcName}:`, error.message);
+        lastError = error;
+      }
+    }
+    
+    if (!result) {
+      throw lastError || new Error('All MCP function attempts failed');
+    }
     
     console.log('MCP call completed successfully');
     return result;
@@ -110,12 +134,18 @@ async function callOpenBNBMCP(functionName, params) {
         arguments: params
       });
       
-      console.log('MCP tool call successful:', result);
+      console.log('MCP tool call successful:', JSON.stringify(result, null, 2));
       await client.close();
       
       // Handle different response formats
       if (result.content && result.content[0] && result.content[0].text) {
-        return JSON.parse(result.content[0].text);
+        try {
+          return JSON.parse(result.content[0].text);
+        } catch (parseError) {
+          console.error('Failed to parse MCP response as JSON:', result.content[0].text);
+          console.error('Parse error:', parseError);
+          throw new Error(`Invalid JSON response from MCP: ${result.content[0].text.substring(0, 100)}`);
+        }
       } else {
         return result;
       }
