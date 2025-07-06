@@ -91,7 +91,7 @@ async function filterListingsWithGPT(
   apiKey: string
 ): Promise<string[]> {
   try {
-    const prompt = `You are an expert travel accommodation matcher. Given a user's search query and a list of properties, identify which properties best match the user's intent using semantic understanding.
+    const prompt = `You are an expert travel accommodation matcher. Given a user's search query and a list of properties, identify which properties genuinely match the user's intent. Be selective - only include properties that are truly relevant.
 
 User Query: "${query}"
 
@@ -106,22 +106,37 @@ ${listings.map((listing, i) =>
    Amenities: ${listing.amenities.join(', ') || 'None listed'}`
 ).join('\n\n')}
 
-Instructions:
-1. Use semantic understanding to match properties. For example:
-   - "villa" can match "luxury home", "estate", "beachfront house", "retreat"
-   - "beachfront" can match "oceanfront", "beach house", "coastal"
-   - "luxury" can match high-end properties, superhosts, expensive places
-   - "superhost only" should prioritize superhost properties
+Filtering Rules:
+1. Property Type Matching:
+   - "villa" matches: luxury homes, estates, beachfront houses, villas, large houses
+   - "apartment" matches: apartments, condos, flats, studios
+   - "house" matches: houses, homes, cottages, cabins
+   - "cabin" matches: cabins, chalets, lodges, mountain retreats
+   - "luxury" requires: high prices ($200+), excellent ratings (4.8+), or superhost status
 
-2. Consider ALL relevant factors: property name, type, amenities, price range, rating, superhost status
+2. Strict Requirements:
+   - "superhost only" = ONLY include superhosts (filter out non-superhosts)
+   - "beachfront/oceanfront" = property name/amenities must mention water/beach/ocean
+   - Price qualifiers ("under $X", "budget", "luxury") must be strictly enforced
+   - Rating requirements ("4.8+", "highly rated") must be met
 
-3. Return the IDs of properties that match the query intent, ranked by relevance (best matches first)
+3. Quality Filtering:
+   - For "luxury" queries: exclude properties under $150/night unless exceptional ratings
+   - For "budget" queries: exclude properties over $200/night
+   - For specific property types: exclude obviously different types (no hostels for "villa")
 
-4. Be generous - include properties that semantically match even if not exact word matches
+4. Multi-criteria Queries:
+   - ALL specified criteria should be met, not just some
+   - If a property fails major criteria, exclude it entirely
 
-5. If the query has multiple criteria, prioritize properties that match more criteria, but don't exclude properties that match some criteria
+5. Be Selective:
+   - It's better to return fewer highly relevant results than many marginal matches
+   - If less than 30% of properties are relevant, filter aggressively
+   - Exclude obvious mismatches (budget hostels for luxury villa queries)
 
-Return ONLY a JSON array of property IDs in order of relevance: ["id1", "id2", "id3", ...]`
+Return ONLY a JSON array of property IDs that genuinely match, ranked by relevance: ["id1", "id2", "id3", ...]
+
+If no properties meet the criteria well, return an empty array: []`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -134,7 +149,7 @@ Return ONLY a JSON array of property IDs in order of relevance: ["id1", "id2", "
         messages: [
           {
             role: 'system',
-            content: 'You are an expert travel accommodation matcher. You understand semantic meaning and can match properties based on intent, not just exact keywords. Always return valid JSON arrays.'
+            content: 'You are a selective travel accommodation matcher. Your job is to filter properties to return only the most relevant matches. Be strict and exclude properties that don\'t genuinely match the user\'s intent. Quality over quantity. Always return valid JSON arrays.'
           },
           {
             role: 'user',
