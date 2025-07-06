@@ -1,4 +1,6 @@
 // Intelligent refinement analysis utilities
+import { SEARCH_CONFIG, FILTER_CONFIG } from '../config/constants'
+
 interface AirbnbListing {
   id: string
   name: string
@@ -112,8 +114,8 @@ export class RefinementAnalyzer {
     const median = this.calculateMedian(prices)
     const average = prices.reduce((sum, p) => sum + p, 0) / prices.length
 
-    const q1Index = Math.floor(prices.length * 0.25)
-    const q3Index = Math.floor(prices.length * 0.75)
+    const q1Index = Math.floor(prices.length * FILTER_CONFIG.QUARTILE_Q1)
+    const q3Index = Math.floor(prices.length * FILTER_CONFIG.QUARTILE_Q3)
     
     const quartiles = {
       q1: prices[q1Index],
@@ -169,7 +171,7 @@ export class RefinementAnalyzer {
         percentage: (count / this.listings.length) * 100
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
+      .slice(0, FILTER_CONFIG.MAX_POPULAR_AMENITIES)
 
     // Categorize amenities
     const categories = this.categorizeAmenities(popular.map(p => p.amenity))
@@ -211,14 +213,14 @@ export class RefinementAnalyzer {
 
     // Price-based suggestions
     priceInsights.suggestedRanges.forEach(range => {
-      if (range.count > 2) { // Only suggest if there are enough properties
+      if (range.count > FILTER_CONFIG.MIN_SUGGESTION_COUNT) { // Only suggest if there are enough properties
         suggestions.push({
           type: 'price',
           label: range.label,
           description: `${range.count} properties in this range`,
           query: `${originalQuery} under $${range.max}/night`,
           count: range.count,
-          priority: range.count > this.listings.length * 0.3 ? 'high' : 'medium'
+          priority: range.count > this.listings.length * SEARCH_CONFIG.HIGH_PRIORITY_THRESHOLD ? 'high' : 'medium'
         })
       }
     })
@@ -243,20 +245,20 @@ export class RefinementAnalyzer {
         description: `${ratingInsights.superhostCount} superhost properties`,
         query: `${originalQuery} superhost only`,
         count: ratingInsights.superhostCount,
-        priority: ratingInsights.superhostPercentage > 30 ? 'high' : 'medium'
+        priority: ratingInsights.superhostPercentage > SEARCH_CONFIG.SUPERHOST_HIGH_PRIORITY_THRESHOLD ? 'high' : 'medium'
       })
     }
 
     // Amenity-based suggestions (top 3 popular amenities)
-    amenityInsights.popular.slice(0, 3).forEach(amenity => {
-      if (amenity.percentage > 20) { // Only suggest if reasonably common
+    amenityInsights.popular.slice(0, FILTER_CONFIG.MAX_AMENITY_SUGGESTIONS).forEach(amenity => {
+      if (amenity.percentage > SEARCH_CONFIG.POPULAR_AMENITY_THRESHOLD) { // Only suggest if reasonably common
         suggestions.push({
           type: 'amenity',
           label: `With ${amenity.amenity.toLowerCase()}`,
           description: `${amenity.count} properties have this amenity`,
           query: `${originalQuery} with ${amenity.amenity.toLowerCase()}`,
           count: amenity.count,
-          priority: amenity.percentage > 50 ? 'high' : 'medium'
+          priority: amenity.percentage > SEARCH_CONFIG.POPULAR_AMENITY_THRESHOLD ? 'high' : 'medium'
         })
       }
     })
@@ -264,8 +266,8 @@ export class RefinementAnalyzer {
     // Property type suggestions (if multiple types available)
     if (propertyInsights.types.length > 1) {
       propertyInsights.types
-        .filter(type => type.count > 1)
-        .slice(0, 2)
+        .filter(type => type.count > FILTER_CONFIG.MIN_SUGGESTION_COUNT)
+        .slice(0, FILTER_CONFIG.MAX_PROPERTY_TYPE_SUGGESTIONS)
         .forEach(type => {
           suggestions.push({
             type: 'property_type',
@@ -287,7 +289,7 @@ export class RefinementAnalyzer {
         }
         return b.count - a.count
       })
-      .slice(0, 6) // Return top 6 suggestions
+      .slice(0, SEARCH_CONFIG.MAX_REFINEMENT_SUGGESTIONS) // Return top suggestions
   }
 
   // Helper methods

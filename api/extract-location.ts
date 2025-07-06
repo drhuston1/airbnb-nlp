@@ -1,5 +1,6 @@
 // Secure backend endpoint for GPT-4o-mini location extraction
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { API_CONFIG } from './config'
 
 interface LocationExtractionRequest {
   query: string
@@ -109,8 +110,8 @@ Return ONLY the location name, nothing else:`
             content: prompt
           }
         ],
-        max_tokens: 50,
-        temperature: 0
+        max_tokens: 50, // Location names are short
+        temperature: API_CONFIG.GPT_TEMPERATURE
       })
     })
 
@@ -120,7 +121,7 @@ Return ONLY the location name, nothing else:`
     }
 
     const data = await response.json()
-    const extractedLocation = data.choices[0]?.message?.content?.trim()
+    const extractedLocation = data.choices[API_CONFIG.FIRST_CHOICE_INDEX]?.message?.content?.trim()
     
     if (!extractedLocation || extractedLocation.toLowerCase() === 'unknown') {
       console.log('GPT could not extract location from:', query)

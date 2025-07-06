@@ -1,5 +1,6 @@
 // Enhanced query analysis with GPT-4o-mini for location and refinement understanding
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { API_CONFIG } from './config'
 
 interface QueryAnalysisRequest {
   query: string
@@ -277,8 +278,8 @@ Return ONLY the JSON object, no other text:`
             content: prompt
           }
         ],
-        max_tokens: 800,
-        temperature: 0
+        max_tokens: API_CONFIG.GPT_MAX_TOKENS,
+        temperature: API_CONFIG.GPT_TEMPERATURE
       })
     })
 
@@ -288,7 +289,7 @@ Return ONLY the JSON object, no other text:`
     }
 
     const data = await response.json()
-    const analysisText = data.choices[0]?.message?.content?.trim()
+    const analysisText = data.choices[API_CONFIG.FIRST_CHOICE_INDEX]?.message?.content?.trim()
     
     if (!analysisText) {
       throw new Error('Empty response from GPT')
@@ -306,7 +307,7 @@ Return ONLY the JSON object, no other text:`
         isRefinement: !!previousLocation,
         extractedCriteria: {},
         intent: previousLocation ? 'refine_criteria' : 'new_search',
-        confidence: 0.5
+        confidence: API_CONFIG.FALLBACK_CONFIDENCE
       }
     }
 

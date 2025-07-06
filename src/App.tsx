@@ -34,6 +34,7 @@ import type { SearchContext } from './types'
 
 // Import enhanced query analysis and refinement utilities
 import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinementAnalyzer'
+import { SEARCH_CONFIG } from './config/constants'
 interface AirbnbListing {
   id: string
   name: string
@@ -156,7 +157,7 @@ function App() {
     setSearchHistory(prev => {
       // Remove duplicate queries and keep only the latest 20
       const filtered = prev.filter(item => item.query !== query)
-      return [newHistoryItem, ...filtered].slice(0, 20)
+      return [newHistoryItem, ...filtered].slice(0, SEARCH_CONFIG.MAX_SEARCH_HISTORY_ITEMS)
     })
   }
 
@@ -244,8 +245,8 @@ function App() {
         query,
         page,
         location: extractedLocation,
-        adults: queryAnalysis?.extractedCriteria?.guests?.adults || 2,
-        children: queryAnalysis?.extractedCriteria?.guests?.children || 0
+        adults: queryAnalysis?.extractedCriteria?.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
+        children: queryAnalysis?.extractedCriteria?.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
       }
       
       // Add extracted dates if available
@@ -315,8 +316,8 @@ function App() {
           // New search context
           const newContext = {
             location: extractedLocation,
-            adults: queryAnalysis?.extractedCriteria.guests?.adults || 2,
-            children: queryAnalysis?.extractedCriteria.guests?.children || 0
+            adults: queryAnalysis?.extractedCriteria.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
+            children: queryAnalysis?.extractedCriteria.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
           }
           setSearchContext(newContext)
           console.log('Created new search context:', newContext)
@@ -483,7 +484,7 @@ function App() {
       addToHistory(query, filteredResults.length)
       
       // Set quick filters for the results panel
-      setQuickFilters(refinementSuggestions.slice(0, 4))
+      setQuickFilters(refinementSuggestions.slice(0, SEARCH_CONFIG.MAX_QUICK_FILTERS))
 
     } catch (error) {
       // Add error message with more details for debugging
@@ -877,7 +878,7 @@ function App() {
                             size="sm"
                             onClick={() => {
                               setSearchQuery(suggestion.query)
-                              setTimeout(() => handleSearch(), 100)
+                              setTimeout(() => handleSearch(), SEARCH_CONFIG.SEARCH_DEBOUNCE_MS)
                             }}
                             borderColor={`${color}.300`}
                             color={`${color}.700`}
@@ -930,7 +931,7 @@ function App() {
                           size="sm"
                           onClick={() => {
                             setSearchQuery(followUp)
-                            setTimeout(() => handleSearch(), 100)
+                            setTimeout(() => handleSearch(), SEARCH_CONFIG.SEARCH_DEBOUNCE_MS)
                           }}
                           borderColor="green.400"
                           color="green.800"
@@ -1079,7 +1080,7 @@ function App() {
                           variant="outline"
                           onClick={() => {
                             setSearchQuery(filter.query)
-                            setTimeout(() => handleSearch(), 100)
+                            setTimeout(() => handleSearch(), SEARCH_CONFIG.SEARCH_DEBOUNCE_MS)
                           }}
                           borderColor="blue.300"
                           color="blue.700"
