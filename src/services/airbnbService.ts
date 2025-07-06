@@ -78,18 +78,53 @@ async function callAirbnbMCPServer(params: SearchParams): Promise<any[]> {
 }
 
 function transformMCPListing(mcpListing: any): AirbnbListing {
+  // Extract the actual property name from the nested structure
+  const propertyName = mcpListing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference 
+    || mcpListing.name 
+    || 'Property listing'
+
+  // Extract rating from the avgRatingA11yLabel (e.g., "4.97 out of 5 average rating, 164 reviews")
+  let rating = 0
+  let reviewsCount = 0
+  if (mcpListing.avgRatingA11yLabel) {
+    const ratingMatch = mcpListing.avgRatingA11yLabel.match(/(\d+\.?\d*) out of 5/)
+    const reviewMatch = mcpListing.avgRatingA11yLabel.match(/(\d+) reviews?/)
+    if (ratingMatch) rating = parseFloat(ratingMatch[1])
+    if (reviewMatch) reviewsCount = parseInt(reviewMatch[1])
+  }
+
+  // Extract price from structuredDisplayPrice
+  let priceRate = 0
+  if (mcpListing.structuredDisplayPrice?.explanationData?.priceDetails) {
+    const priceMatch = mcpListing.structuredDisplayPrice.explanationData.priceDetails.match(/\$(\d+\.?\d*)/)
+    if (priceMatch) priceRate = parseFloat(priceMatch[1])
+  }
+
+  // Extract location from coordinates (we'll need to reverse geocode or use a default)
+  const location = {
+    city: mcpListing.location?.city || 'Unknown City',
+    country: mcpListing.location?.country || 'US'
+  }
+
   return {
     id: mcpListing.id,
-    name: mcpListing.name,
+    name: propertyName,
     url: mcpListing.url,
     images: mcpListing.images || ['https://via.placeholder.com/400x300'],
-    price: mcpListing.price,
-    rating: mcpListing.rating,
-    reviewsCount: mcpListing.reviewsCount,
-    location: mcpListing.location,
-    host: mcpListing.host,
+    price: {
+      total: priceRate * 5, // Assume 5 nights for total
+      rate: priceRate,
+      currency: 'USD'
+    },
+    rating: rating,
+    reviewsCount: reviewsCount,
+    location: location,
+    host: {
+      name: mcpListing.host?.name || 'Host',
+      isSuperhost: mcpListing.badges?.includes('Superhost') || false
+    },
     amenities: mcpListing.amenities || [],
-    roomType: mcpListing.roomType
+    roomType: mcpListing.roomType || 'Entire home/apt'
   }
 }
 
