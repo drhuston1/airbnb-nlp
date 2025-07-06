@@ -185,9 +185,9 @@ async function transformMCPResults(searchResults: AirbnbSearchResult[], searchQu
 
     return {
       id: listing.id,
-      name: listing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference,
+      name: listing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference || 'Property',
       url: listing.url,
-      images: listing.images,
+      images: [],
       price: {
         total: totalPrice,
         rate: nightlyRate,
@@ -196,20 +196,20 @@ async function transformMCPResults(searchResults: AirbnbSearchResult[], searchQu
       rating,
       reviewsCount,
       location: {
-        city: city,
+        city: city || 'Unknown',
         country: 'US'
       },
       host: {
-        name: listing.host?.name,
+        name: 'Host',
         isSuperhost
       },
-      amenities: listing.amenities,
-      roomType: listing.roomType
+      amenities: [],
+      roomType: listing.structuredContent?.primaryLine || 'Property'
     }
   }))
 }
 
-async function getCityFromCoordinates(lat?: number, lng?: number): Promise<string> {
+async function getCityFromCoordinates(lat?: number, lng?: number): Promise<string | undefined> {
   if (!lat || !lng) return undefined
 
   try {

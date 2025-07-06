@@ -23,7 +23,38 @@ import {
   Plus,
   Menu
 } from 'lucide-react'
-import { searchAirbnbListings, type AirbnbListing } from './services/airbnbService'
+interface AirbnbListing {
+  id: string
+  name: string
+  url: string
+  images: string[]
+  price: {
+    total: number
+    rate: number
+    currency: string
+  }
+  rating: number
+  reviewsCount: number
+  location: {
+    city: string
+    country: string
+  }
+  host: {
+    name: string
+    isSuperhost: boolean
+  }
+  amenities: string[]
+  roomType: string
+}
+
+interface SearchResponse {
+  listings: AirbnbListing[]
+  hasMore: boolean
+  totalResults: number
+  page: number
+  searchUrl?: string
+  source?: string
+}
 
 interface ChatMessage {
   id: string
@@ -336,7 +367,23 @@ function App() {
     setSearchQuery('')
 
     try {
-      const data = await searchAirbnbListings(query, page)
+      const response = await fetch('/api/mcp-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          page
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `Search failed: ${response.statusText}`)
+      }
+
+      const data: SearchResponse = await response.json()
       const searchResults = data.listings || []
       
       // Apply natural language filters
