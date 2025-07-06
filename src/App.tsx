@@ -399,35 +399,179 @@ function App() {
       }
     }
 
-    // Property style filters - only filter if we find matches, otherwise skip
-    if (lowerQuery.includes('cabin') || lowerQuery.includes('chalet') || lowerQuery.includes('lodge')) {
-      const cabinListings = filtered.filter(listing => 
-        listing.name.toLowerCase().includes('cabin') || 
-        listing.name.toLowerCase().includes('chalet') || 
-        listing.name.toLowerCase().includes('lodge')
-      )
-      if (cabinListings.length > 0) {
-        filtered = cabinListings
-        console.log('After cabin filter:', filtered.length)
+    // Property type filters
+    const propertyTypePatterns = [
+      { keywords: ['entire house', 'entire home', 'whole house', 'full house'], filter: (l: AirbnbListing) => l.roomType.toLowerCase().includes('entire') },
+      { keywords: ['private room', 'private bedroom'], filter: (l: AirbnbListing) => l.roomType.toLowerCase().includes('private') },
+      { keywords: ['shared room', 'shared space'], filter: (l: AirbnbListing) => l.roomType.toLowerCase().includes('shared') },
+      { keywords: ['studio', 'studio apartment'], filter: (l: AirbnbListing) => l.name.toLowerCase().includes('studio') },
+      { keywords: ['1 bedroom', 'one bedroom'], filter: (l: AirbnbListing) => /1\s*bed|one.*bed/i.test(l.name) },
+      { keywords: ['2 bedroom', 'two bedroom', '2+ bedroom'], filter: (l: AirbnbListing) => /[2-9]\s*bed|two.*bed|three.*bed/i.test(l.name) },
+      { keywords: ['apartment', 'apt'], filter: (l: AirbnbListing) => /apartment|apt/i.test(l.name) },
+      { keywords: ['house', 'home'], filter: (l: AirbnbListing) => /house|home/i.test(l.name) },
+      { keywords: ['condo', 'condominium'], filter: (l: AirbnbListing) => /condo|condominium/i.test(l.name) }
+    ]
+
+    for (const { keywords, filter } of propertyTypePatterns) {
+      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+        const typeResults = filtered.filter(filter)
+        if (typeResults.length > 0) {
+          filtered = typeResults
+          console.log(`After property type filter (${keywords[0]}):`, filtered.length)
+        }
+        break
+      }
+    }
+
+    // Property style filters
+    const stylePatterns = [
+      { keywords: ['cabin', 'chalet', 'lodge'], filter: (l: AirbnbListing) => /cabin|chalet|lodge/i.test(l.name) },
+      { keywords: ['luxury', 'luxurious', 'high-end', 'upscale'], filter: (l: AirbnbListing) => l.price.rate > 300 || /luxury|luxurious|upscale|high.end/i.test(l.name) },
+      { keywords: ['modern', 'contemporary'], filter: (l: AirbnbListing) => /modern|contemporary|sleek|minimalist/i.test(l.name) },
+      { keywords: ['rustic', 'cozy', 'charming'], filter: (l: AirbnbListing) => /rustic|cozy|charming|quaint|vintage/i.test(l.name) },
+      { keywords: ['historic', 'historical'], filter: (l: AirbnbListing) => /historic|historical|heritage|traditional/i.test(l.name) }
+    ]
+
+    for (const { keywords, filter } of stylePatterns) {
+      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+        const styleResults = filtered.filter(filter)
+        if (styleResults.length > 0) {
+          filtered = styleResults
+          console.log(`After style filter (${keywords[0]}):`, filtered.length)
+        }
+        break
+      }
+    }
+
+    // Amenity filters - check name for amenity mentions
+    const amenityPatterns = [
+      { keywords: ['pool', 'swimming pool'], filter: (l: AirbnbListing) => /pool|swimming/i.test(l.name) },
+      { keywords: ['kitchen', 'kitchenette'], filter: (l: AirbnbListing) => /kitchen|kitchenette/i.test(l.name) },
+      { keywords: ['parking', 'garage'], filter: (l: AirbnbListing) => /parking|garage/i.test(l.name) },
+      { keywords: ['hot tub', 'jacuzzi', 'spa'], filter: (l: AirbnbListing) => /hot.tub|jacuzzi|spa/i.test(l.name) },
+      { keywords: ['fireplace'], filter: (l: AirbnbListing) => /fireplace/i.test(l.name) },
+      { keywords: ['balcony', 'terrace', 'patio'], filter: (l: AirbnbListing) => /balcony|terrace|patio|deck/i.test(l.name) },
+      { keywords: ['wifi', 'internet'], filter: (_l: AirbnbListing) => true }, // Most places have wifi, so don't filter
+      { keywords: ['washer', 'laundry'], filter: (l: AirbnbListing) => /washer|laundry/i.test(l.name) },
+      { keywords: ['elevator', 'lift'], filter: (l: AirbnbListing) => /elevator|lift/i.test(l.name) }
+    ]
+
+    for (const { keywords, filter } of amenityPatterns) {
+      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+        if (keywords.includes('wifi') || keywords.includes('internet')) {
+          console.log('WiFi requested - most properties have it, continuing without filter')
+          continue
+        }
+        const amenityResults = filtered.filter(filter)
+        if (amenityResults.length > 0) {
+          filtered = amenityResults
+          console.log(`After amenity filter (${keywords[0]}):`, filtered.length)
+        } else {
+          console.log(`No properties found with ${keywords[0]}, keeping all results`)
+        }
+        break
+      }
+    }
+
+    // Pet-friendly filters
+    if (lowerQuery.includes('pet friendly') || lowerQuery.includes('dog friendly') || lowerQuery.includes('cat friendly') || 
+        lowerQuery.includes('pets allowed') || lowerQuery.includes('dogs allowed')) {
+      const petResults = filtered.filter(listing => /pet|dog|cat/i.test(listing.name))
+      if (petResults.length > 0) {
+        filtered = petResults
+        console.log('After pet-friendly filter:', filtered.length)
       } else {
-        console.log('No cabins found, keeping all results')
+        console.log('No pet-friendly properties found, keeping all results')
+      }
+    }
+
+    // Location refinement filters
+    const locationPatterns = [
+      { keywords: ['near beach', 'beachfront', 'beach access', 'oceanfront'], filter: (l: AirbnbListing) => /beach|ocean|waterfront|coastal/i.test(l.name) },
+      { keywords: ['downtown', 'city center', 'city centre'], filter: (l: AirbnbListing) => /downtown|center|centre|central/i.test(l.name) },
+      { keywords: ['quiet', 'peaceful', 'secluded'], filter: (l: AirbnbListing) => /quiet|peaceful|secluded|private|tranquil/i.test(l.name) },
+      { keywords: ['walking distance', 'walkable'], filter: (l: AirbnbListing) => /walk|steps|minutes/i.test(l.name) }
+    ]
+
+    for (const { keywords, filter } of locationPatterns) {
+      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+        const locationResults = filtered.filter(filter)
+        if (locationResults.length > 0) {
+          filtered = locationResults
+          console.log(`After location filter (${keywords[0]}):`, filtered.length)
+        }
+        break
+      }
+    }
+
+    // View filters
+    if (lowerQuery.includes('view') || lowerQuery.includes('scenic')) {
+      const viewKeywords = ['view', 'scenic', 'panoramic', 'vista', 'overlooking']
+      const viewResults = filtered.filter(listing => 
+        viewKeywords.some(keyword => listing.name.toLowerCase().includes(keyword))
+      )
+      if (viewResults.length > 0) {
+        filtered = viewResults
+        console.log('After view filter:', filtered.length)
       }
     }
 
     // Don't filter by dog-friendly, Yellowstone, etc. - let the MCP search handle location
     // Just sort instead of filter for these
 
-    // Sorting (instead of hard filtering)
-    if (lowerQuery.includes('highest rated') || lowerQuery.includes('best rated') || lowerQuery.includes('top rated')) {
-      filtered = filtered.sort((a, b) => b.rating - a.rating)
-    } else if (lowerQuery.includes('luxury')) {
-      // For luxury searches, sort by price (highest first) and rating
-      filtered = filtered.sort((a, b) => {
-        const priceSort = b.price.rate - a.price.rate
-        const ratingSort = b.rating - a.rating
-        return priceSort * 0.7 + ratingSort * 0.3 // Weight price more heavily for luxury
-      })
-      console.log('Sorted by luxury criteria (price + rating)')
+    // Sorting options - comprehensive sorting support
+    const sortingPatterns = [
+      { keywords: ['cheapest first', 'lowest price first', 'sort by price', 'price low to high'], 
+        sort: (a: AirbnbListing, b: AirbnbListing) => a.price.rate - b.price.rate, name: 'price (low to high)' },
+      { keywords: ['most expensive first', 'highest price first', 'price high to low'], 
+        sort: (a: AirbnbListing, b: AirbnbListing) => b.price.rate - a.price.rate, name: 'price (high to low)' },
+      { keywords: ['highest rated', 'best rated', 'top rated', 'sort by rating'], 
+        sort: (a: AirbnbListing, b: AirbnbListing) => b.rating - a.rating, name: 'rating (high to low)' },
+      { keywords: ['most reviews', 'most reviewed', 'sort by reviews'], 
+        sort: (a: AirbnbListing, b: AirbnbListing) => b.reviewsCount - a.reviewsCount, name: 'review count (high to low)' },
+      { keywords: ['newest first', 'recently added'], 
+        sort: (a: AirbnbListing, b: AirbnbListing) => a.reviewsCount - b.reviewsCount, name: 'newest listings first' },
+      { keywords: ['luxury', 'most luxurious'], 
+        sort: (a: AirbnbListing, b: AirbnbListing) => {
+          const priceSort = b.price.rate - a.price.rate
+          const ratingSort = b.rating - a.rating
+          return priceSort * 0.7 + ratingSort * 0.3 // Weight price more heavily for luxury
+        }, name: 'luxury criteria' }
+    ]
+
+    for (const { keywords, sort, name } of sortingPatterns) {
+      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
+        filtered = filtered.sort(sort)
+        console.log(`Sorted by ${name}`)
+        break
+      }
+    }
+
+    // Budget/size preferences
+    if (lowerQuery.includes('show cheaper') || lowerQuery.includes('budget options') || lowerQuery.includes('cheaper alternatives')) {
+      filtered = filtered.sort((a, b) => a.price.rate - b.price.rate)
+      console.log('Sorted by budget options (cheapest first)')
+    }
+
+    if (lowerQuery.includes('show premium') || lowerQuery.includes('premium only') || lowerQuery.includes('high end only')) {
+      filtered = filtered.filter(listing => listing.price.rate > 200).sort((a, b) => b.price.rate - a.price.rate)
+      console.log('Filtered and sorted premium options')
+    }
+
+    if (lowerQuery.includes('larger places') || lowerQuery.includes('bigger properties') || lowerQuery.includes('more space')) {
+      const largerResults = filtered.filter(listing => /\d+\s*bed/i.test(listing.name) && !/1\s*bed/i.test(listing.name))
+      if (largerResults.length > 0) {
+        filtered = largerResults
+        console.log('After larger properties filter:', filtered.length)
+      }
+    }
+
+    if (lowerQuery.includes('smaller') || lowerQuery.includes('compact') || lowerQuery.includes('cozy size')) {
+      const smallerResults = filtered.filter(listing => /studio|1\s*bed|small|compact/i.test(listing.name))
+      if (smallerResults.length > 0) {
+        filtered = smallerResults
+        console.log('After smaller properties filter:', filtered.length)
+      }
     }
 
     console.log('Final filtered count:', filtered.length)
@@ -642,6 +786,17 @@ function App() {
       }
     }
 
+    // Amenity-based follow-ups
+    if (!lowerQuery.includes('pool') && listings.some(l => l.name.toLowerCase().includes('pool'))) {
+      followUps.push("Show only properties with pool")
+    }
+    if (!lowerQuery.includes('kitchen') && listings.some(l => l.name.toLowerCase().includes('kitchen'))) {
+      followUps.push("Show only properties with kitchen")
+    }
+    if (!lowerQuery.includes('parking') && listings.some(l => l.name.toLowerCase().includes('parking'))) {
+      followUps.push("Show only properties with parking")
+    }
+
     // Location-based follow-ups
     if (!lowerQuery.includes('beach') && listings.some(l => l.name.toLowerCase().includes('beach'))) {
       followUps.push("Show only beachfront properties")
@@ -652,18 +807,32 @@ function App() {
     }
 
     // Sorting follow-ups
-    if (!lowerQuery.includes('highest') && !lowerQuery.includes('best rated')) {
+    if (!lowerQuery.includes('highest') && !lowerQuery.includes('best rated') && !lowerQuery.includes('sort')) {
       followUps.push("Sort by highest rated first")
     }
-    if (!lowerQuery.includes('cheapest') && !lowerQuery.includes('lowest price')) {
+    if (!lowerQuery.includes('cheapest') && !lowerQuery.includes('lowest price') && !lowerQuery.includes('sort')) {
       followUps.push("Sort by lowest price first")
+    }
+    if (!lowerQuery.includes('most reviews') && !lowerQuery.includes('sort')) {
+      followUps.push("Sort by most reviewed first")
     }
 
     // Review count follow-ups
     const reviewCounts = listings.map(l => l.reviewsCount)
     const avgReviews = reviewCounts.reduce((sum, count) => sum + count, 0) / reviewCounts.length
-    if (!lowerQuery.includes('well reviewed') && avgReviews > 20) {
-      followUps.push("Show only well-reviewed properties")
+    if (!lowerQuery.includes('well reviewed') && !lowerQuery.includes('reviews') && avgReviews > 20) {
+      followUps.push("At least 50 reviews")
+    }
+
+    // Style and size follow-ups
+    if (!lowerQuery.includes('luxury') && !lowerQuery.includes('premium') && listings.some(l => l.price.rate > 300)) {
+      followUps.push("Show only luxury properties")
+    }
+    if (!lowerQuery.includes('budget') && !lowerQuery.includes('cheaper') && listings.some(l => l.price.rate < 100)) {
+      followUps.push("Show budget options")
+    }
+    if (!lowerQuery.includes('larger') && !lowerQuery.includes('bedroom') && listings.some(l => /\d+\s*bed/i.test(l.name))) {
+      followUps.push("Show larger properties")
     }
 
     // Return 3-4 most relevant follow-ups
