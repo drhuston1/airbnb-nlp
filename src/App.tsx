@@ -360,7 +360,7 @@ function App() {
 
 
   return (
-    <Box h="100vh" bg="gray.50" display="flex" flexDirection="row">
+    <Box h="100vh" bg="green.25" display="flex" flexDirection="row">
       {/* History Sidebar */}
       <Box 
         w={showHistory ? "320px" : "0"} 
