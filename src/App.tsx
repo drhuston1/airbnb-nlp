@@ -393,7 +393,7 @@ function App() {
             const name = listing.name.toLowerCase()
             
             // Look for bedroom count in room type or name
-            const bedroomMatch = name.match(/(\\d+)\\s*bed/i) || roomType.match(/(\\d+)\\s*bed/i)
+            const bedroomMatch = name.match(/(\d+)\s*bed/i) || roomType.match(/(\d+)\s*bed/i)
             if (bedroomMatch) {
               const bedroomCount = parseInt(bedroomMatch[1])
               return bedroomCount >= criteria.bedrooms!
@@ -416,7 +416,7 @@ function App() {
             const name = listing.name.toLowerCase()
             
             // Look for bathroom count in name
-            const bathroomMatch = name.match(/(\\d+(?:\\.5)?|\\d+\\s*1\\/2)\\s*bath/i)
+            const bathroomMatch = name.match(/(\d+(?:\.5)?|\d+\s*1\/2)\s*bath/i)
             if (bathroomMatch) {
               let bathroomCount = parseFloat(bathroomMatch[1].replace('1/2', '.5'))
               return bathroomCount >= criteria.bathrooms!
