@@ -386,50 +386,15 @@ function App() {
           console.log(`Filtered by minimum ${criteria.rating.reviewCount} reviews: ${filteredResults.length} results`)
         }
         
-        // Filter by bedrooms (approximated from room type and name)
+        // Note: Bedroom and bathroom filtering removed due to unreliable data parsing
+        // The LLM extracts these criteria for logging/context but we don't filter by them
+        // since the API data doesn't reliably contain structured bedroom/bathroom counts
         if (criteria.bedrooms) {
-          filteredResults = filteredResults.filter(listing => {
-            const roomType = listing.roomType.toLowerCase()
-            const name = listing.name.toLowerCase()
-            
-            // Look for bedroom count in room type or name
-            const bedroomMatch = name.match(/(\d+)\s*bed/i) || roomType.match(/(\d+)\s*bed/i)
-            if (bedroomMatch) {
-              const bedroomCount = parseInt(bedroomMatch[1])
-              return bedroomCount >= criteria.bedrooms!
-            }
-            
-            // If no specific count found, try to infer from room type
-            if (criteria.bedrooms === 1) {
-              return roomType.includes('room') || roomType.includes('studio') || roomType.includes('bed')
-            } else {
-              // For 2+ bedrooms, be more selective
-              return roomType.includes('entire') || roomType.includes('home') || roomType.includes('house')
-            }
-          })
-          console.log(`Filtered by minimum ${criteria.bedrooms} bedrooms: ${filteredResults.length} results`)
+          console.log(`User requested ${criteria.bedrooms} bedrooms - noted but not filtered (unreliable data)`)
         }
         
-        // Filter by bathrooms (approximated from name - Airbnb data doesn't always include bathroom count)
         if (criteria.bathrooms) {
-          filteredResults = filteredResults.filter(listing => {
-            const name = listing.name.toLowerCase()
-            
-            // Look for bathroom count in name
-            const bathroomMatch = name.match(/(\d+(?:\.5)?|\d+\s*1\/2)\s*bath/i)
-            if (bathroomMatch) {
-              let bathroomCount = parseFloat(bathroomMatch[1].replace('1/2', '.5'))
-              return bathroomCount >= criteria.bathrooms!
-            }
-            
-            // If no specific count found and they want 2+ bathrooms, prefer entire homes
-            if (criteria.bathrooms >= 2) {
-              return listing.roomType.toLowerCase().includes('entire')
-            }
-            
-            return true // Don't filter out if we can't determine bathroom count
-          })
-          console.log(`Filtered by minimum ${criteria.bathrooms} bathrooms: ${filteredResults.length} results`)
+          console.log(`User requested ${criteria.bathrooms} bathrooms - noted but not filtered (unreliable data)`)
         }
         
         console.log(`Final filtered results: ${filteredResults.length} out of ${searchResults.length} original results`)
