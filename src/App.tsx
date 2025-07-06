@@ -439,7 +439,13 @@ function App() {
                   <Icon as={Menu} w={4} h={4} />
                 </Button>
                 
-                <Text fontSize="lg" fontWeight="600" color="gray.800">
+                <Text 
+                  fontSize="lg" 
+                  fontWeight="600" 
+                  color="gray.800"
+                  cursor="pointer"
+                  onClick={() => window.location.reload()}
+                >
                   ChatBnb
                 </Text>
               </HStack>
