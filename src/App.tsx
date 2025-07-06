@@ -733,7 +733,11 @@ function App() {
                           key={index}
                           variant="outline"
                           size="sm"
-                          onClick={() => setSearchQuery(followUp)}
+                          onClick={() => {
+                            setSearchQuery(followUp)
+                            // Automatically trigger search after setting query
+                            setTimeout(() => handleSearch(), 100)
+                          }}
                           borderColor="green.200"
                           color="green.700"
                           _hover={{ 
