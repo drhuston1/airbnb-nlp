@@ -221,9 +221,18 @@ function App() {
     
     const analysisData = await analysisResponse.json()
     queryAnalysis = analysisData.analysis
-    extractedLocation = queryAnalysis.location
+    
+    // Handle location context preservation for refinements
+    if (queryAnalysis.location === 'SAME' && searchContext?.location) {
+      extractedLocation = searchContext.location
+      console.log(`Refinement detected: using previous location "${extractedLocation}"`)
+    } else {
+      extractedLocation = queryAnalysis.location
+    }
+    
     setLastQueryAnalysis(queryAnalysis)
     console.log('Enhanced Query Analysis:', queryAnalysis)
+    console.log('Final extracted location:', extractedLocation)
     
     // If no location found, ask for one
     if (extractedLocation === 'Unknown') {
@@ -298,10 +307,10 @@ function App() {
       // Enhanced context tracking with refinement awareness
       if (page === 1) {
         if (queryAnalysis?.isRefinement && searchContext) {
-          // Update existing context with new criteria
+          // Update existing context with new criteria, preserving location if "SAME"
           const updatedContext = {
             ...searchContext,
-            location: extractedLocation,
+            location: extractedLocation === 'SAME' ? searchContext.location : extractedLocation,
             // Merge any extracted criteria from the query analysis
             ...(queryAnalysis.extractedCriteria.guests?.adults && {
               adults: queryAnalysis.extractedCriteria.guests.adults
