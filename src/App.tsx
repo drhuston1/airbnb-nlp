@@ -282,14 +282,43 @@ function App() {
       console.log('After high rated filter:', filtered.length)
     }
     
-    if (lowerQuery.includes('well reviewed') || lowerQuery.includes('lots of reviews')) {
-      filtered = filtered.filter(listing => listing.reviewsCount >= 20)
-      console.log('After well reviewed filter:', filtered.length)
+    // Review count filters - handle specific numbers and general terms
+    const reviewPatterns = [
+      /(?:at least|minimum|min)\s+(\d+)\s+reviews?/i,
+      /(\d+)\+?\s+reviews?/i,
+      /over\s+(\d+)\s+reviews?/i,
+      /more than\s+(\d+)\s+reviews?/i
+    ]
+    
+    let reviewFilterApplied = false
+    for (const pattern of reviewPatterns) {
+      const match = lowerQuery.match(pattern)
+      if (match && match[1]) {
+        const minReviews = parseInt(match[1])
+        const reviewResults = filtered.filter(listing => listing.reviewsCount >= minReviews)
+        if (reviewResults.length > 0) {
+          filtered = reviewResults
+          console.log(`After review count filter (≥${minReviews} reviews):`, filtered.length)
+        } else {
+          console.log(`No properties found with ≥${minReviews} reviews, sorting by review count instead`)
+          filtered = filtered.sort((a, b) => b.reviewsCount - a.reviewsCount)
+        }
+        reviewFilterApplied = true
+        break
+      }
     }
     
-    if (lowerQuery.includes('new listing') || lowerQuery.includes('recently added')) {
-      filtered = filtered.filter(listing => listing.reviewsCount < 5)
-      console.log('After new listing filter:', filtered.length)
+    // General review filters (only apply if no specific number was found)
+    if (!reviewFilterApplied) {
+      if (lowerQuery.includes('well reviewed') || lowerQuery.includes('lots of reviews')) {
+        filtered = filtered.filter(listing => listing.reviewsCount >= 20)
+        console.log('After well reviewed filter:', filtered.length)
+      }
+      
+      if (lowerQuery.includes('new listing') || lowerQuery.includes('recently added')) {
+        filtered = filtered.filter(listing => listing.reviewsCount < 5)
+        console.log('After new listing filter:', filtered.length)
+      }
     }
 
     // Check for rating thresholds - be very lenient and avoid filtering to zero
