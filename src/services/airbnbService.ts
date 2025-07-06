@@ -36,145 +36,102 @@ interface AirbnbListing {
   roomType: string
 }
 
-
 export async function searchAirbnbListings(naturalLanguageQuery: string, page: number = 1): Promise<AirbnbListing[]> {
   try {
-    // Instead of parsing locally, pass the full natural language query to MCP
-    // The OpenBNB MCP server is designed to handle natural language queries directly
-    const mcpResponse = await callAirbnbMCPServer({ query: naturalLanguageQuery, page })
+    // Call our API endpoint which handles MCP transformation
+    const response = await fetch('/api/mcp-search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: naturalLanguageQuery,
+        page
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+      
+      // If API fails in development, fall back to mock data for testing
+      if (window.location.hostname === 'localhost') {
+        console.log('API failed, using mock data for development:', naturalLanguageQuery)
+        return getMockListings(naturalLanguageQuery, page)
+      }
+      
+      throw new Error(errorData.error || `Search failed: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    console.log('API Response received:', JSON.stringify(data, null, 2))
     
-    return mcpResponse.map(transformMCPListing)
+    // The API already returns properly formatted listings
+    return data.listings || []
   } catch (error) {
     console.error('Search failed:', error)
+    
+    // If we're in development and the error is network-related, use mock data
+    if (window.location.hostname === 'localhost' && error instanceof TypeError) {
+      console.log('Network error in development, using mock data:', naturalLanguageQuery)
+      return getMockListings(naturalLanguageQuery, page)
+    }
+    
     throw error
   }
 }
 
-async function callAirbnbMCPServer(params: SearchParams): Promise<any[]> {
-  const response = await fetch('/api/mcp-search', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+function getMockListings(query: string, page: number): AirbnbListing[] {
+  const baseListings = [
+    {
+      id: '1',
+      name: 'Luxury Beachfront Villa in Malibu',
+      url: 'https://airbnb.com/rooms/1',
+      images: ['https://picsum.photos/600/400?random=1'],
+      price: { total: 1500, rate: 300, currency: 'USD' },
+      rating: 4.9,
+      reviewsCount: 127,
+      location: { city: 'Malibu', country: 'US' },
+      host: { name: 'Sarah', isSuperhost: true },
+      amenities: ['Pool', 'Hot tub', 'Beach access'],
+      roomType: 'Entire home/apt'
     },
-    body: JSON.stringify({
-      query: '', // We'll pass the original query if needed
-      ...params
-    })
+    {
+      id: '2',
+      name: 'Cozy Cabin Near Yellowstone',
+      url: 'https://airbnb.com/rooms/2',
+      images: ['https://picsum.photos/600/400?random=2'],
+      price: { total: 750, rate: 150, currency: 'USD' },
+      rating: 4.8,
+      reviewsCount: 89,
+      location: { city: 'West Yellowstone', country: 'US' },
+      host: { name: 'Mike', isSuperhost: true },
+      amenities: ['Pet friendly', 'Fireplace', 'Hiking nearby'],
+      roomType: 'Entire home/apt'
+    },
+    {
+      id: '3',
+      name: 'Modern Downtown Loft',
+      url: 'https://airbnb.com/rooms/3',
+      images: ['https://picsum.photos/600/400?random=3'],
+      price: { total: 1000, rate: 200, currency: 'USD' },
+      rating: 4.7,
+      reviewsCount: 156,
+      location: { city: 'Chicago', country: 'US' },
+      host: { name: 'Jennifer', isSuperhost: false },
+      amenities: ['Parking', 'City view', 'WiFi'],
+      roomType: 'Entire home/apt'
+    }
+  ]
+
+  // Simple filtering based on query
+  const filtered = baseListings.filter(listing => {
+    const searchTerms = query.toLowerCase()
+    const matchesName = listing.name.toLowerCase().includes(searchTerms)
+    const matchesLocation = listing.location.city.toLowerCase().includes(searchTerms)
+    return matchesName || matchesLocation || searchTerms.includes(listing.location.city.toLowerCase())
   })
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-    
-    // Handle 501 (MCP server not configured) specifically
-    if (response.status === 501) {
-      throw new Error('MCP server setup required - see README for instructions')
-    }
-    
-    throw new Error(errorData.error || `Search failed: ${response.statusText}`)
-  }
-
-  const data = await response.json()
-  console.log('MCP Result received:', JSON.stringify(data, null, 2))
-  return data.searchResults || data.listings || []
-}
-
-function transformMCPListing(mcpListing: any): AirbnbListing {
-  console.log('Transforming MCP listing:', mcpListing)
-  
-  // Extract the actual property name from the nested structure
-  const propertyName = mcpListing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference 
-    || mcpListing.name 
-    || 'Property listing'
-
-  // Extract rating from the avgRatingA11yLabel (e.g., "4.97 out of 5 average rating, 164 reviews")
-  let rating = 0
-  let reviewsCount = 0
-  if (mcpListing.avgRatingA11yLabel) {
-    if (mcpListing.avgRatingA11yLabel === 'New place to stay') {
-      rating = 0 // New listings have no rating yet
-      reviewsCount = 0
-    } else {
-      const ratingMatch = mcpListing.avgRatingA11yLabel.match(/(\d+\.?\d*) out of 5/)
-      const reviewMatch = mcpListing.avgRatingA11yLabel.match(/(\d+) reviews?/)
-      if (ratingMatch) rating = parseFloat(ratingMatch[1])
-      if (reviewMatch) reviewsCount = parseInt(reviewMatch[1])
-    }
-  }
-
-  // Extract price from structuredDisplayPrice - handle various formats
-  let priceRate = 0
-  if (mcpListing.structuredDisplayPrice?.explanationData?.priceDetails) {
-    // Match patterns like "$184.71 x 5 nights" or "$198.89 x 7 nights"
-    const priceMatch = mcpListing.structuredDisplayPrice.explanationData.priceDetails.match(/\$(\d+\.?\d*)\s*x\s*\d+\s*nights?/)
-    if (priceMatch) {
-      priceRate = parseFloat(priceMatch[1])
-    }
-  }
-  
-  // Fallback: try to extract from accessibilityLabel if priceDetails didn't work
-  if (priceRate === 0 && mcpListing.structuredDisplayPrice?.primaryLine?.accessibilityLabel) {
-    // Match patterns like "$924 for 5 nights" and calculate nightly rate
-    const totalMatch = mcpListing.structuredDisplayPrice.primaryLine.accessibilityLabel.match(/\$(\d+(?:,\d{3})*)\s*for\s*(\d+)\s*nights?/)
-    if (totalMatch) {
-      const totalPrice = parseFloat(totalMatch[1].replace(',', ''))
-      const nights = parseInt(totalMatch[2])
-      if (nights > 0) {
-        priceRate = totalPrice / nights
-      }
-    }
-  }
-
-  // Extract location - use coordinates to determine city (basic implementation)
-  let city = 'Unknown City'
-  if (mcpListing.demandStayListing?.location?.coordinate) {
-    const lat = mcpListing.demandStayListing.location.coordinate.latitude
-    const lng = mcpListing.demandStayListing.location.coordinate.longitude
-    
-    // Basic city detection based on coordinates (for San Antonio area)
-    if (lat >= 29.4 && lat <= 29.7 && lng >= -98.7 && lng <= -98.3) {
-      city = 'San Antonio'
-    } else {
-      city = 'Texas'
-    }
-  }
-  
-  const location = {
-    city: city,
-    country: 'US'
-  }
-
-  // Extract superhost status from badges
-  const isSuperhost = mcpListing.badges?.includes('Superhost') || false
-
-  // Determine room type based on property name and other clues
-  let roomType = 'Entire home/apt' // Default
-  const nameLower = propertyName.toLowerCase()
-  if (nameLower.includes('private room') || nameLower.includes('bedroom') || nameLower.includes('queen bed')) {
-    roomType = 'Private room'
-  } else if (nameLower.includes('studio')) {
-    roomType = 'Entire home/apt'
-  }
-
-  return {
-    id: mcpListing.id,
-    name: propertyName,
-    url: mcpListing.url,
-    images: mcpListing.images || ['https://via.placeholder.com/400x300'],
-    price: {
-      total: priceRate * 5, // Assume 5 nights for total
-      rate: Math.round(priceRate), // Round to nearest dollar
-      currency: 'USD'
-    },
-    rating: rating,
-    reviewsCount: reviewsCount,
-    location: location,
-    host: {
-      name: 'Host',
-      isSuperhost: isSuperhost
-    },
-    amenities: mcpListing.amenities || [],
-    roomType: roomType
-  }
+  return filtered.length > 0 ? filtered : baseListings
 }
 
 export type { AirbnbListing, SearchParams }

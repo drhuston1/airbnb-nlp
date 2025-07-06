@@ -776,7 +776,7 @@ function App() {
                 resize="none"
                 minH="44px"
                 maxH="120px"
-                bg="gray.100"
+                bg="white"
                 border="1px"
                 borderColor="gray.300"
                 _focus={{
@@ -867,23 +867,14 @@ function App() {
                       <Box p={3}>
                         <VStack align="start" gap={2}>
                           <Text fontWeight="600" color="gray.900" lineHeight="1.3" fontSize="sm" lineClamp={2}>
-                            {(() => {
-                              // If the listing name is the same as the search query, generate a better name
-                              if (listing.name === currentQuery) {
-                                return `${listing.roomType} in ${listing.location.city}`
-                              }
-                              return listing.name || 'Property listing'
-                            })()}
+                            {listing.name}
                           </Text>
                           
                           <HStack justify="space-between" w="full">
                             <HStack gap={1}>
                               <Icon as={MapPin} color="gray.400" w={3} h={3} />
                               <Text fontSize="xs" color="gray.600" lineClamp={1}>
-                                {listing.location.country ? 
-                                  `${listing.location.city}, ${listing.location.country}` : 
-                                  listing.location.city
-                                }
+                                {listing.location.city}
                               </Text>
                             </HStack>
                             <HStack gap={1}>
