@@ -130,7 +130,7 @@ Query: "${query}"
 
 Analyze and return a JSON object with this exact structure:
 {
-  "location": "extracted city/state/country or 'SAME' if refining existing location",
+  "location": "extracted city/state/country, 'SAME' if refining existing location, or 'Unknown' if no location found",
   "isRefinement": boolean,
   "refinementType": "price|rating|amenity|property_type|host_type|general|null",
   "extractedCriteria": {
@@ -258,6 +258,24 @@ Previous: none
   "confidence": 0.95
 }
 
+Query: "luxury house with pool"
+Previous: none
+→ {
+  "location": "Unknown",
+  "isRefinement": false,
+  "refinementType": null,
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": null, "budget": "luxury" },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": ["pool"],
+    "propertyType": "house",
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": null, "checkout": null, "flexible": false }
+  },
+  "intent": "new_search",
+  "confidence": 0.8
+}
+
 Return ONLY the JSON object, no other text:`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -312,8 +330,14 @@ Return ONLY the JSON object, no other text:`
     }
 
     // Validate and clean up the analysis
-    if (analysis.location === 'SAME' && previousLocation) {
-      analysis.location = previousLocation
+    if (analysis.location === 'SAME') {
+      if (previousLocation) {
+        analysis.location = previousLocation
+      } else {
+        // If GPT returned SAME but there's no previous location, treat as Unknown
+        analysis.location = 'Unknown'
+        analysis.isRefinement = false
+      }
     }
 
     console.log(`GPT analyzed query: "${query}" →`, analysis)
