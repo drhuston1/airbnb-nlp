@@ -106,37 +106,53 @@ ${listings.map((listing, i) =>
    Amenities: ${listing.amenities.join(', ') || 'None listed'}`
 ).join('\n\n')}
 
-Filtering Rules:
-1. Property Type Matching:
-   - "villa" matches: luxury homes, estates, beachfront houses, villas, large houses
-   - "apartment" matches: apartments, condos, flats, studios
-   - "house" matches: houses, homes, cottages, cabins
-   - "cabin" matches: cabins, chalets, lodges, mountain retreats
-   - "luxury" requires: high prices ($200+), excellent ratings (4.8+), or superhost status
+STRICT Filtering Rules - EXCLUDE properties that don't match:
 
-2. Strict Requirements:
-   - "superhost only" = ONLY include superhosts (filter out non-superhosts)
-   - "beachfront/oceanfront" = property name/amenities must mention water/beach/ocean
-   - Price qualifiers ("under $X", "budget", "luxury") must be strictly enforced
-   - Rating requirements ("4.8+", "highly rated") must be met
+1. Property Type Requirements:
+   - "villa" query = ONLY villas, luxury homes, estates (EXCLUDE: apartments, hostels, standard rooms)
+   - "apartment" query = ONLY apartments, condos, flats (EXCLUDE: villas, houses, hostels)
+   - "house" query = ONLY houses, homes, cottages (EXCLUDE: apartments, hostels, shared rooms)
+   - "luxury" query = ONLY high-end properties: $200+/night OR 4.8+ rating OR superhost (EXCLUDE: budget options under $150)
 
-3. Quality Filtering:
-   - For "luxury" queries: exclude properties under $150/night unless exceptional ratings
-   - For "budget" queries: exclude properties over $200/night
-   - For specific property types: exclude obviously different types (no hostels for "villa")
+2. Mandatory Requirements (STRICT):
+   - "superhost only" = EXCLUDE ALL non-superhosts (isSuperhost must be true)
+   - "beachfront/oceanfront" = EXCLUDE properties without beach/ocean/water in name/amenities
+   - Price limits ("under $X") = EXCLUDE properties above that price
+   - Rating requirements ("4.8+") = EXCLUDE properties below that rating
 
-4. Multi-criteria Queries:
-   - ALL specified criteria should be met, not just some
-   - If a property fails major criteria, exclude it entirely
+3. Quality Exclusions:
+   - For "luxury" queries: EXCLUDE hostels, shared rooms, anything under $100/night
+   - For "villa" queries: EXCLUDE hostels, apartments, shared accommodations
+   - For "budget" queries: EXCLUDE luxury properties over $200/night
 
-5. Be Selective:
-   - It's better to return fewer highly relevant results than many marginal matches
-   - If less than 30% of properties are relevant, filter aggressively
-   - Exclude obvious mismatches (budget hostels for luxury villa queries)
+4. Examples of what to EXCLUDE:
+   - Query "luxury villa" → EXCLUDE: hostels, apartments, budget properties, shared rooms
+   - Query "superhost only" → EXCLUDE: any property with isSuperhost = false
+   - Query "beachfront house" → EXCLUDE: properties without beach/ocean mentions
 
-Return ONLY a JSON array of property IDs that genuinely match, ranked by relevance: ["id1", "id2", "id3", ...]
+5. STRICT FILTERING APPROACH:
+   - If query specifies "villa", EXCLUDE everything that's not villa-like
+   - If query specifies "luxury", EXCLUDE budget accommodations
+   - If query specifies "superhost only", EXCLUDE all non-superhosts
+   - Better to return 1 perfect match than 10 mediocre ones
 
-If no properties meet the criteria well, return an empty array: []`
+EXAMPLE FILTERING DECISIONS:
+
+Query: "luxury beachfront villa"
+Property A: "Luxury Oceanfront Estate", $500/night, villa, 4.9 rating → INCLUDE
+Property B: "Budget Downtown Hostel", $25/night, shared room, 3.5 rating → EXCLUDE (not luxury, not villa, not beachfront)
+
+Query: "superhost only"  
+Property A: Superhost = true → INCLUDE
+Property B: Superhost = false → EXCLUDE
+
+Query: "budget apartment under $100"
+Property A: Apartment, $80/night → INCLUDE  
+Property B: Villa, $300/night → EXCLUDE (over budget, not apartment)
+
+Return ONLY a JSON array of property IDs that genuinely match: ["id1", "id2"]
+
+If no properties meet the strict criteria, return an empty array: []`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
