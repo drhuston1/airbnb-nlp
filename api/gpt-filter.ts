@@ -91,42 +91,22 @@ async function filterListingsWithGPT(
   apiKey: string
 ): Promise<string[]> {
   try {
-    const prompt = `Filter properties based on this query: "${query}"
+    const prompt = `Query: "${query}"
 
-For each property, determine if it matches the query. Follow these STRICT rules:
+Properties:
+${listings.map(listing => 
+  `${listing.id}: ${listing.name} | ${listing.roomType} | $${listing.price}/night | ${listing.rating}/5 | Superhost: ${listing.isSuperhost}`
+).join('\n')}
 
-${listings.map((listing, i) => {
-  // Pre-analyze each property for the prompt
-  const isLuxury = listing.price >= 200 || listing.rating >= 4.8 || listing.isSuperhost;
-  const isVilla = listing.roomType.toLowerCase().includes('villa') || listing.name.toLowerCase().includes('villa') || listing.name.toLowerCase().includes('estate');
-  const isHostel = listing.roomType.toLowerCase().includes('shared') || listing.roomType.toLowerCase().includes('dorm') || listing.name.toLowerCase().includes('hostel');
-  
-  return `Property ${listing.id}:
-Name: ${listing.name}
-Type: ${listing.roomType}
-Price: $${listing.price}/night
-Rating: ${listing.rating}/5
-Superhost: ${listing.isSuperhost ? 'YES' : 'NO'}
-Is Luxury: ${isLuxury ? 'YES' : 'NO'} (based on price/rating/superhost)
-Is Villa-like: ${isVilla ? 'YES' : 'NO'}
-Is Hostel/Shared: ${isHostel ? 'YES' : 'NO'}`
-}).join('\n\n')}
+Rules:
+- If query contains "superhost only" or "superhost" → ONLY return IDs where Superhost: true
+- If query contains "luxury" → ONLY return IDs where price ≥ $200 OR rating ≥ 4.8 OR Superhost: true  
+- If query contains "villa" → ONLY return IDs where name/type contains "villa" or "estate"
+- If query contains "hostel" → ONLY return IDs where name/type contains "hostel" or "shared"
 
-FILTERING RULES:
-1. If query contains "villa" → ONLY include properties where "Is Villa-like: YES"
-2. If query contains "luxury" → ONLY include properties where "Is Luxury: YES"  
-3. If query contains "superhost only" → ONLY include properties where "Superhost: YES"
-4. If query contains "hostel" → ONLY include properties where "Is Hostel/Shared: YES"
-5. If query contains "apartment" → EXCLUDE properties where "Is Villa-like: YES" or "Is Hostel/Shared: YES"
-
-STRICT EXCLUSIONS:
-- "villa" queries: EXCLUDE all hostels/shared rooms
-- "luxury" queries: EXCLUDE all budget properties (Is Luxury: NO)
-- "superhost only": EXCLUDE all non-superhosts (Superhost: NO)
-
-Apply these rules to the query "${query}" and return a JSON array of property IDs that match ALL criteria.
-
-Return format: ["id1", "id2"] or [] if none match.`
+For query "${query}":
+Return JSON array of matching property IDs only: ["id1", "id2"]
+If no matches, return: []`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -146,8 +126,8 @@ Return format: ["id1", "id2"] or [] if none match.`
             content: prompt
           }
         ],
-        max_tokens: API_CONFIG.GPT_MAX_TOKENS,
-        temperature: 0.1 // Low temperature for consistent filtering
+        max_tokens: 200, // Shorter response for simple filtering
+        temperature: 0 // Zero temperature for deterministic filtering
       })
     })
 
