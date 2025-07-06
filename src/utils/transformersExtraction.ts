@@ -1,6 +1,4 @@
-// Enhanced NLP extraction using Hugging Face transformers.js
-import { pipeline } from '@xenova/transformers';
-
+// Enhanced location extraction using GPT-4o-mini
 interface QueryAnalysis {
   location: string;
   priceRange: {
@@ -18,51 +16,16 @@ interface QueryAnalysis {
   propertyType?: string;
 }
 
-// Cache the NER pipeline for performance
-let nerPipeline: any = null;
-
-async function getNERPipeline() {
-  if (!nerPipeline) {
-    console.log('Loading NER model...');
-    nerPipeline = await pipeline('token-classification', 'Xenova/bert-base-NER');
-  }
-  return nerPipeline;
+interface LocationResponse {
+  location: string;
 }
 
 export async function extractWithTransformers(query: string): Promise<QueryAnalysis> {
   try {
-    // Use NER to extract entities
-    const ner = await getNERPipeline();
-    const entities = await ner(query);
+    console.log('Extracting location with GPT-4o-mini for query:', query);
     
-    console.log('Transformers NER entities:', entities);
+    const location = await extractLocationWithGPT(query);
     
-    // Extract location from NER results
-    const locationEntities = entities
-      .filter((entity: any) => 
-        entity.entity.includes('LOC') || 
-        entity.entity.includes('GPE') || 
-        entity.entity.includes('PLACE') ||
-        entity.entity.includes('B-LOC') ||
-        entity.entity.includes('I-LOC') ||
-        entity.entity.includes('B-GPE') ||
-        entity.entity.includes('I-GPE')
-      );
-    
-    let location = 'Unknown';
-    if (locationEntities.length > 0) {
-      // Combine consecutive location tokens
-      const locationWords = locationEntities
-        .map((entity: any) => entity.word.replace('##', ''))
-        .filter((word: string) => word.length > 1);
-      
-      location = locationWords.join(' ').trim();
-      
-      // Clean up common NER artifacts
-      location = location.replace(/\s+/g, ' ').trim();
-    }
-    
-    // Return only NER-extracted location
     const analysis: QueryAnalysis = {
       location,
       priceRange: {},
@@ -72,12 +35,12 @@ export async function extractWithTransformers(query: string): Promise<QueryAnaly
       propertyType: undefined
     };
     
-    console.log('Pure NER analysis:', analysis);
+    console.log('GPT-4o-mini analysis:', analysis);
     return analysis;
     
   } catch (error) {
-    console.error('NER extraction error:', error);
-    // Return minimal analysis if NER fails
+    console.error('GPT location extraction error:', error);
+    // Return minimal analysis if GPT fails
     return {
       location: 'Unknown',
       priceRange: {},
@@ -86,6 +49,43 @@ export async function extractWithTransformers(query: string): Promise<QueryAnaly
       amenities: [],
       propertyType: undefined
     };
+  }
+}
+
+async function extractLocationWithGPT(query: string): Promise<string> {
+  try {
+    const response = await fetch('/api/extract-location', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Location extraction API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.success) {
+      console.error('Location extraction failed:', data.error);
+      return 'Unknown';
+    }
+
+    const extractedLocation = data.location;
+    
+    if (!extractedLocation || extractedLocation.toLowerCase() === 'unknown') {
+      console.log('GPT could not extract location from:', query);
+      return 'Unknown';
+    }
+
+    console.log(`GPT extracted location: "${extractedLocation}" from query: "${query}"`);
+    return extractedLocation;
+
+  } catch (error) {
+    console.error('GPT location extraction failed:', error);
+    return 'Unknown';
   }
 }
 
