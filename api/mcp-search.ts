@@ -72,6 +72,18 @@ export default async function handler(
     const queryText = query || location
     const extractedParams = extractParametersFromQuery(queryText)
     
+    // Check if this is a filter-only query
+    const filterOnlyPatterns = [
+      /^(?:i\s+)?(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?\d+k?(?:\s+total)?$/i,
+      /^(?:show\s+)?(?:options\s+)?(?:under|less\s+than|max|maximum|limit|below)\s*\$?\d+k?(?:\s+total)?$/i,
+      /^(?:at\s+least|minimum|min)\s+\d+\s+reviews?$/i,
+      /^(?:show\s+)?(?:only\s+)?(?:entire\s+house|private\s+room|luxury|budget)(?:\s+only)?$/i,
+      /^(?:sort\s+by|cheapest|highest\s+rated|most\s+reviews)/i,
+      /^(?:with\s+)?(?:pool|kitchen|parking|hot\s+tub)$/i,
+      /^(?:pet\s+friendly|dog\s+friendly)$/i
+    ]
+    const isFilterOnlyQuery = filterOnlyPatterns.some(pattern => pattern.test((query || '').trim()))
+    
     // Use extracted location if found, otherwise fall back to original location
     const finalLocation = extractedParams.location || location || ''
     
@@ -87,8 +99,17 @@ export default async function handler(
       ...(extractedParams.maxPrice || maxPrice ? { maxPrice: extractedParams.maxPrice || maxPrice } : {})
     }
 
-    if (!finalLocation && !query) {
-      return res.status(400).json({ error: 'Location is required for search' })
+    // If no location found and this seems like a followup query, return error to prevent random results
+    if (!finalLocation) {
+      console.log('No location found for query:', query)
+      if (isFilterOnlyQuery) {
+        return res.status(400).json({ 
+          error: 'This appears to be a filter refinement, but no location context was provided. Please start with a location-based search first.',
+          isFilterQuery: true 
+        })
+      } else if (!query) {
+        return res.status(400).json({ error: 'Location is required for search' })
+      }
     }
 
     console.log('Calling MCP server with params:', searchParams)
@@ -264,10 +285,19 @@ function extractParametersFromQuery(queryText: string): ExtractedParams {
   const result: ExtractedParams = { location: '' }
   
   // First check if this is a price-only or filter-only query (no location)
-  const isPriceOnlyQuery = /^(?:i\s+)?(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?\d+k?(?:\s+total)?$/i.test(queryText.trim())
-  const isFilterOnlyQuery = /^(?:under|less\s+than|max|maximum|limit)\s*\$?\d+k?(?:\s+total)?$/i.test(queryText.trim())
+  const filterOnlyPatterns = [
+    /^(?:i\s+)?(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?\d+k?(?:\s+total)?$/i,
+    /^(?:show\s+)?(?:options\s+)?(?:under|less\s+than|max|maximum|limit|below)\s*\$?\d+k?(?:\s+total)?$/i,
+    /^(?:at\s+least|minimum|min)\s+\d+\s+reviews?$/i,
+    /^(?:show\s+)?(?:only\s+)?(?:entire\s+house|private\s+room|luxury|budget)(?:\s+only)?$/i,
+    /^(?:sort\s+by|cheapest|highest\s+rated|most\s+reviews)/i,
+    /^(?:with\s+)?(?:pool|kitchen|parking|hot\s+tub)$/i,
+    /^(?:pet\s+friendly|dog\s+friendly)$/i
+  ]
   
-  if (isPriceOnlyQuery || isFilterOnlyQuery) {
+  const isFilterOnlyQuery = filterOnlyPatterns.some(pattern => pattern.test(queryText.trim()))
+  
+  if (isFilterOnlyQuery) {
     // This is a followup query with no location - leave location empty
     result.location = ''
   } else {

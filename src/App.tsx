@@ -399,120 +399,87 @@ function App() {
       }
     }
 
-    // Property type filters
-    const propertyTypePatterns = [
-      { keywords: ['entire house', 'entire home', 'whole house', 'full house'], filter: (l: AirbnbListing) => l.roomType.toLowerCase().includes('entire') },
-      { keywords: ['private room', 'private bedroom'], filter: (l: AirbnbListing) => l.roomType.toLowerCase().includes('private') },
-      { keywords: ['shared room', 'shared space'], filter: (l: AirbnbListing) => l.roomType.toLowerCase().includes('shared') },
-      { keywords: ['studio', 'studio apartment'], filter: (l: AirbnbListing) => l.name.toLowerCase().includes('studio') },
-      { keywords: ['1 bedroom', 'one bedroom'], filter: (l: AirbnbListing) => /1\s*bed|one.*bed/i.test(l.name) },
-      { keywords: ['2 bedroom', 'two bedroom', '2+ bedroom'], filter: (l: AirbnbListing) => /[2-9]\s*bed|two.*bed|three.*bed/i.test(l.name) },
-      { keywords: ['apartment', 'apt'], filter: (l: AirbnbListing) => /apartment|apt/i.test(l.name) },
-      { keywords: ['house', 'home'], filter: (l: AirbnbListing) => /house|home/i.test(l.name) },
-      { keywords: ['condo', 'condominium'], filter: (l: AirbnbListing) => /condo|condominium/i.test(l.name) }
-    ]
-
-    for (const { keywords, filter } of propertyTypePatterns) {
-      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
-        const typeResults = filtered.filter(filter)
-        if (typeResults.length > 0) {
-          filtered = typeResults
-          console.log(`After property type filter (${keywords[0]}):`, filtered.length)
-        }
-        break
-      }
-    }
-
-    // Property style filters
-    const stylePatterns = [
-      { keywords: ['cabin', 'chalet', 'lodge'], filter: (l: AirbnbListing) => /cabin|chalet|lodge/i.test(l.name) },
-      { keywords: ['luxury', 'luxurious', 'high-end', 'upscale'], filter: (l: AirbnbListing) => l.price.rate > 300 || /luxury|luxurious|upscale|high.end/i.test(l.name) },
-      { keywords: ['modern', 'contemporary'], filter: (l: AirbnbListing) => /modern|contemporary|sleek|minimalist/i.test(l.name) },
-      { keywords: ['rustic', 'cozy', 'charming'], filter: (l: AirbnbListing) => /rustic|cozy|charming|quaint|vintage/i.test(l.name) },
-      { keywords: ['historic', 'historical'], filter: (l: AirbnbListing) => /historic|historical|heritage|traditional/i.test(l.name) }
-    ]
-
-    for (const { keywords, filter } of stylePatterns) {
-      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
-        const styleResults = filtered.filter(filter)
-        if (styleResults.length > 0) {
-          filtered = styleResults
-          console.log(`After style filter (${keywords[0]}):`, filtered.length)
-        }
-        break
-      }
-    }
-
-    // Amenity filters - check name for amenity mentions
-    const amenityPatterns = [
-      { keywords: ['pool', 'swimming pool'], filter: (l: AirbnbListing) => /pool|swimming/i.test(l.name) },
-      { keywords: ['kitchen', 'kitchenette'], filter: (l: AirbnbListing) => /kitchen|kitchenette/i.test(l.name) },
-      { keywords: ['parking', 'garage'], filter: (l: AirbnbListing) => /parking|garage/i.test(l.name) },
-      { keywords: ['hot tub', 'jacuzzi', 'spa'], filter: (l: AirbnbListing) => /hot.tub|jacuzzi|spa/i.test(l.name) },
-      { keywords: ['fireplace'], filter: (l: AirbnbListing) => /fireplace/i.test(l.name) },
-      { keywords: ['balcony', 'terrace', 'patio'], filter: (l: AirbnbListing) => /balcony|terrace|patio|deck/i.test(l.name) },
-      { keywords: ['wifi', 'internet'], filter: (_l: AirbnbListing) => true }, // Most places have wifi, so don't filter
-      { keywords: ['washer', 'laundry'], filter: (l: AirbnbListing) => /washer|laundry/i.test(l.name) },
-      { keywords: ['elevator', 'lift'], filter: (l: AirbnbListing) => /elevator|lift/i.test(l.name) }
-    ]
-
-    for (const { keywords, filter } of amenityPatterns) {
-      if (keywords.some(keyword => lowerQuery.includes(keyword))) {
-        if (keywords.includes('wifi') || keywords.includes('internet')) {
-          console.log('WiFi requested - most properties have it, continuing without filter')
-          continue
-        }
-        const amenityResults = filtered.filter(filter)
-        if (amenityResults.length > 0) {
-          filtered = amenityResults
-          console.log(`After amenity filter (${keywords[0]}):`, filtered.length)
-        } else {
-          console.log(`No properties found with ${keywords[0]}, keeping all results`)
-        }
-        break
-      }
-    }
-
-    // Pet-friendly filters
-    if (lowerQuery.includes('pet friendly') || lowerQuery.includes('dog friendly') || lowerQuery.includes('cat friendly') || 
-        lowerQuery.includes('pets allowed') || lowerQuery.includes('dogs allowed')) {
-      const petResults = filtered.filter(listing => /pet|dog|cat/i.test(listing.name))
-      if (petResults.length > 0) {
-        filtered = petResults
-        console.log('After pet-friendly filter:', filtered.length)
+    // Property type filters - only apply strong filters, sort for weak ones
+    if (lowerQuery.includes('entire house') || lowerQuery.includes('entire home') || lowerQuery.includes('whole house')) {
+      const entireResults = filtered.filter(l => l.roomType.toLowerCase().includes('entire'))
+      if (entireResults.length > 0) {
+        filtered = entireResults
+        console.log('After entire house filter:', filtered.length)
       } else {
-        console.log('No pet-friendly properties found, keeping all results')
+        console.log('No entire houses found, keeping all results')
+      }
+    } else if (lowerQuery.includes('private room') || lowerQuery.includes('private bedroom')) {
+      const privateResults = filtered.filter(l => l.roomType.toLowerCase().includes('private'))
+      if (privateResults.length > 0) {
+        filtered = privateResults
+        console.log('After private room filter:', filtered.length)
+      } else {
+        console.log('No private rooms found, keeping all results')
+      }
+    } else if (lowerQuery.includes('shared room') || lowerQuery.includes('shared space')) {
+      const sharedResults = filtered.filter(l => l.roomType.toLowerCase().includes('shared'))
+      if (sharedResults.length > 0) {
+        filtered = sharedResults
+        console.log('After shared room filter:', filtered.length)
+      } else {
+        console.log('No shared rooms found, keeping all results')
       }
     }
 
-    // Location refinement filters
-    const locationPatterns = [
-      { keywords: ['near beach', 'beachfront', 'beach access', 'oceanfront'], filter: (l: AirbnbListing) => /beach|ocean|waterfront|coastal/i.test(l.name) },
-      { keywords: ['downtown', 'city center', 'city centre'], filter: (l: AirbnbListing) => /downtown|center|centre|central/i.test(l.name) },
-      { keywords: ['quiet', 'peaceful', 'secluded'], filter: (l: AirbnbListing) => /quiet|peaceful|secluded|private|tranquil/i.test(l.name) },
-      { keywords: ['walking distance', 'walkable'], filter: (l: AirbnbListing) => /walk|steps|minutes/i.test(l.name) }
+    // For other property types, prefer sorting over filtering
+    if (lowerQuery.includes('studio')) {
+      const studioResults = filtered.filter(l => /studio/i.test(l.name))
+      if (studioResults.length >= filtered.length * 0.1) { // Only filter if at least 10% match
+        filtered = studioResults
+        console.log('After studio filter:', filtered.length)
+      } else {
+        // Sort studios to top instead of filtering
+        filtered = filtered.sort((a, b) => {
+          const aStudio = /studio/i.test(a.name) ? 1 : 0
+          const bStudio = /studio/i.test(b.name) ? 1 : 0
+          return bStudio - aStudio
+        })
+        console.log('Sorted studios to top')
+      }
+    }
+
+    // Simplified filtering - only apply filters that are likely to work well
+    // Most other filters will use sorting instead of hard filtering
+    
+    // Only filter on amenities that are commonly mentioned in titles
+    if (lowerQuery.includes('pool') || lowerQuery.includes('swimming pool')) {
+      const poolResults = filtered.filter(l => /pool|swimming/i.test(l.name))
+      if (poolResults.length >= Math.max(1, filtered.length * 0.1)) { // Only if at least 10% or 1+ results
+        filtered = poolResults
+        console.log('After pool filter:', filtered.length)
+      } else {
+        console.log('Not enough pool properties, keeping all results')
+      }
+    }
+
+    // For most other requests, use smart sorting instead of hard filtering
+    const sortingKeywords = [
+      { keywords: ['luxury', 'luxurious', 'upscale'], sort: (a: AirbnbListing, b: AirbnbListing) => b.price.rate - a.price.rate },
+      { keywords: ['budget', 'cheap', 'affordable'], sort: (a: AirbnbListing, b: AirbnbListing) => a.price.rate - b.price.rate },
+      { keywords: ['modern', 'contemporary'], sort: (a: AirbnbListing, b: AirbnbListing) => b.rating - a.rating }, // Sort by rating as proxy
+      { keywords: ['cozy', 'charming'], sort: (a: AirbnbListing, b: AirbnbListing) => b.rating - a.rating },
+      { keywords: ['beachfront', 'beach', 'oceanfront'], sort: (a: AirbnbListing, b: AirbnbListing) => {
+        const aBeach = /beach|ocean/i.test(a.name) ? 1 : 0
+        const bBeach = /beach|ocean/i.test(b.name) ? 1 : 0
+        return bBeach - aBeach || b.rating - a.rating
+      }},
+      { keywords: ['downtown', 'city center'], sort: (a: AirbnbListing, b: AirbnbListing) => {
+        const aCenter = /downtown|center|central/i.test(a.name) ? 1 : 0
+        const bCenter = /downtown|center|central/i.test(b.name) ? 1 : 0
+        return bCenter - aCenter || b.rating - a.rating
+      }}
     ]
 
-    for (const { keywords, filter } of locationPatterns) {
+    for (const { keywords, sort } of sortingKeywords) {
       if (keywords.some(keyword => lowerQuery.includes(keyword))) {
-        const locationResults = filtered.filter(filter)
-        if (locationResults.length > 0) {
-          filtered = locationResults
-          console.log(`After location filter (${keywords[0]}):`, filtered.length)
-        }
+        filtered = filtered.sort(sort)
+        console.log(`Sorted by ${keywords[0]} preference`)
         break
-      }
-    }
-
-    // View filters
-    if (lowerQuery.includes('view') || lowerQuery.includes('scenic')) {
-      const viewKeywords = ['view', 'scenic', 'panoramic', 'vista', 'overlooking']
-      const viewResults = filtered.filter(listing => 
-        viewKeywords.some(keyword => listing.name.toLowerCase().includes(keyword))
-      )
-      if (viewResults.length > 0) {
-        filtered = viewResults
-        console.log('After view filter:', filtered.length)
       }
     }
 
@@ -563,6 +530,8 @@ function App() {
       if (largerResults.length > 0) {
         filtered = largerResults
         console.log('After larger properties filter:', filtered.length)
+      } else {
+        console.log('No larger properties found, keeping all results')
       }
     }
 
@@ -571,6 +540,8 @@ function App() {
       if (smallerResults.length > 0) {
         filtered = smallerResults
         console.log('After smaller properties filter:', filtered.length)
+      } else {
+        console.log('No smaller properties found, keeping all results')
       }
     }
 
@@ -711,17 +682,20 @@ function App() {
       /(?:under|less\s+than|no\s+more\s+than)\s*\$?(\d+)k?/i,
       /(?:max(?:imum)?|limit)\s*\$?(\d+)k?/i,
       /(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?(\d+)k?/i,
-      /\$?(\d+)k?\s+(?:total|max|maximum|limit)/i
+      /\$?(\d+)k?\s+(?:total|max|maximum|limit)/i,
+      /(?:show\s+)?(?:options\s+)?(?:under|below)\s*\$?(\d+)k?/i // NEW: Handle "Show options under $143"
     ]
     
     for (const pattern of pricePatterns) {
       const match = followupQuery.match(pattern)
       if (match && match[1]) {
         let price = parseInt(match[1])
-        if (followupQuery.toLowerCase().includes(match[1] + 'k')) {
+        // Handle 'k' suffix properly - check if k appears right after the number
+        if (/\d+k/i.test(match[0])) {
           price *= 1000
         }
         updated.maxPrice = price
+        console.log(`Updated maxPrice from "${followupQuery}" to $${price}`)
         break
       }
     }
@@ -902,7 +876,8 @@ function App() {
           // Update context with new parameters from followup query
           const updatedContext = updateSearchContext(searchContext, query)
           setSearchContext(updatedContext)
-          console.log('Updated search context:', updatedContext)
+          console.log('Updated search context for query "' + query + '":', updatedContext)
+          console.log('Original context was:', searchContext)
         }
       }
       
