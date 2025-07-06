@@ -336,19 +336,14 @@ function App() {
     setSearchQuery('')
 
     try {
-      const searchResults = await searchAirbnbListings(query, page)
+      const data = await searchAirbnbListings(query, page)
+      const searchResults = data.listings || []
       
       // Apply natural language filters
       const filteredResults = applyNaturalLanguageFilters(searchResults, query)
       
-      // Debug: log the first listing to see its structure
-      if (filteredResults.length > 0) {
-        console.log('First listing structure:', filteredResults[0])
-        console.log('First listing name:', filteredResults[0].name)
-      }
-      
       setCurrentPage(page)
-      setHasMore(searchResults.length === 18) // Assume more if we got full page
+      setHasMore(data.hasMore || false)
       setCurrentQuery(query)
       
       // Create response message based on filtering
@@ -363,10 +358,8 @@ function App() {
           : `Here are ${filteredResults.length} filtered properties from ${searchResults.length} results for "${query}" (page ${page}). Check the results panel →`
       }
       
-      // Generate follow-up suggestions
       const followUpSuggestions = generateFollowUps(filteredResults, query)
       
-      // Add assistant response without listings (they go to results panel)
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
@@ -376,11 +369,8 @@ function App() {
       }
       setMessages(prev => [...prev, assistantMessage])
 
-      // Update results panel
       setCurrentResults(filteredResults)
       setShowResults(true)
-
-      // Add to search history
       addToHistory(query, filteredResults.length)
 
     } catch (error) {

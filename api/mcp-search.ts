@@ -68,23 +68,17 @@ export default async function handler(
   try {
     const { query, location, adults = 1, children = 0, infants = 0, pets = 0, checkin, checkout, minPrice, maxPrice, page = 1 }: SearchRequest = req.body
 
-    // If we have a natural language query, use that directly
-    // Otherwise fall back to the parsed parameters
-    const searchParams = query ? 
-      { query, page, ignoreRobotsText: true } :
-      {
-        location,
-        adults,
-        children,
-        infants,
-        pets,
-        page,
-        ...(checkin && { checkin }),
-        ...(checkout && { checkout }),
-        ...(minPrice && { minPrice }),
-        ...(maxPrice && { maxPrice }),
-        ignoreRobotsText: true
-      }
+    const searchParams = {
+      location: query || location,
+      adults,
+      children: children + infants,
+      page,
+      ignoreRobotsText: true,
+      ...(checkin && { checkin }),
+      ...(checkout && { checkout }),
+      ...(minPrice && { minPrice }),
+      ...(maxPrice && { maxPrice })
+    }
 
     if (!query && !location) {
       return res.status(400).json({ error: 'Query or location is required' })
@@ -96,6 +90,7 @@ export default async function handler(
     const mcpResult = await callMCPAirbnbSearch(searchParams)
     
     console.log('MCP Result received:', JSON.stringify(mcpResult, null, 2))
+    console.log('MCP searchResults count:', mcpResult.searchResults?.length)
     
     if (!mcpResult) {
       throw new Error('No response from MCP server')
@@ -113,6 +108,8 @@ export default async function handler(
       listings,
       searchUrl: mcpResult.searchUrl,
       totalResults: listings.length,
+      page: page,
+      hasMore: listings.length >= 18, // Assume more pages if we got a full page
       source: 'Real Airbnb MCP Server'
     })
 
@@ -216,7 +213,6 @@ async function getCityFromCoordinates(lat?: number, lng?: number): Promise<strin
   if (!lat || !lng) return undefined
 
   try {
-    // Try OpenStreetMap Nominatim reverse geocoding (free, no API key required)
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
       {
@@ -230,89 +226,16 @@ async function getCityFromCoordinates(lat?: number, lng?: number): Promise<strin
       const data = await response.json()
       const address = data.address
       
-      // Extract city from various possible fields
       const city = address?.city || 
                    address?.town || 
                    address?.village || 
                    address?.municipality ||
                    address?.county
       
-      if (city) {
-        return city
-      }
+      return city
     }
   } catch (error) {
-    console.log('Reverse geocoding failed, using fallback:', error)
-  }
-
-  // Fallback to extensive coordinate lookup
-  return getCityFromCoordinatesFallback(lat, lng)
-}
-
-function getCityFromCoordinatesFallback(lat: number, lng: number): string {
-  // Comprehensive US cities with coordinate ranges
-  const cityBounds = [
-    // Major Texas Cities
-    { name: 'Austin', latMin: 30.1, latMax: 30.5, lngMin: -97.9, lngMax: -97.6 },
-    { name: 'San Antonio', latMin: 29.3, latMax: 29.6, lngMin: -98.7, lngMax: -98.3 },
-    { name: 'Houston', latMin: 29.6, latMax: 30.0, lngMin: -95.8, lngMax: -95.0 },
-    { name: 'Dallas', latMin: 32.6, latMax: 33.0, lngMin: -96.9, lngMax: -96.6 },
-    { name: 'Fort Worth', latMin: 32.6, latMax: 32.8, lngMin: -97.5, lngMax: -97.2 },
-    
-    // California Cities
-    { name: 'Los Angeles', latMin: 33.9, latMax: 34.3, lngMin: -118.7, lngMax: -118.1 },
-    { name: 'Malibu', latMin: 34.0, latMax: 34.1, lngMin: -118.9, lngMax: -118.6 },
-    { name: 'San Diego', latMin: 32.6, latMax: 32.8, lngMin: -117.3, lngMax: -117.1 },
-    { name: 'San Francisco', latMin: 37.7, latMax: 37.8, lngMin: -122.5, lngMax: -122.4 },
-    { name: 'Oakland', latMin: 37.7, latMax: 37.8, lngMin: -122.3, lngMax: -122.2 },
-    { name: 'Sacramento', latMin: 38.5, latMax: 38.6, lngMin: -121.6, lngMax: -121.4 },
-    { name: 'Fresno', latMin: 36.7, latMax: 36.8, lngMin: -119.8, lngMax: -119.7 },
-    
-    // Major East Coast
-    { name: 'New York', latMin: 40.6, latMax: 40.9, lngMin: -74.1, lngMax: -73.9 },
-    { name: 'Boston', latMin: 42.3, latMax: 42.4, lngMin: -71.1, lngMax: -71.0 },
-    { name: 'Philadelphia', latMin: 39.9, latMax: 40.0, lngMin: -75.2, lngMax: -75.1 },
-    { name: 'Washington DC', latMin: 38.8, latMax: 38.9, lngMin: -77.1, lngMax: -77.0 },
-    { name: 'Miami', latMin: 25.7, latMax: 25.8, lngMin: -80.3, lngMax: -80.1 },
-    { name: 'Orlando', latMin: 28.4, latMax: 28.6, lngMin: -81.4, lngMax: -81.2 },
-    { name: 'Tampa', latMin: 27.9, latMax: 28.0, lngMin: -82.5, lngMax: -82.4 },
-    
-    // Midwest
-    { name: 'Chicago', latMin: 41.6, latMax: 42.1, lngMin: -87.9, lngMax: -87.5 },
-    { name: 'Detroit', latMin: 42.3, latMax: 42.4, lngMin: -83.1, lngMax: -83.0 },
-    { name: 'Milwaukee', latMin: 43.0, latMax: 43.1, lngMin: -87.9, lngMax: -87.8 },
-    { name: 'Minneapolis', latMin: 44.9, latMax: 45.0, lngMin: -93.3, lngMax: -93.2 },
-    { name: 'St. Louis', latMin: 38.6, latMax: 38.7, lngMin: -90.3, lngMax: -90.2 },
-    { name: 'Kansas City', latMin: 39.0, latMax: 39.1, lngMin: -94.6, lngMax: -94.5 },
-    
-    // Mountain West
-    { name: 'Denver', latMin: 39.6, latMax: 39.8, lngMin: -105.1, lngMax: -104.8 },
-    { name: 'Las Vegas', latMin: 36.0, latMax: 36.3, lngMin: -115.3, lngMax: -115.0 },
-    { name: 'Phoenix', latMin: 33.4, latMax: 33.5, lngMin: -112.1, lngMax: -112.0 },
-    { name: 'Salt Lake City', latMin: 40.7, latMax: 40.8, lngMin: -111.9, lngMax: -111.8 },
-    { name: 'Albuquerque', latMin: 35.0, latMax: 35.1, lngMin: -106.7, lngMax: -106.6 },
-    
-    // Pacific Northwest
-    { name: 'Seattle', latMin: 47.5, latMax: 47.7, lngMin: -122.4, lngMax: -122.2 },
-    { name: 'Portland', latMin: 45.4, latMax: 45.6, lngMin: -122.8, lngMax: -122.5 },
-    
-    // South
-    { name: 'Atlanta', latMin: 33.7, latMax: 33.8, lngMin: -84.4, lngMax: -84.3 },
-    { name: 'Nashville', latMin: 36.1, latMax: 36.2, lngMin: -86.8, lngMax: -86.7 },
-    { name: 'New Orleans', latMin: 29.9, latMax: 30.0, lngMin: -90.1, lngMax: -90.0 },
-    { name: 'Charlotte', latMin: 35.2, latMax: 35.3, lngMin: -80.9, lngMax: -80.8 },
-    
-    // Tourist destinations
-    { name: 'Asheville', latMin: 35.5, latMax: 35.6, lngMin: -82.6, lngMax: -82.5 },
-    { name: 'Savannah', latMin: 32.0, latMax: 32.1, lngMin: -81.1, lngMax: -81.0 },
-    { name: 'Key West', latMin: 24.5, latMax: 24.6, lngMin: -81.8, lngMax: -81.7 },
-    { name: 'Park City', latMin: 40.6, latMax: 40.7, lngMin: -111.5, lngMax: -111.4 },
-  ]
-
-  for (const city of cityBounds) {
-    if (lat >= city.latMin && lat <= city.latMax && lng >= city.lngMin && lng <= city.lngMax) {
-      return city.name
-    }
+    console.log('Reverse geocoding failed:', error)
   }
 
   return undefined

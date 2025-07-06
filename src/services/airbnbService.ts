@@ -58,8 +58,8 @@ export async function searchAirbnbListings(naturalLanguageQuery: string, page: n
     const data = await response.json()
     console.log('API Response received:', JSON.stringify(data, null, 2))
     
-    // The API already returns properly formatted listings
-    return data.listings || []
+    // Return the complete response with pagination info
+    return data
   } catch (error) {
     console.error('Search failed:', error)
     throw error
