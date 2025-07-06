@@ -1,100 +1,56 @@
 import type { AirbnbListing } from '../types'
+import type { QueryAnalysis } from './nlpAnalysis'
 
-// Generate contextual follow-up suggestions based on search results
-export const generateFollowUps = (listings: AirbnbListing[], originalQuery: string): string[] => {
+// Generate contextual follow-up suggestions based on search results and NLP analysis
+export const generateFollowUps = (listings: AirbnbListing[], _originalQuery: string, analysis?: QueryAnalysis): string[] => {
   const followUps: string[] = []
-  const lowerQuery = originalQuery.toLowerCase()
 
   if (listings.length === 0) {
     return ["Try a different location", "Expand your search criteria", "Search for nearby areas"]
   }
 
-  // Price-based follow-ups
-  const prices = listings.map(l => l.price.rate)
-  const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length
-  const minPrice = Math.min(...prices)
-  const maxPrice = Math.max(...prices)
-
-  if (!lowerQuery.includes('under') && !lowerQuery.includes('below') && avgPrice > 150) {
-    followUps.push(`Show options under $${Math.round(avgPrice * 0.8)}`)
-  }
-  if (!lowerQuery.includes('luxury') && maxPrice > 300) {
-    followUps.push("Show only luxury properties")
-  }
-  if (!lowerQuery.includes('budget') && minPrice < 150) {
-    followUps.push("Show only budget options")
-  }
-
-  // Rating-based follow-ups
-  const ratings = listings.map(l => l.rating)
-  const avgRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
-  if (!lowerQuery.includes('superhost') && listings.some(l => l.host.isSuperhost)) {
-    followUps.push("Show only superhosts")
-  }
-  if (!lowerQuery.includes('rated') && avgRating < 4.8) {
-    followUps.push("Show only 4.8+ rated properties")
-  }
-
-  // Property type follow-ups
-  const roomTypes = [...new Set(listings.map(l => l.roomType))]
-  if (roomTypes.length > 1) {
-    if (!lowerQuery.includes('entire') && roomTypes.some(rt => rt.toLowerCase().includes('entire'))) {
-      followUps.push("Show only entire homes")
+  // Use NLP analysis to generate intelligent follow-ups
+  if (analysis) {
+    // Price-based suggestions from NLP analysis
+    const prices = listings.map(l => l.price.rate)
+    const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length
+    
+    if (!analysis.entities.money.length && avgPrice > 150) {
+      followUps.push(`Show options under $${Math.round(avgPrice * 0.8)}`)
     }
-    if (!lowerQuery.includes('private room') && roomTypes.some(rt => rt.toLowerCase().includes('private'))) {
-      followUps.push("Show only private rooms")
+
+    // Property type suggestions based on available amenities
+    if (analysis.propertyNeeds.amenities.length === 0) {
+      const availableAmenities = ['pool', 'parking', 'kitchen', 'beach']
+      availableAmenities.forEach(amenity => {
+        if (listings.some(l => l.amenities.some(a => a.toLowerCase().includes(amenity)) || 
+                               l.name.toLowerCase().includes(amenity))) {
+          followUps.push(`Show only properties with ${amenity}`)
+        }
+      })
     }
+
+    // Group size suggestions
+    if (analysis.guestInfo.totalGuests && analysis.guestInfo.totalGuests >= 4) {
+      if (!analysis.propertyNeeds.minBedrooms) {
+        followUps.push("Show only 3+ bedroom properties")
+      }
+    }
+
+    // Quality suggestions
+    if (!analysis.keywords.includes('superhost') && listings.some(l => l.host.isSuperhost)) {
+      followUps.push("Show only superhosts")
+    }
+
+    // Completeness suggestions from NLP
+    if (analysis.suggestions.length > 0) {
+      followUps.push(...analysis.suggestions.slice(0, 1))
+    }
+  } else {
+    // Fallback to basic suggestions if no NLP analysis
+    followUps.push("Show budget options", "Show luxury properties", "Show only superhosts")
   }
 
-  // Amenity-based follow-ups
-  if (!lowerQuery.includes('pool') && listings.some(l => l.name.toLowerCase().includes('pool'))) {
-    followUps.push("Show only properties with pool")
-  }
-  if (!lowerQuery.includes('kitchen') && listings.some(l => l.name.toLowerCase().includes('kitchen'))) {
-    followUps.push("Show only properties with kitchen")
-  }
-  if (!lowerQuery.includes('parking') && listings.some(l => l.name.toLowerCase().includes('parking'))) {
-    followUps.push("Show only properties with parking")
-  }
-
-  // Location-based follow-ups
-  if (!lowerQuery.includes('beach') && listings.some(l => l.name.toLowerCase().includes('beach'))) {
-    followUps.push("Show only beachfront properties")
-  }
-  if (!lowerQuery.includes('downtown') && !lowerQuery.includes('center') && 
-      listings.some(l => l.name.toLowerCase().includes('center') || l.name.toLowerCase().includes('downtown'))) {
-    followUps.push("Show only city center locations")
-  }
-
-  // Sorting follow-ups
-  if (!lowerQuery.includes('highest') && !lowerQuery.includes('best rated') && !lowerQuery.includes('sort')) {
-    followUps.push("Sort by highest rated first")
-  }
-  if (!lowerQuery.includes('cheapest') && !lowerQuery.includes('lowest price') && !lowerQuery.includes('sort')) {
-    followUps.push("Sort by lowest price first")
-  }
-  if (!lowerQuery.includes('most reviews') && !lowerQuery.includes('sort')) {
-    followUps.push("Sort by most reviewed first")
-  }
-
-  // Review count follow-ups
-  const reviewCounts = listings.map(l => l.reviewsCount)
-  const avgReviews = reviewCounts.reduce((sum, count) => sum + count, 0) / reviewCounts.length
-  if (!lowerQuery.includes('well reviewed') && !lowerQuery.includes('reviews') && avgReviews > 20) {
-    followUps.push("At least 50 reviews")
-  }
-
-  // Style and size follow-ups
-  if (!lowerQuery.includes('luxury') && !lowerQuery.includes('premium') && listings.some(l => l.price.rate > 300)) {
-    followUps.push("Show only luxury properties")
-  }
-  if (!lowerQuery.includes('budget') && !lowerQuery.includes('cheaper') && listings.some(l => l.price.rate < 100)) {
-    followUps.push("Show budget options")
-  }
-  if (!lowerQuery.includes('larger') && !lowerQuery.includes('bedroom') && listings.some(l => /\d+\s*bed/i.test(l.name))) {
-    followUps.push("Show larger properties")
-  }
-
-  // Return 3-4 most relevant follow-ups
-  return followUps.slice(0, 4)
+  // Remove duplicates and return top suggestions
+  return [...new Set(followUps)].slice(0, 4)
 }

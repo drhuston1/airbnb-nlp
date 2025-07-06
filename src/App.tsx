@@ -28,8 +28,8 @@ import {
 import type { SearchContext } from './types'
 
 // Import enhanced NLP utilities
-import { extractSearchContext, updateSearchContext } from './utils/searchContext'
-import { applyNaturalLanguageFilters } from './utils/filtering'
+import { extractSearchContextFromNLP, updateSearchContextFromNLP } from './utils/searchContext'
+import { applyIntelligentFilters } from './utils/intelligentFiltering'
 import { generateFollowUps } from './utils/followUps'
 import { analyzeQuery as nlpAnalyzeQuery, extractTripContext, generateConversationalResponse } from './utils/nlpAnalysis'
 import { enhanceWithAI, shouldEnhanceWithAI } from './utils/aiEnhancement'
@@ -167,200 +167,7 @@ function App() {
     setSearchContext(null)
   }
 
-  // Apply natural language filters to listings (more lenient)
-  const applyNaturalLanguageFilters = (listings: AirbnbListing[], query: string) => {
-    const lowerQuery = query.toLowerCase()
-    let filtered = [...listings]
 
-    console.log('Original listings:', listings.length)
-    console.log('Query:', query)
-
-    // Rating & Review Filters - only apply superhost filter if "only" is specified
-    if ((lowerQuery.includes('superhost') || lowerQuery.includes('super host')) && lowerQuery.includes('only')) {
-      const superhostResults = filtered.filter(listing => listing.host.isSuperhost)
-      if (superhostResults.length > 0) {
-        filtered = superhostResults
-        console.log('After superhost only filter:', filtered.length)
-      } else {
-        console.log('No superhosts found, keeping all results and sorting superhosts first')
-        // Sort superhosts to the top instead of filtering
-        filtered = filtered.sort((a, b) => {
-          if (a.host.isSuperhost && !b.host.isSuperhost) return -1
-          if (!a.host.isSuperhost && b.host.isSuperhost) return 1
-          return b.rating - a.rating // Then by rating
-        })
-      }
-    } else if (lowerQuery.includes('superhost') || lowerQuery.includes('super host')) {
-      // Just sort superhosts to the top without filtering
-      filtered = filtered.sort((a, b) => {
-        if (a.host.isSuperhost && !b.host.isSuperhost) return -1
-        if (!a.host.isSuperhost && b.host.isSuperhost) return 1
-        return b.rating - a.rating
-      })
-      console.log('Sorted superhosts to top without filtering')
-    }
-    
-    if (lowerQuery.includes('high rated') || lowerQuery.includes('highly rated')) {
-      filtered = filtered.filter(listing => listing.rating >= 4.5)
-      console.log('After high rated filter:', filtered.length)
-    }
-    
-    if (lowerQuery.includes('well reviewed') || lowerQuery.includes('lots of reviews')) {
-      filtered = filtered.filter(listing => listing.reviewsCount >= 20)
-      console.log('After well reviewed filter:', filtered.length)
-    }
-    
-    if (lowerQuery.includes('new listing') || lowerQuery.includes('recently added')) {
-      filtered = filtered.filter(listing => listing.reviewsCount < 5)
-      console.log('After new listing filter:', filtered.length)
-    }
-
-    // Check for rating thresholds - be very lenient and avoid filtering to zero
-    const ratingMatch = lowerQuery.match(/(\d\.?\d?)\+?\s*rating|rating\s*(\d\.?\d?)\+?/)
-    if (ratingMatch) {
-      const minRating = parseFloat(ratingMatch[1] || ratingMatch[2])
-      if (minRating && minRating >= 3 && minRating <= 5) {
-        // Be very lenient - subtract 0.5 from the requirement
-        const lenientRating = Math.max(3.0, minRating - 0.5)
-        const ratingResults = filtered.filter(listing => listing.rating >= lenientRating)
-        if (ratingResults.length > 0) {
-          filtered = ratingResults
-          console.log(`After rating filter (${minRating} -> ${lenientRating}):`, filtered.length)
-        } else {
-          console.log(`No properties found with ${lenientRating}+ rating, just sorting by rating instead`)
-          // If no results, just sort by rating instead of filtering
-          filtered = filtered.sort((a, b) => b.rating - a.rating)
-        }
-      }
-    }
-
-    // Price Range Filters - be very lenient and avoid filtering to zero
-    const priceUnderMatch = lowerQuery.match(/under\s*\$?(\d+)|below\s*\$?(\d+)/)
-    if (priceUnderMatch) {
-      const maxPrice = parseInt(priceUnderMatch[1] || priceUnderMatch[2])
-      if (maxPrice && maxPrice > 0) {
-        // Be very lenient - add 50% to the budget
-        const lenientPrice = Math.floor(maxPrice * 1.5)
-        const priceResults = filtered.filter(listing => listing.price.rate <= lenientPrice)
-        if (priceResults.length > 0) {
-          filtered = priceResults
-          console.log(`After price filter (under $${maxPrice} -> $${lenientPrice}):`, filtered.length)
-        } else {
-          console.log(`No properties found under $${lenientPrice}, just sorting by price instead`)
-          // If no results, just sort by price instead of filtering
-          filtered = filtered.sort((a, b) => a.price.rate - b.price.rate)
-        }
-      }
-    }
-
-    // Property style filters - only filter if we find matches, otherwise skip
-    if (lowerQuery.includes('cabin') || lowerQuery.includes('chalet') || lowerQuery.includes('lodge')) {
-      const cabinListings = filtered.filter(listing => 
-        listing.name.toLowerCase().includes('cabin') || 
-        listing.name.toLowerCase().includes('chalet') || 
-        listing.name.toLowerCase().includes('lodge')
-      )
-      if (cabinListings.length > 0) {
-        filtered = cabinListings
-        console.log('After cabin filter:', filtered.length)
-      } else {
-        console.log('No cabins found, keeping all results')
-      }
-    }
-
-    // Don't filter by dog-friendly, Yellowstone, etc. - let the MCP search handle location
-    // Just sort instead of filter for these
-
-    // Sorting (instead of hard filtering)
-    if (lowerQuery.includes('highest rated') || lowerQuery.includes('best rated') || lowerQuery.includes('top rated')) {
-      filtered = filtered.sort((a, b) => b.rating - a.rating)
-    } else if (lowerQuery.includes('luxury')) {
-      // For luxury searches, sort by price (highest first) and rating
-      filtered = filtered.sort((a, b) => {
-        const priceSort = b.price.rate - a.price.rate
-        const ratingSort = b.rating - a.rating
-        return priceSort * 0.7 + ratingSort * 0.3 // Weight price more heavily for luxury
-      })
-      console.log('Sorted by luxury criteria (price + rating)')
-    }
-
-    console.log('Final filtered count:', filtered.length)
-    return filtered
-  }
-
-  // Generate contextual follow-up suggestions based on search results
-  const generateFollowUps = (listings: AirbnbListing[], originalQuery: string) => {
-    const followUps: string[] = []
-    const lowerQuery = originalQuery.toLowerCase()
-
-    if (listings.length === 0) {
-      return ["Try a different location", "Expand your search criteria", "Search for nearby areas"]
-    }
-
-    // Price-based follow-ups
-    const prices = listings.map(l => l.price.rate)
-    const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length
-    const minPrice = Math.min(...prices)
-    const maxPrice = Math.max(...prices)
-
-    if (!lowerQuery.includes('under') && !lowerQuery.includes('below') && avgPrice > 150) {
-      followUps.push(`Show options under $${Math.round(avgPrice * 0.8)}`)
-    }
-    if (!lowerQuery.includes('luxury') && maxPrice > 300) {
-      followUps.push("Show only luxury properties")
-    }
-    if (!lowerQuery.includes('budget') && minPrice < 150) {
-      followUps.push("Show only budget options")
-    }
-
-    // Rating-based follow-ups
-    const ratings = listings.map(l => l.rating)
-    const avgRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
-    if (!lowerQuery.includes('superhost') && listings.some(l => l.host.isSuperhost)) {
-      followUps.push("Show only superhosts")
-    }
-    if (!lowerQuery.includes('rated') && avgRating < 4.8) {
-      followUps.push("Show only 4.8+ rated properties")
-    }
-
-    // Property type follow-ups
-    const roomTypes = [...new Set(listings.map(l => l.roomType))]
-    if (roomTypes.length > 1) {
-      if (!lowerQuery.includes('entire') && roomTypes.some(rt => rt.toLowerCase().includes('entire'))) {
-        followUps.push("Show only entire homes")
-      }
-      if (!lowerQuery.includes('private room') && roomTypes.some(rt => rt.toLowerCase().includes('private'))) {
-        followUps.push("Show only private rooms")
-      }
-    }
-
-    // Location-based follow-ups
-    if (!lowerQuery.includes('beach') && listings.some(l => l.name.toLowerCase().includes('beach'))) {
-      followUps.push("Show only beachfront properties")
-    }
-    if (!lowerQuery.includes('downtown') && !lowerQuery.includes('center') && 
-        listings.some(l => l.name.toLowerCase().includes('center') || l.name.toLowerCase().includes('downtown'))) {
-      followUps.push("Show only city center locations")
-    }
-
-    // Sorting follow-ups
-    if (!lowerQuery.includes('highest') && !lowerQuery.includes('best rated')) {
-      followUps.push("Sort by highest rated first")
-    }
-    if (!lowerQuery.includes('cheapest') && !lowerQuery.includes('lowest price')) {
-      followUps.push("Sort by lowest price first")
-    }
-
-    // Review count follow-ups
-    const reviewCounts = listings.map(l => l.reviewsCount)
-    const avgReviews = reviewCounts.reduce((sum, count) => sum + count, 0) / reviewCounts.length
-    if (!lowerQuery.includes('well reviewed') && avgReviews > 20) {
-      followUps.push("Show only well-reviewed properties")
-    }
-
-    // Return 3-4 most relevant follow-ups
-    return followUps.slice(0, 4)
-  }
 
   const handleSearch = async (page = 1) => {
     if (!searchQuery.trim()) return
@@ -400,7 +207,7 @@ function App() {
 
     try {
       // Prepare search payload with context
-      const searchPayload: any = {
+      const searchPayload: Record<string, unknown> = {
         query,
         page
       }
@@ -434,24 +241,24 @@ function App() {
       const data: SearchResponse = await response.json()
       const searchResults = data.listings || []
       
-      // Capture search context on first search for followup queries
+      // Capture search context on first search for followup queries using NLP
       if (page === 1) {
         if (!searchContext) {
-          // Extract basic context from the initial query
-          const extractedContext = extractSearchContext(query)
+          // Extract context using NLP analysis instead of hardcoded patterns
+          const extractedContext = extractSearchContextFromNLP(nlpAnalysis)
           setSearchContext(extractedContext)
-          console.log('Captured search context:', extractedContext)
+          console.log('Captured search context using NLP:', extractedContext)
         } else {
-          // Update context with new parameters from followup query
-          const updatedContext = updateSearchContext(searchContext, query)
+          // Update context with new parameters from followup query using NLP
+          const updatedContext = updateSearchContextFromNLP(searchContext, nlpAnalysis)
           setSearchContext(updatedContext)
-          console.log('Updated search context for query "' + query + '":', updatedContext)
+          console.log('Updated search context using NLP for query "' + query + '":', updatedContext)
           console.log('Original context was:', searchContext)
         }
       }
       
-      // Apply enhanced natural language filters
-      let filteredResults = applyNaturalLanguageFilters(searchResults, query, searchContext)
+      // Apply intelligent NLP-based filtering
+      const filteredResults = applyIntelligentFilters(searchResults, nlpAnalysis, searchContext)
       
       setCurrentPage(page)
       setHasMore(data.hasMore || false)
@@ -490,7 +297,7 @@ function App() {
         responseContent += `\n\n${nlpAnalysis.suggestions[0]}`
       }
       
-      const followUpSuggestions = generateFollowUps(filteredResults, query)
+      const followUpSuggestions = generateFollowUps(filteredResults, query, nlpAnalysis)
       
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),

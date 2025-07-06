@@ -1,4 +1,6 @@
 import type { SearchContext } from '../types'
+import type { QueryAnalysis } from './nlpAnalysis'
+import { analyzeQuery } from './nlpAnalysis'
 
 // Helper function for Labor Day calculation
 export const getFirstMondayInSeptember = (year: number): Date => {
@@ -15,152 +17,102 @@ export const formatDate = (date: Date): string => {
 
 // Extract search context from initial query
 export const extractSearchContext = (query: string): SearchContext => {
-  const lowerQuery = query.toLowerCase()
-  
-  // Extract location
-  let location = 'Unknown'
-  const locationPatterns = [
-    /(?:near|in|at|around)\s+([a-zA-Z\s,]+?)(?:\s+for|\s+with|\s*$|\s+\d|\.|,)/i,
-    /(?:beachfront|beach|property)\s+(?:in|at|near)\s+([a-zA-Z\s,]+?)(?:\s+for|\s*$|\s+\d)/i,
-    /^([a-zA-Z\s,]+?)\s+(?:beachfront|beach|property|villa|house|home)/i,
-    /^([a-zA-Z\s,]+?)[\.\,]/i // Simple fallback
-  ]
-  
-  for (const pattern of locationPatterns) {
-    const match = query.match(pattern)
-    if (match && match[1]) {
-      let extractedLocation = match[1].trim()
-      extractedLocation = extractedLocation.replace(/\b(for|with|and|the|a|an|property|properties|beachfront|beach|house|home|villa|apartment|condo|looking|front)\b/gi, '')
-      extractedLocation = extractedLocation.replace(/\s+/g, ' ').trim()
-      
-      if (extractedLocation.length >= 2 && !/^\d+$/.test(extractedLocation)) {
-        location = extractedLocation
-        break
-      }
-    }
-  }
-  
-  // Extract guest counts
-  let adults = 1
-  let children = 0
-  
-  const adultMatches = lowerQuery.match(/(\d+)\s+adults?/i)
-  if (adultMatches) {
-    adults = parseInt(adultMatches[1])
-  }
-  
-  const peopleMatches = lowerQuery.match(/for\s+(\d+)\s+people/i)
-  if (peopleMatches && !adultMatches) {
-    adults = parseInt(peopleMatches[1])
-  }
-  
-  const childrenMatches = lowerQuery.match(/(\d+)\s+(?:child|children|toddler|kids?)/i)
-  if (childrenMatches) {
-    children = parseInt(childrenMatches[1])
-  }
-  
-  // Extract nights
-  let nights: number | undefined
-  const nightsMatch = lowerQuery.match(/(\d+)\s+nights?/i)
-  if (nightsMatch) {
-    nights = parseInt(nightsMatch[1])
-  }
-  
-  // Extract dates
-  let checkin: string | undefined
-  let checkout: string | undefined
-  
-  // Labor Day patterns
-  const laborDayPatterns = [
-    /(?:week after|post) labor day(?:\s+weekend)?/i,
-    /after labor day(?:\s+weekend)?/i,
-    /labor day(?:\s+weekend)?\s+(?:week|weekend)/i
-  ]
-  
-  for (const pattern of laborDayPatterns) {
-    if (pattern.test(query)) {
-      const year = new Date().getFullYear()
-      const laborDay = getFirstMondayInSeptember(year)
-      
-      // "Post labor day weekend" = Tuesday after Labor Day weekend
-      const startDate = new Date(laborDay)
-      startDate.setDate(startDate.getDate() + 1) // Tuesday after Labor Day Monday
-      
-      checkin = formatDate(startDate)
-      
-      // Calculate checkout if nights are specified
-      if (nights) {
-        const endDate = new Date(startDate)
-        endDate.setDate(endDate.getDate() + nights)
-        checkout = formatDate(endDate)
-      }
-      break
-    }
-  }
-  
-  // Extract prices
-  let minPrice: number | undefined
-  let maxPrice: number | undefined
-  
-  const underPriceMatch = lowerQuery.match(/under\s*\$?(\d+)k?/i)
-  if (underPriceMatch) {
-    let price = parseInt(underPriceMatch[1])
-    if (lowerQuery.includes(underPriceMatch[1] + 'k')) {
-      price *= 1000
-    }
-    maxPrice = price
-  }
-  
-  return {
-    location,
-    adults,
-    children,
-    nights,
-    checkin,
-    checkout,
-    minPrice,
-    maxPrice
-  }
+  // Legacy function - redirect to pure NLP implementation
+  const analysis = analyzeQuery(query)
+  return extractSearchContextFromNLP(analysis)
 }
 
 // Update existing search context with new parameters from followup query
 export const updateSearchContext = (existingContext: SearchContext, followupQuery: string): SearchContext => {
-  const lowerQuery = followupQuery.toLowerCase()
-  const updated = { ...existingContext }
-  
-  // Update price constraints
-  const pricePatterns = [
-    /(?:under|less\s+than|no\s+more\s+than)\s*\$?(\d+)k?/i,
-    /(?:max(?:imum)?|limit)\s*\$?(\d+)k?/i,
-    /(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?(\d+)k?/i,
-    /\$?(\d+)k?\s+(?:total|max|maximum|limit)/i,
-    /(?:show\s+)?(?:options\s+)?(?:under|below)\s*\$?(\d+)k?/i // NEW: Handle "Show options under $143"
-  ]
-  
-  for (const pattern of pricePatterns) {
-    const match = followupQuery.match(pattern)
-    if (match && match[1]) {
-      let price = parseInt(match[1])
-      // Handle 'k' suffix properly - check if k appears right after the number
-      if (/\d+k/i.test(match[0])) {
-        price *= 1000
+  // Legacy function - redirect to pure NLP implementation
+  const analysis = analyzeQuery(followupQuery)
+  return updateSearchContextFromNLP(existingContext, analysis)
+}
+
+// Enhanced context extraction using NLP analysis
+export const extractSearchContextFromNLP = (analysis: QueryAnalysis): SearchContext => {
+  const context: SearchContext = {
+    location: analysis.entities.places[0] || 'Unknown',
+    adults: analysis.guestInfo.adults || 1,
+    children: analysis.guestInfo.children || 0
+  }
+
+  // Handle special date patterns using NLP keywords
+  const query = analysis.keywords.join(' ').toLowerCase()
+  if (query.includes('labor day') || query.includes('labour day')) {
+    const year = new Date().getFullYear()
+    const laborDay = getFirstMondayInSeptember(year)
+    
+    // Check for "week after" or "post" labor day
+    if (query.includes('after') || query.includes('post') || query.includes('week')) {
+      const startDate = new Date(laborDay)
+      startDate.setDate(startDate.getDate() + 1) // Tuesday after Labor Day Monday
+      context.checkin = formatDate(startDate)
+      
+      // If we can extract nights from the query, calculate checkout
+      const nightsKeywords = analysis.keywords.filter(k => /\d+/.test(k) && (query.includes(k + ' night') || query.includes(k + ' day')))
+      if (nightsKeywords.length > 0) {
+        const nights = parseInt(nightsKeywords[0].match(/\d+/)?.[0] || '5')
+        const endDate = new Date(startDate)
+        endDate.setDate(endDate.getDate() + nights)
+        context.checkout = formatDate(endDate)
+        context.nights = nights
       }
-      updated.maxPrice = price
-      console.log(`Updated maxPrice from "${followupQuery}" to $${price}`)
-      break
     }
   }
-  
-  // Update guest counts if mentioned
-  const adultMatches = lowerQuery.match(/(\d+)\s+adults?/i)
-  if (adultMatches) {
-    updated.adults = parseInt(adultMatches[1])
+
+  // Extract budget from money entities
+  if (analysis.entities.money.length > 0) {
+    const moneyStr = analysis.entities.money[0]
+    const priceMatch = moneyStr.match(/\$?(\d+)/)
+    if (priceMatch) {
+      const price = parseInt(priceMatch[1])
+      // Check context to determine if this is max price
+      const queryLower = analysis.keywords.join(' ').toLowerCase()
+      if (queryLower.includes('under') || queryLower.includes('below') || queryLower.includes('max')) {
+        context.maxPrice = price
+      } else if (queryLower.includes('over') || queryLower.includes('above') || queryLower.includes('min')) {
+        context.minPrice = price
+      } else {
+        // Default assumption for price mentions
+        context.maxPrice = price
+      }
+    }
   }
-  
-  const childrenMatches = lowerQuery.match(/(\d+)\s+(?:child|children|toddler|kids?)/i)
-  if (childrenMatches) {
-    updated.children = parseInt(childrenMatches[1])
+
+  return context
+}
+
+// Enhanced context update using NLP analysis
+export const updateSearchContextFromNLP = (
+  existing: SearchContext, 
+  analysis: QueryAnalysis
+): SearchContext => {
+  const updated = { ...existing }
+
+  // Update guest info from NLP
+  if (analysis.guestInfo.hasGroupInfo) {
+    if (analysis.guestInfo.adults !== null) {
+      updated.adults = analysis.guestInfo.adults
+    }
+    if (analysis.guestInfo.children !== null) {
+      updated.children = analysis.guestInfo.children
+    }
   }
-  
+
+  // Update location if new one found
+  if (analysis.entities.places.length > 0) {
+    updated.location = analysis.entities.places[0]
+  }
+
+  // Update budget if found
+  if (analysis.entities.money.length > 0) {
+    const moneyStr = analysis.entities.money[0]
+    const priceMatch = moneyStr.match(/\$?(\d+)/)
+    if (priceMatch) {
+      updated.maxPrice = parseInt(priceMatch[1])
+    }
+  }
+
   return updated
 }

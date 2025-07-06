@@ -189,33 +189,65 @@ async function callExternalMCPServer(params: Record<string, unknown>) {
 
 async function transformMCPResults(searchResults: AirbnbSearchResult[]) {
   return Promise.all(searchResults.map(async (listing) => {
-    // Extract price from the accessibility label
-    const priceMatch = listing.structuredDisplayPrice?.primaryLine?.accessibilityLabel?.match(/\$(\d+(?:,\d+)*)/g)
-    const priceNumbers = priceMatch ? priceMatch.map(p => parseInt(p.replace(/[$,]/g, ''))) : [100]
-    const totalPrice = priceNumbers[0] || 100
-    const nightlyRate = priceNumbers.length > 1 ? Math.round(totalPrice / 5) : totalPrice // Assume 5 nights if total given
+    // Improved price extraction
+    const priceLabel = listing.structuredDisplayPrice?.primaryLine?.accessibilityLabel || ''
+    const priceDetails = listing.structuredDisplayPrice?.explanationData?.priceDetails || ''
+    
+    // Extract total and nightly rates more accurately
+    let totalPrice = 100
+    let nightlyRate = 100
+    
+    const totalMatch = priceLabel.match(/\$(\d+(?:,\d+)*)\s+for\s+(\d+)\s+night/)
+    if (totalMatch) {
+      totalPrice = parseInt(totalMatch[1].replace(/,/g, ''))
+      const nights = parseInt(totalMatch[2])
+      nightlyRate = Math.round(totalPrice / nights)
+    } else {
+      const priceDetailsMatch = priceDetails.match(/\$(\d+(?:,\d+)*(?:\.\d+)?)\s+x\s+(\d+)\s+night/)
+      if (priceDetailsMatch) {
+        nightlyRate = Math.round(parseFloat(priceDetailsMatch[1].replace(/,/g, '')))
+        const nights = parseInt(priceDetailsMatch[2])
+        totalPrice = nightlyRate * nights
+      }
+    }
 
-    // Extract rating
+    // Extract rating and reviews more accurately
     const ratingMatch = listing.avgRatingA11yLabel?.match(/([\d.]+)\s+out\s+of\s+5/)
     const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 4.0
 
-    // Extract review count
-    const reviewMatch = listing.avgRatingA11yLabel?.match(/(\d+)\s+review/)
-    const reviewsCount = reviewMatch ? parseInt(reviewMatch[1]) : 0
+    const reviewMatch = listing.avgRatingA11yLabel?.match(/(\d+(?:,\d+)*)\s+review/)
+    const reviewsCount = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, '')) : 0
 
-    // Determine if superhost
-    const isSuperhost = listing.badges?.toLowerCase().includes('superhost') || false
+    // Enhanced badge detection
+    const badges = listing.badges?.toLowerCase() || ''
+    const isSuperhost = badges.includes('superhost')
+    const isGuestFavorite = badges.includes('guest favorite')
 
-    // Extract city from coordinates
+    // Extract amenities from property name and structured content
+    const name = listing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference || 'Property'
+    const primaryLine = listing.structuredContent?.primaryLine || ''
+    const amenities = extractAmenitiesFromText(name + ' ' + primaryLine)
+
+    // Better city extraction using a simpler approach first
     const lat = listing.demandStayListing?.location?.coordinate?.latitude
     const lng = listing.demandStayListing?.location?.coordinate?.longitude
-    const city = await getCityFromCoordinates(lat, lng)
+    let city = 'Unknown'
+    
+    // For Austin specifically, use coordinates to determine neighborhoods
+    if (lat && lng && lat > 30.1 && lat < 30.4 && lng > -97.9 && lng < -97.6) {
+      city = getCityFromAustinCoordinates(lat, lng)
+    } else if (lat && lng) {
+      city = await getCityFromCoordinates(lat, lng) || 'Unknown'
+    }
+
+    // Generate Airbnb image URL
+    const images = [`https://a0.muscache.com/im/pictures/miso/${listing.id}/original.jpg`]
 
     return {
       id: listing.id,
-      name: listing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference || 'Property',
+      name,
       url: listing.url,
-      images: [],
+      images,
       price: {
         total: totalPrice,
         rate: nightlyRate,
@@ -224,15 +256,15 @@ async function transformMCPResults(searchResults: AirbnbSearchResult[]) {
       rating,
       reviewsCount,
       location: {
-        city: city || 'Unknown',
+        city,
         country: 'US'
       },
       host: {
-        name: 'Host',
+        name: isGuestFavorite ? 'Guest Favorite Host' : (isSuperhost ? 'Superhost' : 'Host'),
         isSuperhost
       },
-      amenities: [],
-      roomType: listing.structuredContent?.primaryLine || 'Property'
+      amenities,
+      roomType: primaryLine || 'Property'
     }
   }))
 }
@@ -328,21 +360,61 @@ function extractParametersFromQuery(queryText: string): ExtractedParams {
     }
   }
   
-  // Extract guest counts
-  const adultMatches = queryText.match(/(\d+)\s+adults?/i)
-  if (adultMatches) {
-    result.adults = parseInt(adultMatches[1])
+  // Extract guest counts - enhanced to handle complex patterns
+  
+  // Convert text numbers to digits for better parsing
+  const textToNumber: Record<string, string> = {
+    'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+    'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
   }
   
-  const peopleMatches = queryText.match(/for\s+(\d+)\s+people/i)
-  if (peopleMatches && !result.adults) {
-    result.adults = parseInt(peopleMatches[1])
+  let normalizedText = queryText.toLowerCase()
+  for (const [word, digit] of Object.entries(textToNumber)) {
+    normalizedText = normalizedText.replace(new RegExp(`\\b${word}\\b`, 'g'), digit)
   }
   
-  const childrenMatches = queryText.match(/(\d+)\s+(?:child|children|toddler|kids?)/i)
-  if (childrenMatches) {
-    result.children = parseInt(childrenMatches[1])
+  // Extract adults with various patterns
+  const adultPatterns = [
+    /(\d+)\s+adults?/i,
+    /for\s+(\d+)\s+adults?/i
+  ]
+  
+  for (const pattern of adultPatterns) {
+    const match = normalizedText.match(pattern)
+    if (match) {
+      result.adults = parseInt(match[1])
+      break
+    }
   }
+  
+  // Extract children/toddlers with various patterns  
+  const childPatterns = [
+    /(\d+)\s+(?:child|children|toddler|toddlers|kids?)/i,
+    /and\s+(\d+)\s+(?:child|children|toddler|toddlers|kids?)/i
+  ]
+  
+  for (const pattern of childPatterns) {
+    const match = normalizedText.match(pattern)
+    if (match) {
+      result.children = parseInt(match[1])
+      break
+    }
+  }
+  
+  // Fallback: Extract total people count if no specific adults/children found
+  if (!result.adults && !result.children) {
+    const peopleMatches = normalizedText.match(/for\s+(\d+)\s+people/i)
+    if (peopleMatches) {
+      result.adults = parseInt(peopleMatches[1])
+    }
+  }
+  
+  // Debug logging
+  console.log(`Guest extraction from "${queryText}":`, {
+    normalizedText,
+    adults: result.adults,
+    children: result.children
+  })
   
   // Extract price constraints
   const pricePatterns = [
@@ -445,4 +517,59 @@ function getFirstMondayInSeptember(year: number): Date {
 
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0]
+}
+
+function extractAmenitiesFromText(text: string): string[] {
+  const amenities: string[] = []
+  const lowerText = text.toLowerCase()
+  
+  // Common amenities to extract
+  const amenityPatterns = [
+    { pattern: /pool/i, amenity: 'Pool' },
+    { pattern: /hot\s*tub/i, amenity: 'Hot Tub' },
+    { pattern: /kitchen/i, amenity: 'Kitchen' },
+    { pattern: /parking/i, amenity: 'Parking' },
+    { pattern: /wifi|internet/i, amenity: 'WiFi' },
+    { pattern: /gym|fitness/i, amenity: 'Gym' },
+    { pattern: /laundry/i, amenity: 'Laundry' },
+    { pattern: /air\s*conditioning|a\/c/i, amenity: 'Air Conditioning' },
+    { pattern: /heating/i, amenity: 'Heating' },
+    { pattern: /balcony/i, amenity: 'Balcony' },
+    { pattern: /terrace/i, amenity: 'Terrace' },
+    { pattern: /garden/i, amenity: 'Garden' },
+    { pattern: /fireplace/i, amenity: 'Fireplace' },
+    { pattern: /washer|dryer/i, amenity: 'Washer & Dryer' },
+    { pattern: /pet\s*friendly/i, amenity: 'Pet Friendly' },
+    { pattern: /wheelchair|accessible/i, amenity: 'Wheelchair Accessible' },
+    { pattern: /workspace|office/i, amenity: 'Workspace' },
+    { pattern: /tv|television/i, amenity: 'TV' },
+    { pattern: /streaming|netflix/i, amenity: 'Streaming Services' },
+    { pattern: /waterfall/i, amenity: 'Waterfall' },
+    { pattern: /sauna/i, amenity: 'Sauna' },
+    { pattern: /massage/i, amenity: 'Massage Chair' },
+    { pattern: /bike/i, amenity: 'Bikes' },
+    { pattern: /trail/i, amenity: 'Trail Access' }
+  ]
+  
+  for (const { pattern, amenity } of amenityPatterns) {
+    if (pattern.test(text)) {
+      amenities.push(amenity)
+    }
+  }
+  
+  return [...new Set(amenities)] // Remove duplicates
+}
+
+function getCityFromAustinCoordinates(lat: number, lng: number): string {
+  // Austin neighborhood mapping based on coordinates
+  if (lat > 30.32) return 'North Austin'
+  if (lat < 30.23) return 'South Austin'
+  if (lng < -97.76) return 'West Austin'
+  if (lng > -97.72) return 'East Austin'
+  if (lat > 30.28 && lat < 30.32) return 'Central Austin'
+  if (lat > 30.25 && lat < 30.28) {
+    if (lng > -97.75) return 'Downtown Austin'
+    return 'Austin'
+  }
+  return 'Austin'
 }
