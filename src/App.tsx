@@ -412,8 +412,39 @@ function App() {
       >
         {/* Sidebar Header */}
         <Box p={3} borderBottom="1px" borderColor="gray.200">
-          <HStack justify="space-between" align="center">
-            <HStack gap={2}>
+          {showSidebar ? (
+            <HStack justify="space-between" align="center">
+              <HStack gap={2}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowSidebar(!showSidebar)}
+                  color="gray.600"
+                  _hover={{ bg: "gray.50" }}
+                  px={2}
+                >
+                  <Icon as={Menu} w={4} h={4} />
+                </Button>
+                
+                <Text fontSize="lg" fontWeight="600" color="gray.800">
+                  ChatBnb
+                </Text>
+              </HStack>
+              
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={startNewChat}
+                color="gray.600"
+                _hover={{ bg: "gray.50" }}
+                px={3}
+              >
+                <Icon as={Plus} w={4} h={4} mr={2} />
+                New chat
+              </Button>
+            </HStack>
+          ) : (
+            <VStack gap={2}>
               <Button
                 size="sm"
                 variant="ghost"
@@ -421,18 +452,11 @@ function App() {
                 color="gray.600"
                 _hover={{ bg: "gray.50" }}
                 px={2}
+                w="full"
               >
                 <Icon as={Menu} w={4} h={4} />
               </Button>
               
-              {showSidebar && (
-                <Text fontSize="lg" fontWeight="600" color="gray.800">
-                  ChatBnb
-                </Text>
-              )}
-            </HStack>
-            
-            {showSidebar && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -440,11 +464,12 @@ function App() {
                 color="gray.600"
                 _hover={{ bg: "gray.50" }}
                 px={2}
+                w="full"
               >
                 <Icon as={Plus} w={4} h={4} />
               </Button>
-            )}
-          </HStack>
+            </VStack>
+          )}
         </Box>
 
         {/* Sidebar Content */}
