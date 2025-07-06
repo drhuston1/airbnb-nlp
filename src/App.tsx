@@ -28,11 +28,7 @@ import {
 import type { SearchContext } from './types'
 
 // Import enhanced NLP utilities
-import { extractSearchContextFromNLP, updateSearchContextFromNLP } from './utils/searchContext'
-import { applyIntelligentFilters } from './utils/intelligentFiltering'
-import { generateFollowUps } from './utils/followUps'
-import { analyzeQuery as nlpAnalyzeQuery, extractTripContext, generateConversationalResponse } from './utils/nlpAnalysis'
-import { enhanceWithAI, shouldEnhanceWithAI } from './utils/aiEnhancement'
+import { extractLocationFromQuery, generateSimpleFollowUps } from './utils/simpleExtraction'
 interface AirbnbListing {
   id: string
   name: string
@@ -185,19 +181,16 @@ function App() {
     const query = searchQuery
     setSearchQuery('')
 
-    // Enhanced NLP Analysis
-    const nlpAnalysis = nlpAnalyzeQuery(query, searchContext || undefined)
-    const tripContext = extractTripContext(query)
-    console.log('NLP Analysis:', nlpAnalysis)
-    console.log('Trip Context:', tripContext)
-
-    // If the query is very incomplete, provide clarifying questions instead of searching
-    if (nlpAnalysis.completeness.score < 0.3 && !nlpAnalysis.completeness.hasLocation) {
+    // Simple location extraction
+    const extractedLocation = extractLocationFromQuery(query)
+    
+    // If no location found, ask for one
+    if (extractedLocation === 'Unknown') {
       const clarificationMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `I'd love to help you find the perfect place! ${nlpAnalysis.suggestions.join(' ')}`,
-        followUps: nlpAnalysis.suggestions.slice(0, 3),
+        content: 'I need to know where you\'d like to stay. Could you please specify a location?',
+        followUps: ['Try: "Austin, TX"', 'Try: "Charleston, SC"', 'Try: "Miami Beach"'],
         timestamp: new Date()
       }
       setMessages(prev => [...prev, clarificationMessage])
@@ -206,27 +199,14 @@ function App() {
     }
 
     try {
-      // Extract context first to ensure we have location for API call
-      let contextToUse = searchContext
-      if (!contextToUse) {
-        contextToUse = extractSearchContextFromNLP(nlpAnalysis)
-        console.log('Extracted context for API call:', contextToUse)
-      }
-
-      // Prepare search payload with context
+      // Simple search payload
       const searchPayload: Record<string, unknown> = {
         query,
         page,
-        location: contextToUse.location || 'Unknown',
-        adults: contextToUse.adults || 1,
-        children: contextToUse.children || 0
+        location: extractedLocation,
+        adults: 2, // sensible default
+        children: 0
       }
-
-      // Add optional parameters if available
-      if (contextToUse.checkin) searchPayload.checkin = contextToUse.checkin
-      if (contextToUse.checkout) searchPayload.checkout = contextToUse.checkout
-      if (contextToUse.minPrice) searchPayload.minPrice = contextToUse.minPrice
-      if (contextToUse.maxPrice) searchPayload.maxPrice = contextToUse.maxPrice
       
       console.log('ACTUAL SEARCH PAYLOAD BEING SENT TO API:', searchPayload)
       console.log('LOCATION SPECIFICALLY:', searchPayload.location)
@@ -260,63 +240,29 @@ function App() {
         allLocations: searchResults.slice(0, 3).map(l => ({ name: l.name, city: l.location.city }))
       })
       
-      // Capture search context on first search for followup queries using NLP
-      if (page === 1) {
-        if (!searchContext) {
-          // Extract context using NLP analysis instead of hardcoded patterns
-          const extractedContext = extractSearchContextFromNLP(nlpAnalysis)
-          setSearchContext(extractedContext)
-          console.log('Captured search context using NLP:', extractedContext)
-        } else {
-          // Update context with new parameters from followup query using NLP
-          const updatedContext = updateSearchContextFromNLP(searchContext, nlpAnalysis)
-          setSearchContext(updatedContext)
-          console.log('Updated search context using NLP for query "' + query + '":', updatedContext)
-          console.log('Original context was:', searchContext)
-        }
+      // Simple context tracking
+      if (page === 1 && !searchContext) {
+        setSearchContext({
+          location: extractedLocation,
+          adults: 2,
+          children: 0
+        })
       }
       
-      // Apply intelligent NLP-based filtering
-      const filteredResults = applyIntelligentFilters(searchResults, nlpAnalysis, searchContext)
+      // Simple pass-through - no complex filtering
+      const filteredResults = searchResults
       
       setCurrentPage(page)
       setHasMore(data.hasMore || false)
       setCurrentQuery(query)
       
-      // Generate intelligent response using NLP analysis
-      let responseContent = ''
-      
-      // Use AI enhancement for complex queries (if available)
-      if (shouldEnhanceWithAI(query, nlpAnalysis) && filteredResults.length > 0) {
-        try {
-          const aiEnhanced = await enhanceWithAI(query, nlpAnalysis, tripContext, filteredResults)
-          responseContent = aiEnhanced.personalizedMessage
-          
-          // Add AI insights if available
-          if (aiEnhanced.insights.length > 0) {
-            responseContent += `\n\n💡 ${aiEnhanced.insights[0]}`
-          }
-        } catch (error) {
-          console.log('AI enhancement failed, using fallback response:', error)
-          // Fall back to standard response with NLP enhancement
-          responseContent = generateConversationalResponse(nlpAnalysis, tripContext, filteredResults.length)
-        }
-      } else {
-        // Use NLP-enhanced conversational response
-        responseContent = generateConversationalResponse(nlpAnalysis, tripContext, filteredResults.length)
-      }
-      
-      // Add standard navigation hint
+      // Simple response
+      let responseContent = `Found ${filteredResults.length} properties in ${extractedLocation}`
       if (filteredResults.length > 0) {
-        responseContent += ' Check the results panel →'  
+        responseContent += '. Check the results panel →'  
       }
       
-      // Add suggestions if query could be more complete
-      if (nlpAnalysis.completeness.score < 0.7 && nlpAnalysis.suggestions.length > 0) {
-        responseContent += `\n\n${nlpAnalysis.suggestions[0]}`
-      }
-      
-      const followUpSuggestions = generateFollowUps(filteredResults, query, nlpAnalysis)
+      const followUpSuggestions = generateSimpleFollowUps(filteredResults, query)
       
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
