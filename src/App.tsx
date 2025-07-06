@@ -29,7 +29,6 @@ interface ChatMessage {
   id: string
   type: 'user' | 'assistant'
   content: string
-  listings?: AirbnbListing[]
   followUps?: string[]
   timestamp: Date
 }
@@ -331,6 +330,7 @@ function App() {
       // Debug: log the first listing to see its structure
       if (filteredResults.length > 0) {
         console.log('First listing structure:', filteredResults[0])
+        console.log('First listing name:', filteredResults[0].name)
       }
       
       setCurrentPage(page)
@@ -352,12 +352,11 @@ function App() {
       // Generate follow-up suggestions
       const followUpSuggestions = generateFollowUps(filteredResults, query)
       
-      // Add assistant response with results
+      // Add assistant response without listings (they go to results panel)
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: responseContent,
-        listings: filteredResults,
         followUps: followUpSuggestions,
         timestamp: new Date()
       }
@@ -854,9 +853,13 @@ function App() {
                       <Box p={3}>
                         <VStack align="start" gap={2}>
                           <Text fontWeight="600" color="gray.900" lineHeight="1.3" fontSize="sm" lineClamp={2}>
-                            {(listing.name && typeof listing.name === 'string' && listing.name.length < 200) 
-                              ? listing.name 
-                              : 'Property name not available'}
+                            {(() => {
+                              // If the listing name is the same as the search query, generate a better name
+                              if (listing.name === currentQuery) {
+                                return `${listing.roomType} in ${listing.location.city}`
+                              }
+                              return listing.name || 'Property listing'
+                            })()}
                           </Text>
                           
                           <HStack justify="space-between" w="full">
