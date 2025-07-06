@@ -72,8 +72,11 @@ export default async function handler(
     const queryText = query || location
     const extractedParams = extractParametersFromQuery(queryText)
     
+    // Use extracted location if found, otherwise fall back to original location
+    const finalLocation = extractedParams.location || location || ''
+    
     const searchParams = {
-      location: extractedParams.location,
+      location: finalLocation,
       adults: extractedParams.adults || adults,
       children: (extractedParams.children || children) + infants,
       page,
@@ -84,8 +87,8 @@ export default async function handler(
       ...(extractedParams.maxPrice || maxPrice ? { maxPrice: extractedParams.maxPrice || maxPrice } : {})
     }
 
-    if (!query && !location) {
-      return res.status(400).json({ error: 'Query or location is required' })
+    if (!finalLocation && !query) {
+      return res.status(400).json({ error: 'Location is required for search' })
     }
 
     console.log('Calling MCP server with params:', searchParams)
@@ -258,25 +261,39 @@ interface ExtractedParams {
 function extractParametersFromQuery(queryText: string): ExtractedParams {
   if (!queryText) return { location: '' }
   
-  const result: ExtractedParams = { location: queryText }
+  const result: ExtractedParams = { location: '' }
   
-  // Extract location
-  const locationPatterns = [
-    /(?:near|in|at|around)\s+([a-zA-Z\s,]+?)(?:\s+for|\s+with|\s*$|\s+\d|\.|,)/i,
-    /(?:beachfront|beach|property)\s+(?:in|at|near)\s+([a-zA-Z\s,]+?)(?:\s+for|\s*$|\s+\d)/i,
-    /^([a-zA-Z\s,]+?)\s+(?:beachfront|beach|property|villa|house|home)/i
-  ]
+  // First check if this is a price-only or filter-only query (no location)
+  const isPriceOnlyQuery = /^(?:i\s+)?(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?\d+k?(?:\s+total)?$/i.test(queryText.trim())
+  const isFilterOnlyQuery = /^(?:under|less\s+than|max|maximum|limit)\s*\$?\d+k?(?:\s+total)?$/i.test(queryText.trim())
   
-  for (const pattern of locationPatterns) {
-    const match = queryText.match(pattern)
-    if (match && match[1]) {
-      let location = match[1].trim()
-      location = location.replace(/\b(for|with|and|the|a|an|property|properties|beachfront|beach|house|home|villa|apartment|condo|looking|front)\b/gi, '')
-      location = location.replace(/\s+/g, ' ').trim()
-      
-      if (location.length >= 2 && !/^\d+$/.test(location)) {
-        result.location = location
-        break
+  if (isPriceOnlyQuery || isFilterOnlyQuery) {
+    // This is a followup query with no location - leave location empty
+    result.location = ''
+  } else {
+    // Try to extract location
+    const locationPatterns = [
+      /(?:near|in|at|around)\s+([a-zA-Z\s,]+?)(?:\s+for|\s+with|\s*$|\s+\d|\.|,)/i,
+      /(?:beachfront|beach|property)\s+(?:in|at|near)\s+([a-zA-Z\s,]+?)(?:\s+for|\s*$|\s+\d)/i,
+      /^([a-zA-Z\s,]+?)\s+(?:beachfront|beach|property|villa|house|home)/i,
+      // Fallback: if no specific patterns match and it looks like a location
+      /^([a-zA-Z\s,]+?)(?:\s*\.|\s*$)/i
+    ]
+    
+    for (const pattern of locationPatterns) {
+      const match = queryText.match(pattern)
+      if (match && match[1]) {
+        let location = match[1].trim()
+        location = location.replace(/\b(for|with|and|the|a|an|property|properties|beachfront|beach|house|home|villa|apartment|condo|looking|front)\b/gi, '')
+        location = location.replace(/\s+/g, ' ').trim()
+        
+        // Exclude obvious non-locations
+        const nonLocationTerms = /^(i|don't|don't|do|not|want|spend|more|than|under|less|max|maximum|limit|total|nights|adults|children|toddler|highly|rated|reviews)$/i
+        
+        if (location.length >= 2 && !/^\d+$/.test(location) && !nonLocationTerms.test(location)) {
+          result.location = location
+          break
+        }
       }
     }
   }
@@ -298,14 +315,24 @@ function extractParametersFromQuery(queryText: string): ExtractedParams {
   }
   
   // Extract price constraints
-  const underPriceMatch = queryText.match(/under\s*\$?(\d+)/i)
-  if (underPriceMatch) {
-    result.maxPrice = parseInt(underPriceMatch[1])
-  }
+  const pricePatterns = [
+    /(?:under|less\s+than|no\s+more\s+than)\s*\$?(\d+)k?/i,
+    /(?:max(?:imum)?|limit)\s*\$?(\d+)k?/i,
+    /(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?(\d+)k?/i,
+    /\$?(\d+)k?\s+(?:total|max|maximum|limit)/i
+  ]
   
-  const maxPriceMatch = queryText.match(/max(?:imum)?\s*\$?(\d+)/i)
-  if (maxPriceMatch) {
-    result.maxPrice = parseInt(maxPriceMatch[1])
+  for (const pattern of pricePatterns) {
+    const match = queryText.match(pattern)
+    if (match && match[1]) {
+      let price = parseInt(match[1])
+      // Handle 'k' suffix (5k = 5000)
+      if (queryText.toLowerCase().includes(match[1] + 'k')) {
+        price *= 1000
+      }
+      result.maxPrice = price
+      break
+    }
   }
   
   // Extract dates (basic patterns)

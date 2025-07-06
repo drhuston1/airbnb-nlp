@@ -71,6 +71,16 @@ interface SearchHistory {
   resultCount: number
 }
 
+interface SearchContext {
+  location: string
+  adults: number
+  children: number
+  checkin?: string
+  checkout?: string
+  minPrice?: number
+  maxPrice?: number
+}
+
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -82,6 +92,7 @@ function App() {
   const [showResults, setShowResults] = useState(false)
   const [currentResults, setCurrentResults] = useState<AirbnbListing[]>([])
   const [showSidebar, setShowSidebar] = useState(false)
+  const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
   
   
   // Refs
@@ -153,6 +164,7 @@ function App() {
     setHasMore(false)
     setCurrentQuery('')
     setSearchQuery('')
+    setSearchContext(null)
   }
 
   // Apply natural language filters to listings (more lenient)
@@ -276,6 +288,113 @@ function App() {
     return filtered
   }
 
+  // Extract search context from initial query
+  const extractSearchContext = (query: string): SearchContext => {
+    const lowerQuery = query.toLowerCase()
+    
+    // Extract location
+    let location = 'Unknown'
+    const locationPatterns = [
+      /(?:near|in|at|around)\s+([a-zA-Z\s,]+?)(?:\s+for|\s+with|\s*$|\s+\d|\.|,)/i,
+      /(?:beachfront|beach|property)\s+(?:in|at|near)\s+([a-zA-Z\s,]+?)(?:\s+for|\s*$|\s+\d)/i,
+      /^([a-zA-Z\s,]+?)\s+(?:beachfront|beach|property|villa|house|home)/i,
+      /^([a-zA-Z\s,]+?)[\.\,]/i // Simple fallback
+    ]
+    
+    for (const pattern of locationPatterns) {
+      const match = query.match(pattern)
+      if (match && match[1]) {
+        let extractedLocation = match[1].trim()
+        extractedLocation = extractedLocation.replace(/\b(for|with|and|the|a|an|property|properties|beachfront|beach|house|home|villa|apartment|condo|looking|front)\b/gi, '')
+        extractedLocation = extractedLocation.replace(/\s+/g, ' ').trim()
+        
+        if (extractedLocation.length >= 2 && !/^\d+$/.test(extractedLocation)) {
+          location = extractedLocation
+          break
+        }
+      }
+    }
+    
+    // Extract guest counts
+    let adults = 1
+    let children = 0
+    
+    const adultMatches = lowerQuery.match(/(\d+)\s+adults?/i)
+    if (adultMatches) {
+      adults = parseInt(adultMatches[1])
+    }
+    
+    const peopleMatches = lowerQuery.match(/for\s+(\d+)\s+people/i)
+    if (peopleMatches && !adultMatches) {
+      adults = parseInt(peopleMatches[1])
+    }
+    
+    const childrenMatches = lowerQuery.match(/(\d+)\s+(?:child|children|toddler|kids?)/i)
+    if (childrenMatches) {
+      children = parseInt(childrenMatches[1])
+    }
+    
+    // Extract dates and prices if needed
+    let minPrice: number | undefined
+    let maxPrice: number | undefined
+    
+    const underPriceMatch = lowerQuery.match(/under\s*\$?(\d+)k?/i)
+    if (underPriceMatch) {
+      let price = parseInt(underPriceMatch[1])
+      if (lowerQuery.includes(underPriceMatch[1] + 'k')) {
+        price *= 1000
+      }
+      maxPrice = price
+    }
+    
+    return {
+      location,
+      adults,
+      children,
+      minPrice,
+      maxPrice
+    }
+  }
+
+  // Update existing search context with new parameters from followup query
+  const updateSearchContext = (existingContext: SearchContext, followupQuery: string): SearchContext => {
+    const lowerQuery = followupQuery.toLowerCase()
+    const updated = { ...existingContext }
+    
+    // Update price constraints
+    const pricePatterns = [
+      /(?:under|less\s+than|no\s+more\s+than)\s*\$?(\d+)k?/i,
+      /(?:max(?:imum)?|limit)\s*\$?(\d+)k?/i,
+      /(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?(\d+)k?/i,
+      /\$?(\d+)k?\s+(?:total|max|maximum|limit)/i
+    ]
+    
+    for (const pattern of pricePatterns) {
+      const match = followupQuery.match(pattern)
+      if (match && match[1]) {
+        let price = parseInt(match[1])
+        if (followupQuery.toLowerCase().includes(match[1] + 'k')) {
+          price *= 1000
+        }
+        updated.maxPrice = price
+        break
+      }
+    }
+    
+    // Update guest counts if mentioned
+    const adultMatches = lowerQuery.match(/(\d+)\s+adults?/i)
+    if (adultMatches) {
+      updated.adults = parseInt(adultMatches[1])
+    }
+    
+    const childrenMatches = lowerQuery.match(/(\d+)\s+(?:child|children|toddler|kids?)/i)
+    if (childrenMatches) {
+      updated.children = parseInt(childrenMatches[1])
+    }
+    
+    return updated
+  }
+
   // Generate contextual follow-up suggestions based on search results
   const generateFollowUps = (listings: AirbnbListing[], originalQuery: string) => {
     const followUps: string[] = []
@@ -367,15 +486,29 @@ function App() {
     setSearchQuery('')
 
     try {
+      // Prepare search payload with context
+      const searchPayload: any = {
+        query,
+        page
+      }
+
+      // If we have existing search context, include it (for followup queries)
+      if (searchContext) {
+        searchPayload.location = searchContext.location
+        searchPayload.adults = searchContext.adults
+        searchPayload.children = searchContext.children
+        if (searchContext.checkin) searchPayload.checkin = searchContext.checkin
+        if (searchContext.checkout) searchPayload.checkout = searchContext.checkout
+        if (searchContext.minPrice) searchPayload.minPrice = searchContext.minPrice
+        if (searchContext.maxPrice) searchPayload.maxPrice = searchContext.maxPrice
+      }
+
       const response = await fetch('/api/mcp-search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          query,
-          page
-        })
+        body: JSON.stringify(searchPayload)
       })
 
       if (!response.ok) {
@@ -385,6 +518,21 @@ function App() {
 
       const data: SearchResponse = await response.json()
       const searchResults = data.listings || []
+      
+      // Capture search context on first search for followup queries
+      if (page === 1) {
+        if (!searchContext) {
+          // Extract basic context from the initial query
+          const extractedContext = extractSearchContext(query)
+          setSearchContext(extractedContext)
+          console.log('Captured search context:', extractedContext)
+        } else {
+          // Update context with new parameters from followup query
+          const updatedContext = updateSearchContext(searchContext, query)
+          setSearchContext(updatedContext)
+          console.log('Updated search context:', updatedContext)
+        }
+      }
       
       // Apply natural language filters
       const filteredResults = applyNaturalLanguageFilters(searchResults, query)
