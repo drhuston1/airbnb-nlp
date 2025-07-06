@@ -426,28 +426,30 @@ function App() {
         {/* Sidebar Header */}
         <Box p={3} borderBottom="1px" borderColor="gray.200">
           {showSidebar ? (
-            <HStack justify="space-between" align="center">
-              <HStack gap={2}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowSidebar(!showSidebar)}
-                  color="gray.600"
-                  _hover={{ bg: "gray.50" }}
-                  px={2}
-                >
-                  <Icon as={Menu} w={4} h={4} />
-                </Button>
-                
-                <Text 
-                  fontSize="lg" 
-                  fontWeight="600" 
-                  color="gray.800"
-                  cursor="pointer"
-                  onClick={() => window.location.reload()}
-                >
-                  ChatBnb
-                </Text>
+            <VStack align="stretch" gap={3}>
+              <HStack justify="space-between" align="center">
+                <HStack gap={2}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowSidebar(!showSidebar)}
+                    color="gray.600"
+                    _hover={{ bg: "gray.50" }}
+                    px={2}
+                  >
+                    <Icon as={Menu} w={4} h={4} />
+                  </Button>
+                  
+                  <Text 
+                    fontSize="lg" 
+                    fontWeight="600" 
+                    color="gray.800"
+                    cursor="pointer"
+                    onClick={() => window.location.reload()}
+                  >
+                    ChatBnb
+                  </Text>
+                </HStack>
               </HStack>
               
               <Button
@@ -457,11 +459,13 @@ function App() {
                 color="gray.600"
                 _hover={{ bg: "gray.50" }}
                 px={3}
+                w="full"
+                justifyContent="flex-start"
               >
                 <Icon as={Plus} w={4} h={4} mr={2} />
                 New chat
               </Button>
-            </HStack>
+            </VStack>
           ) : (
             <VStack gap={2}>
               <Button
