@@ -259,7 +259,7 @@ async function callMCPSearchDirect(payload: any, platform: string) {
     }
 
     // Transform MCP results to our format
-    const listings = await transformMCPResults(mcpResult.searchResults)
+    const listings = await transformMCPResults(mcpResult.searchResults, payload)
 
     return {
       platform,
@@ -333,7 +333,7 @@ async function callBookingSearchDirect(payload: any, platform: string) {
 }
 
 // Transform MCP results helper function
-async function transformMCPResults(searchResults: any[]) {
+async function transformMCPResults(searchResults: any[], payload?: any) {
   return Promise.all(searchResults.map(async (listing: any) => {
     // Improved price extraction
     const priceLabel = listing.structuredDisplayPrice?.primaryLine?.accessibilityLabel || ''
@@ -374,14 +374,27 @@ async function transformMCPResults(searchResults: any[]) {
     const primaryLine = listing.structuredContent?.primaryLine || ''
     const amenities = extractAmenitiesFromText(name + ' ' + primaryLine)
 
-    // Better city extraction using coordinates
+    // Extract city from search location and property name
+    let city = 'Unknown'
+    const searchLocation = payload.location || ''
+    const propertyName = name || ''
+    
+    // Use search location as the primary city
+    if (searchLocation) {
+      city = searchLocation
+    }
+    
+    // Try to extract more specific city from property name
+    const cityMatches = propertyName.match(/\b(Malibu|Los Angeles|Beverly Hills|Santa Monica|Venice|Hollywood|West Hollywood|Pasadena|Burbank|Glendale|Long Beach|Manhattan Beach|Hermosa Beach|Redondo Beach)\b/i)
+    if (cityMatches) {
+      city = cityMatches[0]
+    }
+    
+    // Fallback to coordinates if needed
     const lat = listing.demandStayListing?.location?.coordinate?.latitude
     const lng = listing.demandStayListing?.location?.coordinate?.longitude
-    let city = 'Unknown'
-    
-    // For now, use a simple approach for city names
-    if (lat && lng) {
-      city = await getCityFromCoordinates(lat, lng) || 'Unknown'
+    if (city === 'Unknown' && lat && lng) {
+      city = await getCityFromCoordinates(lat, lng) || searchLocation || 'Unknown'
     }
 
     // Generate Airbnb image URL
