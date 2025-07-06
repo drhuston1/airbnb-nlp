@@ -9,6 +9,8 @@ export function extractLocationFromQuery(query: string): string {
     /(?:near|in|at|around)\s+([A-Za-z\s,]+?)(?:\s+for|\s+with|\s+under|\s*$)/i,
     // "X properties", "X rentals"
     /^([A-Za-z\s,]+?)\s+(?:properties|rentals|cabins|houses)/i,
+    // City names followed by property types (Charleston vacation rental)
+    /^([A-Za-z\s,]+?)\s+(?:vacation|beach|downtown|getaway|rental|house|cabin|home|property)/i,
     // Just city names at start
     /^([A-Za-z\s,]+?)(?:\s+beach|\s+downtown|\s+area|\s*$)/i
   ]
@@ -47,7 +49,7 @@ export function extractLocationFromQuery(query: string): string {
   return 'Unknown'
 }
 
-export function generateSimpleFollowUps(results: any[], _query: string): string[] {
+export function generateSimpleFollowUps(results: unknown[], _query: string): string[] {
   if (results.length === 0) {
     return ['Try a different location', 'Expand your search', 'Search nearby areas']
   }

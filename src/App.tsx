@@ -9,7 +9,8 @@ import {
   Link,
   Icon,
   VStack,
-  Textarea
+  Textarea,
+  Grid
 } from '@chakra-ui/react'
 import { 
   MapPin, 
@@ -51,6 +52,7 @@ interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
+  platform?: 'airbnb' | 'booking.com' | 'vrbo'
 }
 
 interface SearchResponse {
@@ -60,6 +62,12 @@ interface SearchResponse {
   page: number
   searchUrl?: string
   source?: string
+  sources?: {
+    platform: string
+    count: number
+    status: 'success' | 'error' | 'timeout'
+    error?: string
+  }[]
 }
 
 interface ChatMessage {
@@ -211,7 +219,7 @@ function App() {
       console.log('ACTUAL SEARCH PAYLOAD BEING SENT TO API:', searchPayload)
       console.log('LOCATION SPECIFICALLY:', searchPayload.location)
 
-      const response = await fetch('/api/mcp-search', {
+      const response = await fetch('/api/unified-search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,17 +235,22 @@ function App() {
       const data: SearchResponse = await response.json()
       const searchResults = data.listings || []
       
-      console.log('API RESPONSE DEBUG - ACTUAL RESULTS RETURNED:', {
+      console.log('UNIFIED API RESPONSE - MULTI-PLATFORM RESULTS:', {
         totalListings: searchResults.length,
-        hasListings: searchResults.length > 0,
+        sources: data.sources,
+        platforms: [...new Set(searchResults.map(l => l.platform))],
         firstListing: searchResults[0] ? {
           name: searchResults[0].name,
+          platform: searchResults[0].platform,
           location: searchResults[0].location,
           rating: searchResults[0].rating,
-          reviewsCount: searchResults[0].reviewsCount,
-          roomType: searchResults[0].roomType
+          price: searchResults[0].price.rate
         } : 'No listings',
-        allLocations: searchResults.slice(0, 3).map(l => ({ name: l.name, city: l.location.city }))
+        platformBreakdown: searchResults.reduce((acc, listing) => {
+          const platform = listing.platform || 'unknown'
+          acc[platform] = (acc[platform] || 0) + 1
+          return acc
+        }, {} as Record<string, number>)
       })
       
       // Simple context tracking
@@ -256,10 +269,20 @@ function App() {
       setHasMore(data.hasMore || false)
       setCurrentQuery(query)
       
-      // Simple response
+      // Multi-platform response
+      const platformCounts = filteredResults.reduce((acc, listing) => {
+        const platform = listing.platform || 'unknown'
+        acc[platform] = (acc[platform] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+      
+      const platformSummary = Object.entries(platformCounts)
+        .map(([platform, count]) => `${count} from ${platform}`)
+        .join(', ')
+      
       let responseContent = `Found ${filteredResults.length} properties in ${extractedLocation}`
       if (filteredResults.length > 0) {
-        responseContent += '. Check the results panel →'  
+        responseContent += ` (${platformSummary}). Check the results panel →`  
       }
       
       const followUpSuggestions = generateSimpleFollowUps(filteredResults, query)
@@ -536,13 +559,13 @@ function App() {
                   minH="52px"
                   maxH="120px"
                   bg="white"
-                  border="1px"
-                  borderColor="gray.300"
+                  border="2px"
+                  borderColor="gray.400"
                   _focus={{
                     borderColor: "green.500",
                     boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
                   }}
-                  _hover={{ borderColor: "gray.400" }}
+                  _hover={{ borderColor: "gray.500" }}
                   borderRadius="xl"
                   py={4}
                   px={4}
@@ -645,15 +668,18 @@ function App() {
                             // Automatically trigger search after setting query
                             setTimeout(() => handleSearch(), 100)
                           }}
-                          borderColor="green.200"
-                          color="green.700"
+                          borderColor="green.400"
+                          color="green.800"
+                          bg="green.50"
                           _hover={{ 
-                            bg: "green.50",
-                            borderColor: "green.300"
+                            bg: "green.100",
+                            borderColor: "green.500",
+                            color: "green.900"
                           }}
                           borderRadius="full"
                           px={3}
                           fontSize="xs"
+                          fontWeight="500"
                         >
                           {followUp}
                         </Button>
@@ -698,13 +724,13 @@ function App() {
                 minH="44px"
                 maxH="120px"
                 bg="white"
-                border="1px"
-                borderColor="gray.300"
+                border="2px"
+                borderColor="gray.400"
                 _focus={{
                   borderColor: "green.500",
                   boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
                 }}
-                _hover={{ borderColor: "gray.400" }}
+                _hover={{ borderColor: "gray.500" }}
                 borderRadius="xl"
                 py={3}
                 px={4}
@@ -770,7 +796,7 @@ function App() {
                   No properties to display
                 </Text>
               ) : (
-                <VStack gap={4} align="stretch">
+                <Grid templateColumns="repeat(3, 1fr)" gap={4}>
                   {currentResults.map((listing) => (
                     <Box
                       key={listing.id}
@@ -841,7 +867,7 @@ function App() {
                       </Box>
                     </Box>
                   ))}
-                </VStack>
+                </Grid>
               )}
             </Box>
             
