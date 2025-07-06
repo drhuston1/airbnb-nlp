@@ -572,9 +572,11 @@ function extractEnhancedPlaces(query: string, doc: unknown): string[] {
   const nlpDoc = doc as { places(): { out(format: string): string[] } }
   const nlpPlaces = nlpDoc.places().out('array') || []
   
-  // If NLP found places, use them
+  // If NLP found places, normalize them for US focus
   if (nlpPlaces.length > 0) {
-    return nlpPlaces
+    const normalizedPlaces = nlpPlaces.map(place => normalizeUSLocation(place))
+    console.log(`NLP places found and normalized:`, nlpPlaces, '→', normalizedPlaces)
+    return normalizedPlaces
   }
   
   // Enhanced place detection using location context patterns
@@ -593,11 +595,81 @@ function extractEnhancedPlaces(query: string, doc: unknown): string[] {
       
       // Only return if it looks like a valid place name (starts with capital, reasonable length)
       if (place.length >= 3 && /^[A-Z]/.test(place) && !/^\d/.test(place)) {
-        console.log(`Enhanced place detection found: "${place}"`)
-        return [place]
+        // Apply US location normalization for common cities
+        const normalizedPlace = normalizeUSLocation(place)
+        console.log(`Enhanced place detection found: "${place}" → normalized: "${normalizedPlace}"`)
+        return [normalizedPlace]
       }
     }
   }
   
   return []
+}
+
+// Normalize locations to ensure US-focused results
+function normalizeUSLocation(location: string): string {
+  const lowerLocation = location.toLowerCase()
+  
+  // Map common ambiguous city names to US locations with state
+  const usLocationMap: Record<string, string> = {
+    'charleston': 'Charleston, SC',
+    'montreal': 'Burlington, VT', // Closest US equivalent to Montreal
+    'paris': 'Paris, TX',
+    'london': 'London, KY',
+    'athens': 'Athens, GA',
+    'rome': 'Rome, GA',
+    'florence': 'Florence, SC',
+    'milan': 'Milan, TN',
+    'cairo': 'Cairo, IL',
+    'berlin': 'Berlin, CT',
+    'madrid': 'Madrid, NM',
+    'geneva': 'Geneva, NY',
+    'cambridge': 'Cambridge, MA',
+    'oxford': 'Oxford, MS',
+    'dover': 'Dover, DE',
+    'manchester': 'Manchester, NH',
+    'lebanon': 'Lebanon, TN',
+    'salem': 'Salem, OR'
+  }
+  
+  // Check if this is an ambiguous city name that should be US-specific
+  if (usLocationMap[lowerLocation]) {
+    console.log(`Location disambiguation: "${location}" → "${usLocationMap[lowerLocation]}"`)
+    return usLocationMap[lowerLocation]
+  }
+  
+  // For well-known US cities, add state if missing
+  const majorUSCities: Record<string, string> = {
+    'austin': 'Austin, TX',
+    'miami': 'Miami, FL',
+    'seattle': 'Seattle, WA',
+    'denver': 'Denver, CO',
+    'chicago': 'Chicago, IL',
+    'boston': 'Boston, MA',
+    'portland': 'Portland, OR',
+    'nashville': 'Nashville, TN',
+    'atlanta': 'Atlanta, GA',
+    'phoenix': 'Phoenix, AZ',
+    'philadelphia': 'Philadelphia, PA',
+    'san diego': 'San Diego, CA',
+    'san francisco': 'San Francisco, CA',
+    'los angeles': 'Los Angeles, CA',
+    'las vegas': 'Las Vegas, NV',
+    'new orleans': 'New Orleans, LA',
+    'san antonio': 'San Antonio, TX',
+    'dallas': 'Dallas, TX',
+    'houston': 'Houston, TX'
+  }
+  
+  if (majorUSCities[lowerLocation]) {
+    return majorUSCities[lowerLocation]
+  }
+  
+  // If it already contains a state or country, return as-is
+  if (/,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|USA|US|United States)$/i.test(location)) {
+    return location
+  }
+  
+  // Default: return original location
+  return location
 }

@@ -40,8 +40,14 @@ export const extractSearchContextFromNLP = (analysis: QueryAnalysis): SearchCont
   // Handle special date patterns using NLP keywords
   const query = analysis.keywords.join(' ').toLowerCase()
   if (query.includes('labor day') || query.includes('labour day')) {
-    const year = new Date().getFullYear()
-    const laborDay = getFirstMondayInSeptember(year)
+    let year = new Date().getFullYear()
+    let laborDay = getFirstMondayInSeptember(year)
+    
+    // If Labor Day has already passed this year, use next year
+    if (laborDay < new Date()) {
+      year += 1
+      laborDay = getFirstMondayInSeptember(year)
+    }
     
     // Check for "week after" or "post" labor day
     if (query.includes('after') || query.includes('post') || query.includes('week')) {
@@ -58,6 +64,8 @@ export const extractSearchContextFromNLP = (analysis: QueryAnalysis): SearchCont
         context.checkout = formatDate(endDate)
         context.nights = nights
       }
+      
+      console.log(`Labor Day date processing: year=${year}, laborDay=${formatDate(laborDay)}, checkin=${context.checkin}, checkout=${context.checkout}`)
     }
   }
 

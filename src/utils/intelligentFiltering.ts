@@ -20,25 +20,52 @@ export const applyIntelligentFilters = (
     totalListings: listings.length
   })
 
+  // Apply filters conservatively - each filter must leave at least 1 result
+  const originalCount = filtered.length
+
   // 1. Apply group size filtering based on NLP analysis
   if (analysis.guestInfo.hasGroupInfo && analysis.guestInfo.totalGuests) {
-    filtered = applyGroupSizeFiltering(filtered, analysis.guestInfo)
+    const groupFiltered = applyGroupSizeFiltering(filtered, analysis.guestInfo)
+    if (groupFiltered.length > 0) {
+      filtered = groupFiltered
+      console.log(`Group size filter applied: ${originalCount} → ${filtered.length}`)
+    } else {
+      console.log(`Group size filter skipped - would eliminate all results`)
+    }
   }
 
-  // 2. Apply property requirements filtering
+  // 2. Apply property requirements filtering (only if we have enough results)
   if (analysis.propertyNeeds.minBedrooms || analysis.propertyNeeds.amenities.length > 0) {
-    filtered = applyPropertyFiltering(filtered, analysis.propertyNeeds)
+    const propertyFiltered = applyPropertyFiltering(filtered, analysis.propertyNeeds)
+    if (propertyFiltered.length >= Math.max(1, filtered.length * 0.1)) { // Keep at least 10% or 1
+      filtered = propertyFiltered
+      console.log(`Property filter applied: ${filtered.length} results remain`)
+    } else {
+      console.log(`Property filter skipped - would leave only ${propertyFiltered.length} results`)
+      // Apply sorting instead of filtering
+      filtered = applyPropertySorting(filtered, analysis.propertyNeeds)
+    }
   }
 
-  // 3. Apply review and rating requirements
+  // 3. Apply review and rating requirements (very conservative)
   if (analysis.reviewRequirements.minReviews || analysis.reviewRequirements.minRating || analysis.reviewRequirements.qualityKeywords.length > 0) {
-    filtered = applyReviewFiltering(filtered, analysis.reviewRequirements)
+    const reviewFiltered = applyReviewFiltering(filtered, analysis.reviewRequirements)
+    if (reviewFiltered.length >= Math.max(1, filtered.length * 0.2)) { // Keep at least 20% or 1
+      filtered = reviewFiltered
+      console.log(`Review filter applied: ${filtered.length} results remain`)
+    } else {
+      console.log(`Review filter skipped - would leave only ${reviewFiltered.length} results, sorting instead`)
+      // Just sort by reviews/rating instead
+      filtered = filtered.sort((a, b) => {
+        if (analysis.reviewRequirements.minReviews) {
+          return b.reviewsCount - a.reviewsCount
+        }
+        return b.rating - a.rating
+      })
+    }
   }
 
-  // 4. Apply quality filtering (more lenient than review filtering)
-  if (analysis.intents.includes('filter') && analysis.keywords.includes('superhost')) {
-    filtered = applyQualityFiltering(filtered, analysis)
-  }
+  // 4. Skip superhost filtering - too restrictive for most searches
 
   // 5. Apply sorting based on priorities and keywords
   filtered = applySorting(filtered, analysis)
@@ -143,35 +170,37 @@ function applyPropertyFiltering(listings: AirbnbListing[], propertyNeeds: any): 
   return filtered
 }
 
-function applyQualityFiltering(listings: AirbnbListing[], analysis: QueryAnalysis): AirbnbListing[] {
-  let filtered = listings
 
-  // Apply superhost filtering if detected
-  if (analysis.keywords.includes('superhost')) {
-    const superhostResults = filtered.filter(listing => listing.host.isSuperhost)
-    if (superhostResults.length > 0) {
-      filtered = superhostResults
-      console.log(`Applied superhost filter: ${filtered.length} results`)
-    } else {
-      // Sort superhosts to top if no filter results
-      filtered = filtered.sort((a, b) => {
-        if (a.host.isSuperhost && !b.host.isSuperhost) return -1
-        if (!a.host.isSuperhost && b.host.isSuperhost) return 1
-        return b.rating - a.rating
-      })
+function applyPropertySorting(listings: AirbnbListing[], propertyNeeds: QueryAnalysis['propertyNeeds']): AirbnbListing[] {
+  return listings.sort((a, b) => {
+    // Sort by amenity relevance
+    if (propertyNeeds.amenities.length > 0) {
+      const aRelevance = propertyNeeds.amenities.reduce((score, amenity) => {
+        if (a.amenities.some(listingAmenity => 
+          listingAmenity.toLowerCase().includes(amenity.toLowerCase().replace('_', ' '))) ||
+          a.name.toLowerCase().includes(amenity.toLowerCase().replace('_', ' '))) {
+          return score + 1
+        }
+        return score
+      }, 0)
+      
+      const bRelevance = propertyNeeds.amenities.reduce((score, amenity) => {
+        if (b.amenities.some(listingAmenity => 
+          listingAmenity.toLowerCase().includes(amenity.toLowerCase().replace('_', ' '))) ||
+          b.name.toLowerCase().includes(amenity.toLowerCase().replace('_', ' '))) {
+          return score + 1
+        }
+        return score
+      }, 0)
+      
+      if (aRelevance !== bRelevance) {
+        return bRelevance - aRelevance
+      }
     }
-  }
-
-  // Apply rating filters if high ratings are mentioned
-  if (analysis.keywords.some(k => ['rated', 'rating', 'quality'].includes(k.toLowerCase()))) {
-    const highRatedResults = filtered.filter(listing => listing.rating >= 4.5)
-    if (highRatedResults.length > 0) {
-      filtered = highRatedResults
-      console.log(`Applied high rating filter: ${filtered.length} results`)
-    }
-  }
-
-  return filtered
+    
+    // Secondary sort by rating
+    return b.rating - a.rating
+  })
 }
 
 function applyReviewFiltering(listings: AirbnbListing[], reviewReqs: QueryAnalysis['reviewRequirements']): AirbnbListing[] {

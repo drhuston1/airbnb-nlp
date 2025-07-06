@@ -228,7 +228,8 @@ function App() {
       if (contextToUse.minPrice) searchPayload.minPrice = contextToUse.minPrice
       if (contextToUse.maxPrice) searchPayload.maxPrice = contextToUse.maxPrice
       
-      console.log('Sending search payload:', searchPayload)
+      console.log('ACTUAL SEARCH PAYLOAD BEING SENT TO API:', searchPayload)
+      console.log('LOCATION SPECIFICALLY:', searchPayload.location)
 
       const response = await fetch('/api/mcp-search', {
         method: 'POST',
@@ -245,6 +246,19 @@ function App() {
 
       const data: SearchResponse = await response.json()
       const searchResults = data.listings || []
+      
+      console.log('API RESPONSE DEBUG - ACTUAL RESULTS RETURNED:', {
+        totalListings: searchResults.length,
+        hasListings: searchResults.length > 0,
+        firstListing: searchResults[0] ? {
+          name: searchResults[0].name,
+          location: searchResults[0].location,
+          rating: searchResults[0].rating,
+          reviewsCount: searchResults[0].reviewsCount,
+          roomType: searchResults[0].roomType
+        } : 'No listings',
+        allLocations: searchResults.slice(0, 3).map(l => ({ name: l.name, city: l.location.city }))
+      })
       
       // Capture search context on first search for followup queries using NLP
       if (page === 1) {
