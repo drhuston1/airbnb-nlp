@@ -33,7 +33,6 @@ import {
 import type { SearchContext } from './types'
 
 // Import enhanced query analysis and refinement utilities
-import { extractWithTransformers } from './utils/transformersExtraction'
 import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinementAnalyzer'
 interface AirbnbListing {
   id: string
@@ -203,40 +202,27 @@ function App() {
     let extractedLocation = 'Unknown'
     let queryAnalysis: any = null
     
-    try {
-      const analysisResponse = await fetch('/api/analyze-query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          previousLocation: searchContext?.location,
-          hasExistingResults: currentResults.length > 0
-        })
+    const analysisResponse = await fetch('/api/analyze-query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        previousLocation: searchContext?.location,
+        hasExistingResults: currentResults.length > 0
       })
-      
-      if (analysisResponse.ok) {
-        const analysisData = await analysisResponse.json()
-        queryAnalysis = analysisData.analysis
-        extractedLocation = queryAnalysis.location
-        setLastQueryAnalysis(queryAnalysis)
-        console.log('Enhanced Query Analysis:', queryAnalysis)
-      } else {
-        // Fallback to basic extraction
-        const analysis = await extractWithTransformers(query)
-        extractedLocation = analysis.location
-        console.log('Fallback NER Analysis:', analysis)
-      }
-    } catch (error) {
-      console.error('Query analysis failed, using fallback:', error)
-      try {
-        const analysis = await extractWithTransformers(query)
-        extractedLocation = analysis.location
-      } catch (fallbackError) {
-        console.error('Fallback extraction also failed:', fallbackError)
-      }
+    })
+    
+    if (!analysisResponse.ok) {
+      throw new Error(`Query analysis failed: ${analysisResponse.status}`)
     }
+    
+    const analysisData = await analysisResponse.json()
+    queryAnalysis = analysisData.analysis
+    extractedLocation = queryAnalysis.location
+    setLastQueryAnalysis(queryAnalysis)
+    console.log('Enhanced Query Analysis:', queryAnalysis)
     
     // If no location found, ask for one
     if (extractedLocation === 'Unknown') {
