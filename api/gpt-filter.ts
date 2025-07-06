@@ -91,68 +91,42 @@ async function filterListingsWithGPT(
   apiKey: string
 ): Promise<string[]> {
   try {
-    const prompt = `You are an expert travel accommodation matcher. Given a user's search query and a list of properties, identify which properties genuinely match the user's intent. Be selective - only include properties that are truly relevant.
+    const prompt = `Filter properties based on this query: "${query}"
 
-User Query: "${query}"
+For each property, determine if it matches the query. Follow these STRICT rules:
 
-Properties to evaluate:
-${listings.map((listing, i) => 
-  `${i + 1}. ID: ${listing.id}
-   Name: ${listing.name}
-   Type: ${listing.roomType}
-   Rating: ${listing.rating}/5 (${listing.reviewsCount} reviews)
-   Price: $${listing.price}/night
-   Superhost: ${listing.isSuperhost ? 'Yes' : 'No'}
-   Amenities: ${listing.amenities.join(', ') || 'None listed'}`
-).join('\n\n')}
+${listings.map((listing, i) => {
+  // Pre-analyze each property for the prompt
+  const isLuxury = listing.price >= 200 || listing.rating >= 4.8 || listing.isSuperhost;
+  const isVilla = listing.roomType.toLowerCase().includes('villa') || listing.name.toLowerCase().includes('villa') || listing.name.toLowerCase().includes('estate');
+  const isHostel = listing.roomType.toLowerCase().includes('shared') || listing.roomType.toLowerCase().includes('dorm') || listing.name.toLowerCase().includes('hostel');
+  
+  return `Property ${listing.id}:
+Name: ${listing.name}
+Type: ${listing.roomType}
+Price: $${listing.price}/night
+Rating: ${listing.rating}/5
+Superhost: ${listing.isSuperhost ? 'YES' : 'NO'}
+Is Luxury: ${isLuxury ? 'YES' : 'NO'} (based on price/rating/superhost)
+Is Villa-like: ${isVilla ? 'YES' : 'NO'}
+Is Hostel/Shared: ${isHostel ? 'YES' : 'NO'}`
+}).join('\n\n')}
 
-STRICT Filtering Rules - EXCLUDE properties that don't match:
+FILTERING RULES:
+1. If query contains "villa" → ONLY include properties where "Is Villa-like: YES"
+2. If query contains "luxury" → ONLY include properties where "Is Luxury: YES"  
+3. If query contains "superhost only" → ONLY include properties where "Superhost: YES"
+4. If query contains "hostel" → ONLY include properties where "Is Hostel/Shared: YES"
+5. If query contains "apartment" → EXCLUDE properties where "Is Villa-like: YES" or "Is Hostel/Shared: YES"
 
-1. Property Type Requirements:
-   - "villa" query = ONLY villas, luxury homes, estates (EXCLUDE: apartments, hostels, standard rooms)
-   - "apartment" query = ONLY apartments, condos, flats (EXCLUDE: villas, houses, hostels)
-   - "house" query = ONLY houses, homes, cottages (EXCLUDE: apartments, hostels, shared rooms)
-   - "luxury" query = ONLY high-end properties: $200+/night OR 4.8+ rating OR superhost (EXCLUDE: budget options under $150)
+STRICT EXCLUSIONS:
+- "villa" queries: EXCLUDE all hostels/shared rooms
+- "luxury" queries: EXCLUDE all budget properties (Is Luxury: NO)
+- "superhost only": EXCLUDE all non-superhosts (Superhost: NO)
 
-2. Mandatory Requirements (STRICT):
-   - "superhost only" = EXCLUDE ALL non-superhosts (isSuperhost must be true)
-   - "beachfront/oceanfront" = EXCLUDE properties without beach/ocean/water in name/amenities
-   - Price limits ("under $X") = EXCLUDE properties above that price
-   - Rating requirements ("4.8+") = EXCLUDE properties below that rating
+Apply these rules to the query "${query}" and return a JSON array of property IDs that match ALL criteria.
 
-3. Quality Exclusions:
-   - For "luxury" queries: EXCLUDE hostels, shared rooms, anything under $100/night
-   - For "villa" queries: EXCLUDE hostels, apartments, shared accommodations
-   - For "budget" queries: EXCLUDE luxury properties over $200/night
-
-4. Examples of what to EXCLUDE:
-   - Query "luxury villa" → EXCLUDE: hostels, apartments, budget properties, shared rooms
-   - Query "superhost only" → EXCLUDE: any property with isSuperhost = false
-   - Query "beachfront house" → EXCLUDE: properties without beach/ocean mentions
-
-5. STRICT FILTERING APPROACH:
-   - If query specifies "villa", EXCLUDE everything that's not villa-like
-   - If query specifies "luxury", EXCLUDE budget accommodations
-   - If query specifies "superhost only", EXCLUDE all non-superhosts
-   - Better to return 1 perfect match than 10 mediocre ones
-
-EXAMPLE FILTERING DECISIONS:
-
-Query: "luxury beachfront villa"
-Property A: "Luxury Oceanfront Estate", $500/night, villa, 4.9 rating → INCLUDE
-Property B: "Budget Downtown Hostel", $25/night, shared room, 3.5 rating → EXCLUDE (not luxury, not villa, not beachfront)
-
-Query: "superhost only"  
-Property A: Superhost = true → INCLUDE
-Property B: Superhost = false → EXCLUDE
-
-Query: "budget apartment under $100"
-Property A: Apartment, $80/night → INCLUDE  
-Property B: Villa, $300/night → EXCLUDE (over budget, not apartment)
-
-Return ONLY a JSON array of property IDs that genuinely match: ["id1", "id2"]
-
-If no properties meet the strict criteria, return an empty array: []`
+Return format: ["id1", "id2"] or [] if none match.`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
