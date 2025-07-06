@@ -125,7 +125,7 @@ export default async function handler(
       suggestion: 'Check MCP server configuration and network connectivity',
       debugging: {
         mcpServerUrl: process.env.MCP_SERVER_URL,
-        searchParams: searchParams,
+        requestBody: req.body,
         timestamp: new Date().toISOString(),
         errorType: error instanceof Error ? error.constructor.name : typeof error
       }
@@ -183,11 +183,9 @@ function transformMCPResults(searchResults: AirbnbSearchResult[], location: stri
 
     return {
       id: listing.id,
-      name: listing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference || `Property in ${location}`,
+      name: listing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference,
       url: listing.url,
-      images: [
-        `https://picsum.photos/600/400?random=${Date.now() + index}` // Placeholder since images aren't in the MCP response
-      ],
+      images: listing.images,
       price: {
         total: totalPrice,
         rate: nightlyRate,
@@ -196,21 +194,15 @@ function transformMCPResults(searchResults: AirbnbSearchResult[], location: stri
       rating,
       reviewsCount,
       location: {
-        city: location.split(',')[0]?.trim() || location,
-        country: location.split(',')[1]?.trim() || ''
+        city: listing.demandStayListing?.location?.city,
+        country: listing.demandStayListing?.location?.country
       },
       host: {
-        name: 'Host', // MCP response doesn't include host name
+        name: listing.host?.name,
         isSuperhost
       },
-      amenities: [], // Would need to call airbnb_listing_details for full amenities
-      roomType: listing.structuredContent?.primaryLine || 'Property',
-      badges: listing.badges,
-      isGuestFavorite,
-      coordinates: {
-        latitude: listing.demandStayListing?.location?.coordinate?.latitude,
-        longitude: listing.demandStayListing?.location?.coordinate?.longitude
-      }
+      amenities: listing.amenities,
+      roomType: listing.roomType
     }
   })
 }
