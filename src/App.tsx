@@ -35,6 +35,45 @@ import type { SearchContext } from './types'
 // Import enhanced query analysis and refinement utilities
 import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinementAnalyzer'
 import { SEARCH_CONFIG } from './config/constants'
+
+// GPT-powered semantic filtering function
+async function filterWithGPT(query: string, listings: AirbnbListing[]): Promise<AirbnbListing[]> {
+  try {
+    const response = await fetch('/api/gpt-filter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        listings: listings.map(listing => ({
+          id: listing.id,
+          name: listing.name,
+          roomType: listing.roomType,
+          amenities: listing.amenities,
+          rating: listing.rating,
+          reviewsCount: listing.reviewsCount,
+          price: listing.price.rate,
+          isSuperhost: listing.host.isSuperhost
+        }))
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`GPT filtering failed: ${response.status}`)
+    }
+
+    const result = await response.json()
+    
+    // Map back to full listing objects
+    const filteredIds = new Set(result.filteredIds)
+    return listings.filter(listing => filteredIds.has(listing.id))
+    
+  } catch (error) {
+    console.error('GPT filtering error:', error)
+    throw error
+  }
+}
 interface AirbnbListing {
   id: string
   name: string
@@ -333,10 +372,30 @@ function App() {
         }
       }
       
-      // Apply complex filtering based on extracted criteria with progressive relaxation
+      // Apply GPT-powered semantic filtering for complex queries
       let filteredResults = searchResults
       
-      if (queryAnalysis?.extractedCriteria) {
+      // For complex queries with multiple criteria, use GPT to semantically filter and rank
+      if (queryAnalysis?.extractedCriteria && 
+          (queryAnalysis.extractedCriteria.propertyType || 
+           queryAnalysis.extractedCriteria.amenities?.length > 0 ||
+           queryAnalysis.extractedCriteria.rating?.superhost)) {
+        
+        try {
+          console.log('Using GPT-powered semantic filtering for complex query')
+          const semanticResults = await filterWithGPT(query, searchResults)
+          if (semanticResults && semanticResults.length > 0) {
+            filteredResults = semanticResults
+            console.log(`GPT semantic filtering: ${filteredResults.length} out of ${searchResults.length} results`)
+          } else {
+            console.log('GPT filtering returned no results, falling back to basic filtering')
+          }
+        } catch (error) {
+          console.error('GPT filtering failed, using basic filtering:', error)
+        }
+      }
+      
+      if (queryAnalysis?.extractedCriteria && filteredResults === searchResults) {
         const criteria = queryAnalysis.extractedCriteria
         
         // Helper function to apply filter with fallback
