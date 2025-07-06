@@ -9,8 +9,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001', // Common Vercel dev port
         changeOrigin: true,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        configure: (proxy) => {
+          proxy.on('error', () => {
             console.log('API proxy error - is your local MCP server running?')
             console.log('Try running: vercel dev --listen 3001')
           })
