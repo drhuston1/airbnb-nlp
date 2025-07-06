@@ -16,9 +16,6 @@ interface QueryAnalysis {
   propertyType?: string;
 }
 
-interface LocationResponse {
-  location: string;
-}
 
 export async function extractWithTransformers(query: string): Promise<QueryAnalysis> {
   try {
