@@ -74,10 +74,13 @@ async function callAirbnbMCPServer(params: SearchParams): Promise<any[]> {
   }
 
   const data = await response.json()
-  return data.listings || []
+  console.log('MCP Result received:', JSON.stringify(data, null, 2))
+  return data.searchResults || data.listings || []
 }
 
 function transformMCPListing(mcpListing: any): AirbnbListing {
+  console.log('Transforming MCP listing:', mcpListing)
+  
   // Extract the actual property name from the nested structure
   const propertyName = mcpListing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference 
     || mcpListing.name 
@@ -100,11 +103,14 @@ function transformMCPListing(mcpListing: any): AirbnbListing {
     if (priceMatch) priceRate = parseFloat(priceMatch[1])
   }
 
-  // Extract location from coordinates (we'll need to reverse geocode or use a default)
+  // Extract location - for now use a placeholder since we need coordinates to city mapping
   const location = {
-    city: mcpListing.location?.city || 'Unknown City',
-    country: mcpListing.location?.country || 'US'
+    city: 'Location', // We'll need to implement reverse geocoding
+    country: 'US'
   }
+
+  // Extract superhost status from badges
+  const isSuperhost = mcpListing.badges?.includes('Superhost') || false
 
   return {
     id: mcpListing.id,
@@ -120,8 +126,8 @@ function transformMCPListing(mcpListing: any): AirbnbListing {
     reviewsCount: reviewsCount,
     location: location,
     host: {
-      name: mcpListing.host?.name || 'Host',
-      isSuperhost: mcpListing.badges?.includes('Superhost') || false
+      name: 'Host',
+      isSuperhost: isSuperhost
     },
     amenities: mcpListing.amenities || [],
     roomType: mcpListing.roomType || 'Entire home/apt'

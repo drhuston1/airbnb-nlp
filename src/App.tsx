@@ -172,27 +172,41 @@ function App() {
       console.log('After new listing filter:', filtered.length)
     }
 
-    // Check for rating thresholds - make more lenient
+    // Check for rating thresholds - be very lenient and avoid filtering to zero
     const ratingMatch = lowerQuery.match(/(\d\.?\d?)\+?\s*rating|rating\s*(\d\.?\d?)\+?/)
     if (ratingMatch) {
       const minRating = parseFloat(ratingMatch[1] || ratingMatch[2])
       if (minRating && minRating >= 3 && minRating <= 5) {
-        // Be more lenient - subtract 0.2 from the requirement
-        const lenientRating = Math.max(3.0, minRating - 0.2)
-        filtered = filtered.filter(listing => listing.rating >= lenientRating)
-        console.log(`After rating filter (${minRating} -> ${lenientRating}):`, filtered.length)
+        // Be very lenient - subtract 0.5 from the requirement
+        const lenientRating = Math.max(3.0, minRating - 0.5)
+        const ratingResults = filtered.filter(listing => listing.rating >= lenientRating)
+        if (ratingResults.length > 0) {
+          filtered = ratingResults
+          console.log(`After rating filter (${minRating} -> ${lenientRating}):`, filtered.length)
+        } else {
+          console.log(`No properties found with ${lenientRating}+ rating, just sorting by rating instead`)
+          // If no results, just sort by rating instead of filtering
+          filtered = filtered.sort((a, b) => b.rating - a.rating)
+        }
       }
     }
 
-    // Price Range Filters - be more lenient
+    // Price Range Filters - be very lenient and avoid filtering to zero
     const priceUnderMatch = lowerQuery.match(/under\s*\$?(\d+)|below\s*\$?(\d+)/)
     if (priceUnderMatch) {
       const maxPrice = parseInt(priceUnderMatch[1] || priceUnderMatch[2])
       if (maxPrice && maxPrice > 0) {
-        // Be more lenient - add 20% to the budget
-        const lenientPrice = Math.floor(maxPrice * 1.2)
-        filtered = filtered.filter(listing => listing.price.rate <= lenientPrice)
-        console.log(`After price filter (under $${maxPrice} -> $${lenientPrice}):`, filtered.length)
+        // Be very lenient - add 50% to the budget
+        const lenientPrice = Math.floor(maxPrice * 1.5)
+        const priceResults = filtered.filter(listing => listing.price.rate <= lenientPrice)
+        if (priceResults.length > 0) {
+          filtered = priceResults
+          console.log(`After price filter (under $${maxPrice} -> $${lenientPrice}):`, filtered.length)
+        } else {
+          console.log(`No properties found under $${lenientPrice}, just sorting by price instead`)
+          // If no results, just sort by price instead of filtering
+          filtered = filtered.sort((a, b) => a.price.rate - b.price.rate)
+        }
       }
     }
 
