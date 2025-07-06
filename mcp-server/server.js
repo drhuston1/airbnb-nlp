@@ -9,6 +9,12 @@ const { spawn } = require('child_process');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Railway environment detection
+const isRailwayEnv = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID;
+if (isRailwayEnv) {
+  console.log('Running in Railway environment');
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -257,9 +263,14 @@ function generateFallbackListings(location, maxPrice = 200) {
 }
 
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`MCP Airbnb Server running on port ${PORT}`);
   console.log('Ready to receive MCP Airbnb search requests');
+  console.log(`Health check: http://localhost:${PORT}/`);
+  
+  if (isRailwayEnv) {
+    console.log('Successfully deployed to Railway!');
+  }
 });
 
 module.exports = app;
