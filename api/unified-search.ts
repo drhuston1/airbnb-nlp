@@ -9,7 +9,7 @@ interface UnifiedSearchRequest {
   adults?: number
   children?: number
   page?: number
-  platforms?: string[] // ['airbnb', 'booking.com'] - which platforms to search
+  platforms?: string[] // ['airbnb'] - which platforms to search
 }
 
 interface UnifiedProperty {
@@ -34,7 +34,7 @@ interface UnifiedProperty {
   }
   amenities: string[]
   roomType: string
-  platform: 'airbnb' | 'booking.com' | 'vrbo' // Source platform
+  platform: 'airbnb' // Source platform
 }
 
 interface UnifiedSearchResponse {
@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       adults = 2, 
       children = 0, 
       page = 1,
-      platforms = ['airbnb'] // Focus on Airbnb only until Booking.com API is configured
+      platforms = ['airbnb'] // Airbnb only - all mock implementations removed
     }: UnifiedSearchRequest = req.body
 
     console.log('Unified search request:', { query, location, platforms, adults, children })
@@ -93,11 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
     }
 
-    if (platforms.includes('booking.com')) {
-      searchPromises.push(
-        callPlatformAPI('/api/booking-search', searchPayload, 'booking.com')
-      )
-    }
+    // Booking.com integration removed - focus on Airbnb only
 
     console.log(`Searching ${platforms.length} platforms in parallel...`)
 
@@ -159,13 +155,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Remove duplicates (same property on multiple platforms)
     const deduplicatedListings = deduplicateProperties(allListings)
 
-    // Sort combined results by rating and price
+    // Sort combined results by rating and price (stable/deterministic sorting)
     const sortedListings = deduplicatedListings.sort((a, b) => {
-      // Prioritize higher ratings, then lower prices
+      // Prioritize higher ratings, then lower prices, then by ID for stable sorting
       if (Math.abs(a.rating - b.rating) > 0.1) {
         return b.rating - a.rating
       }
-      return a.price.rate - b.price.rate
+      if (Math.abs(a.price.rate - b.price.rate) > 0.01) {
+        return a.price.rate - b.price.rate
+      }
+      // Use ID as tiebreaker for deterministic results
+      return a.id.localeCompare(b.id)
     })
 
     const response: UnifiedSearchResponse = {
@@ -199,9 +199,6 @@ async function callPlatformAPI(endpoint: string, payload: any, platform: string)
     if (endpoint === '/api/mcp-search') {
       // Call MCP search directly by reimplementing the core logic
       return await callMCPSearchDirect(payload, platform)
-    } else if (endpoint === '/api/booking-search') {
-      // Call booking search with proper error handling for missing API key
-      return await callBookingSearchDirect(payload, platform)
     } else {
       throw new Error(`Unknown endpoint: ${endpoint}`)
     }
@@ -280,57 +277,7 @@ async function callMCPSearchDirect(payload: any, platform: string) {
   }
 }
 
-// Direct booking search implementation with proper error handling
-async function callBookingSearchDirect(payload: any, platform: string) {
-  try {
-    // Check if Booking.com API key is available
-    if (!process.env.BOOKING_API_KEY) {
-      console.log('BOOKING_API_KEY not configured, skipping Booking.com search')
-      return {
-        platform,
-        data: {
-          listings: [],
-          hasMore: false,
-          totalResults: 0,
-          page: 1,
-          source: 'booking.com'
-        },
-        status: 'error' as const,
-        error: 'BOOKING_API_KEY not configured'
-      }
-    }
-
-    // If API key is available, call the booking handler
-    // For now, return empty results since the API key is not configured
-    return {
-      platform,
-      data: {
-        listings: [],
-        hasMore: false,
-        totalResults: 0,
-        page: 1,
-        source: 'booking.com'
-      },
-      status: 'error' as const,
-      error: 'Booking.com API not configured'
-    }
-
-  } catch (error) {
-    console.error('Booking search direct call failed:', error)
-    return {
-      platform,
-      data: {
-        listings: [],
-        hasMore: false,
-        totalResults: 0,
-        page: 1,
-        source: 'booking.com'
-      },
-      status: 'error' as const,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }
-  }
-}
+// Booking.com integration removed
 
 // Transform MCP results helper function
 async function transformMCPResults(searchResults: any[], payload?: any) {

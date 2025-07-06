@@ -157,17 +157,22 @@ async function filterListingsWithGPT(
       } else if (queryLower.includes('luxury')) {
         filteredListings = listings.filter(listing => listing.price >= 150 || listing.rating >= 4.5)
       } else {
-        // Return top-rated properties as fallback
-        filteredListings = listings.sort((a, b) => b.rating - a.rating).slice(0, Math.ceil(listings.length * 0.5))
+        // Return top-rated properties as fallback (stable sorting)
+        filteredListings = listings.sort((a, b) => {
+          const ratingDiff = b.rating - a.rating
+          return ratingDiff !== 0 ? ratingDiff : a.id.localeCompare(b.id)
+        }).slice(0, Math.ceil(listings.length * 0.5))
       }
       console.log(`Progressive relaxation: ${filteredListings.length} properties`)
     }
     
-    // Sort by relevance: superhosts first, then rating, then price
+    // Sort by relevance: superhosts first, then rating, then price, then ID for stability
     filteredListings.sort((a, b) => {
       if (a.isSuperhost !== b.isSuperhost) return b.isSuperhost ? 1 : -1
       if (Math.abs(a.rating - b.rating) > 0.1) return b.rating - a.rating
-      return a.price - b.price
+      if (Math.abs(a.price - b.price) > 0.01) return a.price - b.price
+      // Use ID as final tiebreaker for deterministic results
+      return a.id.localeCompare(b.id)
     })
     
     const filteredIds = filteredListings.map(listing => listing.id)
