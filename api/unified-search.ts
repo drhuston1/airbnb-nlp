@@ -105,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const results = await Promise.allSettled(searchPromises.map(p => 
       Promise.race([
         p,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('API timeout')), 10000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('API timeout')), 25000))
       ])
     ))
 
