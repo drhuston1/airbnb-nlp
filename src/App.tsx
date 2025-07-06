@@ -395,15 +395,62 @@ function App() {
           console.log(`Filtered by minimum ${criteria.rating.reviewCount} reviews: ${filteredResults.length} results`)
         }
         
-        // Note: Bedroom and bathroom filtering removed due to unreliable data parsing
-        // The LLM extracts these criteria for logging/context but we don't filter by them
-        // since the API data doesn't reliably contain structured bedroom/bathroom counts
+        // Smart bedroom filtering using heuristics (API doesn't provide structured bedroom data)
         if (criteria.bedrooms) {
-          console.log(`User requested ${criteria.bedrooms} bedrooms - noted but not filtered (unreliable data)`)
+          filteredResults = filteredResults.filter(listing => {
+            const roomType = listing.roomType.toLowerCase()
+            const name = listing.name.toLowerCase()
+            
+            // Primary heuristic: Use property type as main signal
+            if (criteria.bedrooms === 1) {
+              // 1 bedroom: Allow private rooms, studios, and entire places
+              return true // Don't filter out for 1 bedroom requests
+            } else if (criteria.bedrooms >= 2) {
+              // 2+ bedrooms: Strongly prefer entire homes/apartments
+              if (!roomType.includes('entire')) {
+                // Check if name explicitly mentions multiple bedrooms
+                const hasMultiBedInName = /\b([2-9]|[1-9][0-9]+)\s*(bed|br)\b/i.test(name)
+                if (!hasMultiBedInName) {
+                  return false // Filter out non-entire places without explicit multi-bed mention
+                }
+              }
+            }
+            
+            // Secondary heuristic: Basic name parsing with fallbacks
+            const bedroomMatch = name.match(/\b(\d+)\s*(bed|br|bedroom)\b/i)
+            if (bedroomMatch) {
+              const nameBedroomCount = parseInt(bedroomMatch[1])
+              return nameBedroomCount >= criteria.bedrooms!
+            }
+            
+            // Fallback: If we can't determine bedroom count but it's an entire place, allow it
+            return roomType.includes('entire')
+          })
+          console.log(`Smart bedroom filtering (${criteria.bedrooms}+ bedrooms): ${filteredResults.length} results`)
         }
         
+        // Smart bathroom filtering using heuristics
         if (criteria.bathrooms) {
-          console.log(`User requested ${criteria.bathrooms} bathrooms - noted but not filtered (unreliable data)`)
+          filteredResults = filteredResults.filter(listing => {
+            const name = listing.name.toLowerCase()
+            const roomType = listing.roomType.toLowerCase()
+            
+            // Try to parse bathroom count from name
+            const bathroomMatch = name.match(/\b(\d+(?:\.5)?|\d+\s*1\/2)\s*(bath|bathroom)\b/i)
+            if (bathroomMatch) {
+              let nameBathroomCount = parseFloat(bathroomMatch[1].replace(/\s*1\/2/, '.5'))
+              return nameBathroomCount >= criteria.bathrooms!
+            }
+            
+            // Heuristic: For 2+ bathroom requests, prefer entire homes
+            if (criteria.bathrooms >= 2) {
+              return roomType.includes('entire')
+            }
+            
+            // For 1 bathroom requests, don't filter (most places have at least 1)
+            return true
+          })
+          console.log(`Smart bathroom filtering (${criteria.bathrooms}+ bathrooms): ${filteredResults.length} results`)
         }
         
         console.log(`Final filtered results: ${filteredResults.length} out of ${searchResults.length} original results`)
