@@ -380,7 +380,7 @@ function App() {
           )
         }
         
-        // Filter by property type (lenient - expand search if needed)
+        // Filter by property type (intelligent matching for luxury terms)
         if (criteria.propertyType) {
           const targetType = criteria.propertyType.toLowerCase()
           filteredResults = applyFilterWithFallback(
@@ -388,7 +388,34 @@ function App() {
             listing => {
               const roomType = listing.roomType.toLowerCase()
               const name = listing.name.toLowerCase()
-              return roomType.includes(targetType) || name.includes(targetType)
+              
+              // Direct match first
+              if (roomType.includes(targetType) || name.includes(targetType)) {
+                return true
+              }
+              
+              // Intelligent mapping for luxury property types
+              if (targetType === 'villa') {
+                // Villa should match luxury homes, estates, retreats, mansions
+                return name.includes('luxury') || name.includes('estate') || 
+                       name.includes('retreat') || name.includes('mansion') ||
+                       name.includes('beachfront') || name.includes('oceanfront') ||
+                       roomType.includes('entire') // Villas are usually entire places
+              }
+              
+              if (targetType === 'house') {
+                // House should match homes, cottages, cabins
+                return name.includes('home') || name.includes('cottage') || 
+                       name.includes('cabin') || roomType.includes('entire')
+              }
+              
+              if (targetType === 'cabin') {
+                // Cabin should match lodges, chalets, retreats
+                return name.includes('lodge') || name.includes('chalet') || 
+                       name.includes('retreat') || name.includes('cottage')
+              }
+              
+              return false
             },
             `Filtered by property type '${targetType}'`
           )
