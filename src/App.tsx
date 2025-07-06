@@ -18,9 +18,10 @@ import {
   ExternalLink,
   Send,
   Home,
-  History,
   Clock,
-  X
+  X,
+  Plus,
+  Menu
 } from 'lucide-react'
 import { searchAirbnbListings, type AirbnbListing } from './services/airbnbService'
 
@@ -48,9 +49,9 @@ function App() {
   const [hasMore, setHasMore] = useState(false)
   const [currentQuery, setCurrentQuery] = useState('')
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
-  const [showHistory, setShowHistory] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [currentResults, setCurrentResults] = useState<AirbnbListing[]>([])
+  const [showSidebar, setShowSidebar] = useState(false)
   
   
   // Refs
@@ -399,43 +400,68 @@ function App() {
 
   return (
     <Box h="100vh" bg="green.25" display="flex" flexDirection="row">
-      {/* History Sidebar */}
+      {/* Main Sidebar */}
       <Box 
-        w={showHistory ? "320px" : "0"} 
+        w={showSidebar ? "300px" : "60px"} 
         bg="white" 
         borderRight="1px" 
         borderColor="gray.200"
         transition="width 0.3s ease"
-        overflow="hidden"
         display="flex"
         flexDirection="column"
       >
-        {showHistory && (
-          <>
-            <Box p={4} borderBottom="1px" borderColor="gray.200">
-              <HStack justify="space-between" align="center">
-                <HStack gap={2}>
-                  <Icon as={History} w={4} h={4} color="gray.600" />
-                  <Text fontSize="sm" fontWeight="500" color="gray.700">Search History</Text>
-                </HStack>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => setShowHistory(false)}
-                >
-                  <Icon as={X} w={3} h={3} />
-                </Button>
-              </HStack>
-            </Box>
-            
-            <Box flex="1" overflow="auto" p={3}>
-              {searchHistory.length === 0 ? (
-                <Text fontSize="sm" color="gray.500" textAlign="center" mt={4}>
-                  No search history yet
+        {/* Sidebar Header */}
+        <Box p={3} borderBottom="1px" borderColor="gray.200">
+          <HStack justify="space-between" align="center">
+            <HStack gap={2}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowSidebar(!showSidebar)}
+                color="gray.600"
+                _hover={{ bg: "gray.50" }}
+                px={2}
+              >
+                <Icon as={Menu} w={4} h={4} />
+              </Button>
+              
+              {showSidebar && (
+                <Text fontSize="lg" fontWeight="600" color="gray.800">
+                  ChatBnb
                 </Text>
-              ) : (
-                <VStack gap={2} align="stretch">
-                  {searchHistory.map((item) => (
+              )}
+            </HStack>
+            
+            {showSidebar && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={startNewChat}
+                color="gray.600"
+                _hover={{ bg: "gray.50" }}
+                px={2}
+              >
+                <Icon as={Plus} w={4} h={4} />
+              </Button>
+            )}
+          </HStack>
+        </Box>
+
+        {/* Sidebar Content */}
+        {showSidebar && (
+          <>
+            <Box flex="1" overflow="auto" p={3}>
+              <VStack align="stretch" gap={2}>
+                <Text fontSize="xs" fontWeight="500" color="gray.500" textTransform="uppercase" mb={2}>
+                  Recent Searches
+                </Text>
+                
+                {searchHistory.length === 0 ? (
+                  <Text fontSize="sm" color="gray.500" textAlign="center" mt={4}>
+                    No searches yet
+                  </Text>
+                ) : (
+                  searchHistory.map((item) => (
                     <Box
                       key={item.id}
                       p={3}
@@ -445,7 +471,7 @@ function App() {
                       _hover={{ bg: "gray.100" }}
                       onClick={() => {
                         setSearchQuery(item.query)
-                        setShowHistory(false)
+                        setShowSidebar(false)
                       }}
                     >
                       <Text fontSize="sm" color="gray.800" lineHeight="1.4" lineClamp={2}>
@@ -463,9 +489,9 @@ function App() {
                         </Text>
                       </HStack>
                     </Box>
-                  ))}
-                </VStack>
-              )}
+                  ))
+                )}
+              </VStack>
             </Box>
             
             {searchHistory.length > 0 && (
@@ -493,32 +519,10 @@ function App() {
         <Box p={3} borderBottom="1px" borderColor="gray.200" bg="white">
           <HStack justify="space-between" align="center">
             <HStack gap={3} align="center">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowHistory(!showHistory)}
-                color="gray.600"
-                _hover={{ bg: "gray.50" }}
-                px={2}
-              >
-                <Icon as={History} w={4} h={4} />
-              </Button>
-              
-              <Text fontSize="sm" color="gray.600" maxW="md">
-                Search properties with natural language. Describe what you want and get personalized results.
-              </Text>
-              
-              {messages.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={startNewChat}
-                  borderColor="green.300"
-                  color="green.700"
-                  _hover={{ bg: "green.50" }}
-                >
-                  + New Chat
-                </Button>
+              {currentQuery && (
+                <Text fontSize="sm" color="gray.600" maxW="2xl" lineClamp={1}>
+                  {currentQuery}
+                </Text>
               )}
             </HStack>
             
