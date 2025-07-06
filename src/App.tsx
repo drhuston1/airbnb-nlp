@@ -372,8 +372,8 @@ function App() {
         // Filter by amenities
         if (criteria.amenities && criteria.amenities.length > 0) {
           filteredResults = filteredResults.filter(listing => {
-            return criteria.amenities!.some(amenity => 
-              listing.amenities.some(listingAmenity => 
+            return criteria.amenities!.some((amenity: string) => 
+              listing.amenities.some((listingAmenity: string) => 
                 listingAmenity.toLowerCase().includes(amenity.toLowerCase())
               ) || listing.name.toLowerCase().includes(amenity.toLowerCase())
             )
