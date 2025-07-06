@@ -239,16 +239,25 @@ function App() {
     }
 
     try {
-      // Simple search payload
+      // Enhanced search payload with extracted criteria
       const searchPayload: Record<string, unknown> = {
         query,
         page,
         location: extractedLocation,
-        adults: 2, // sensible default
-        children: 0
+        adults: queryAnalysis?.extractedCriteria?.guests?.adults || 2,
+        children: queryAnalysis?.extractedCriteria?.guests?.children || 0
       }
       
-      console.log('ACTUAL SEARCH PAYLOAD BEING SENT TO API:', searchPayload)
+      // Add extracted dates if available
+      if (queryAnalysis?.extractedCriteria?.dates?.checkin) {
+        searchPayload.checkin = queryAnalysis.extractedCriteria.dates.checkin
+      }
+      if (queryAnalysis?.extractedCriteria?.dates?.checkout) {
+        searchPayload.checkout = queryAnalysis.extractedCriteria.dates.checkout
+      }
+      
+      console.log('ENHANCED SEARCH PAYLOAD WITH EXTRACTED CRITERIA:', searchPayload)
+      console.log('EXTRACTED QUERY ANALYSIS:', queryAnalysis)
       console.log('LOCATION SPECIFICALLY:', searchPayload.location)
 
       const response = await fetch('/api/unified-search', {
@@ -314,8 +323,116 @@ function App() {
         }
       }
       
-      // Simple pass-through - no complex filtering
-      const filteredResults = searchResults
+      // Apply complex filtering based on extracted criteria
+      let filteredResults = searchResults
+      
+      if (queryAnalysis?.extractedCriteria) {
+        const criteria = queryAnalysis.extractedCriteria
+        
+        // Filter by rating
+        if (criteria.rating?.min) {
+          filteredResults = filteredResults.filter(listing => 
+            listing.rating >= criteria.rating.min!
+          )
+          console.log(`Filtered by rating >= ${criteria.rating.min}: ${filteredResults.length} results`)
+        }
+        
+        // Filter by price range
+        if (criteria.priceRange?.min || criteria.priceRange?.max) {
+          filteredResults = filteredResults.filter(listing => {
+            const price = listing.price.rate
+            const minOk = !criteria.priceRange?.min || price >= criteria.priceRange.min
+            const maxOk = !criteria.priceRange?.max || price <= criteria.priceRange.max
+            return minOk && maxOk
+          })
+          console.log(`Filtered by price range: ${filteredResults.length} results`)
+        }
+        
+        // Filter by property type
+        if (criteria.propertyType) {
+          const targetType = criteria.propertyType.toLowerCase()
+          filteredResults = filteredResults.filter(listing => {
+            const roomType = listing.roomType.toLowerCase()
+            const name = listing.name.toLowerCase()
+            return roomType.includes(targetType) || name.includes(targetType)
+          })
+          console.log(`Filtered by property type '${targetType}': ${filteredResults.length} results`)
+        }
+        
+        // Filter by amenities
+        if (criteria.amenities && criteria.amenities.length > 0) {
+          filteredResults = filteredResults.filter(listing => {
+            return criteria.amenities!.some(amenity => 
+              listing.amenities.some(listingAmenity => 
+                listingAmenity.toLowerCase().includes(amenity.toLowerCase())
+              ) || listing.name.toLowerCase().includes(amenity.toLowerCase())
+            )
+          })
+          console.log(`Filtered by amenities [${criteria.amenities.join(', ')}]: ${filteredResults.length} results`)
+        }
+        
+        // Filter by superhost requirement
+        if (criteria.rating?.superhost) {
+          filteredResults = filteredResults.filter(listing => listing.host.isSuperhost)
+          console.log(`Filtered by superhost requirement: ${filteredResults.length} results`)
+        }
+        
+        // Filter by review count
+        if (criteria.rating?.reviewCount) {
+          filteredResults = filteredResults.filter(listing => 
+            listing.reviewsCount >= criteria.rating!.reviewCount!
+          )
+          console.log(`Filtered by minimum ${criteria.rating.reviewCount} reviews: ${filteredResults.length} results`)
+        }
+        
+        // Filter by bedrooms (approximated from room type and name)
+        if (criteria.bedrooms) {
+          filteredResults = filteredResults.filter(listing => {
+            const roomType = listing.roomType.toLowerCase()
+            const name = listing.name.toLowerCase()
+            
+            // Look for bedroom count in room type or name
+            const bedroomMatch = name.match(/(\\d+)\\s*bed/i) || roomType.match(/(\\d+)\\s*bed/i)
+            if (bedroomMatch) {
+              const bedroomCount = parseInt(bedroomMatch[1])
+              return bedroomCount >= criteria.bedrooms!
+            }
+            
+            // If no specific count found, try to infer from room type
+            if (criteria.bedrooms === 1) {
+              return roomType.includes('room') || roomType.includes('studio') || roomType.includes('bed')
+            } else {
+              // For 2+ bedrooms, be more selective
+              return roomType.includes('entire') || roomType.includes('home') || roomType.includes('house')
+            }
+          })
+          console.log(`Filtered by minimum ${criteria.bedrooms} bedrooms: ${filteredResults.length} results`)
+        }
+        
+        // Filter by bathrooms (approximated from name - Airbnb data doesn't always include bathroom count)
+        if (criteria.bathrooms) {
+          filteredResults = filteredResults.filter(listing => {
+            const name = listing.name.toLowerCase()
+            
+            // Look for bathroom count in name
+            const bathroomMatch = name.match(/(\\d+(?:\\.5)?|\\d+\\s*1\\/2)\\s*bath/i)
+            if (bathroomMatch) {
+              let bathroomCount = parseFloat(bathroomMatch[1].replace('1/2', '.5'))
+              return bathroomCount >= criteria.bathrooms!
+            }
+            
+            // If no specific count found and they want 2+ bathrooms, prefer entire homes
+            if (criteria.bathrooms >= 2) {
+              return listing.roomType.toLowerCase().includes('entire')
+            }
+            
+            return true // Don't filter out if we can't determine bathroom count
+          })
+          console.log(`Filtered by minimum ${criteria.bathrooms} bathrooms: ${filteredResults.length} results`)
+        }
+        
+        console.log(`Final filtered results: ${filteredResults.length} out of ${searchResults.length} original results`)
+      }
       
       setCurrentPage(page)
       setHasMore(data.hasMore || false)

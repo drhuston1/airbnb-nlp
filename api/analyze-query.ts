@@ -21,9 +21,12 @@ interface QueryAnalysis {
       min?: number
       excellent?: boolean
       superhost?: boolean
+      reviewCount?: number
     }
     amenities?: string[]
     propertyType?: string
+    bedrooms?: number
+    bathrooms?: number
     guests?: {
       adults?: number
       children?: number
@@ -138,10 +141,13 @@ Analyze and return a JSON object with this exact structure:
     "rating": {
       "min": number or null,
       "excellent": boolean,
-      "superhost": boolean
+      "superhost": boolean,
+      "reviewCount": number or null
     },
     "amenities": ["extracted amenities"],
     "propertyType": "extracted property type or null",
+    "bedrooms": number or null,
+    "bathrooms": number or null,
     "guests": {
       "adults": number or null,
       "children": number or null,
@@ -229,6 +235,26 @@ Previous: "Malibu"
   },
   "intent": "refine_criteria",
   "confidence": 0.9
+}
+
+Query: "lakefront house in Charleston SC; 4 bedrooms; minimum 2-1/2 bathrooms for 5 days in September, 2025; rated 4.80 and above w/minimum of 40 reviews"
+Previous: none
+→ {
+  "location": "Charleston SC",
+  "isRefinement": false,
+  "refinementType": null,
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": null, "budget": null },
+    "rating": { "min": 4.80, "excellent": false, "superhost": false, "reviewCount": 40 },
+    "amenities": ["lakefront"],
+    "propertyType": "house",
+    "bedrooms": 4,
+    "bathrooms": 2.5,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": "2025-09-01", "checkout": "2025-09-06", "flexible": true }
+  },
+  "intent": "new_search",
+  "confidence": 0.95
 }
 
 Return ONLY the JSON object, no other text:`
