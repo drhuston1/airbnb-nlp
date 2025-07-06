@@ -3,7 +3,6 @@ import {
   Box,
   Text,
   Button,
-  SimpleGrid,
   HStack,
   Spinner,
   Flex,
@@ -50,6 +49,8 @@ function App() {
   const [currentQuery, setCurrentQuery] = useState('')
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [currentResults, setCurrentResults] = useState<AirbnbListing[]>([])
   
   
   // Refs
@@ -301,12 +302,12 @@ function App() {
       let responseContent = ''
       if (filteredResults.length === searchResults.length) {
         responseContent = page === 1 
-          ? `I found ${searchResults.length} properties that match "${query}". Here are your options:`
-          : `Here are ${searchResults.length} more properties for "${query}" (page ${page}):`
+          ? `I found ${searchResults.length} properties that match "${query}". Check the results panel →`
+          : `Here are ${searchResults.length} more properties for "${query}" (page ${page}). Check the results panel →`
       } else {
         responseContent = page === 1
-          ? `I found ${searchResults.length} properties and filtered them to ${filteredResults.length} that best match "${query}". Here are your options:`
-          : `Here are ${filteredResults.length} filtered properties from ${searchResults.length} results for "${query}" (page ${page}):`
+          ? `I found ${searchResults.length} properties and filtered them to ${filteredResults.length} that best match "${query}". Check the results panel →`
+          : `Here are ${filteredResults.length} filtered properties from ${searchResults.length} results for "${query}" (page ${page}). Check the results panel →`
       }
       
       // Generate follow-up suggestions
@@ -322,6 +323,10 @@ function App() {
         timestamp: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
+
+      // Update results panel
+      setCurrentResults(filteredResults)
+      setShowResults(true)
 
       // Add to search history
       addToHistory(query, filteredResults.length)
@@ -444,21 +449,37 @@ function App() {
         )}
       </Box>
 
-      {/* Main Content */}
-      <Box flex="1" display="flex" flexDirection="column">
-        {/* History Toggle Button */}
-        <Box p={3}>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowHistory(!showHistory)}
-            borderColor="gray.300"
-            color="gray.600"
-            _hover={{ bg: "gray.50" }}
-          >
-            <Icon as={History} w={4} h={4} mr={2} />
-            {showHistory ? 'Hide History' : 'Show History'}
-          </Button>
+      {/* Main Chat Content */}
+      <Box flex="1" display="flex" flexDirection="column" minW="0">
+        {/* Header with controls */}
+        <Box p={3} borderBottom="1px" borderColor="gray.200" bg="white">
+          <HStack justify="space-between">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowHistory(!showHistory)}
+              borderColor="gray.300"
+              color="gray.600"
+              _hover={{ bg: "gray.50" }}
+            >
+              <Icon as={History} w={4} h={4} mr={2} />
+              {showHistory ? 'Hide History' : 'Show History'}
+            </Button>
+            
+            {showResults && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowResults(!showResults)}
+                borderColor="gray.300"
+                color="gray.600"
+                _hover={{ bg: "gray.50" }}
+              >
+                <Icon as={Home} w={4} h={4} mr={2} />
+                {showResults ? 'Hide Results' : 'Show Results'} ({currentResults.length})
+              </Button>
+            )}
+          </HStack>
         </Box>
 
         {/* Chat Messages */}
@@ -475,7 +496,7 @@ function App() {
               <HStack justify="center" mb={4}>
                 <Icon as={Home} w={8} h={8} color="gray.600" />
                 <Text fontSize="3xl" color="gray.800" fontWeight="500">
-                  Find your perfect Airbnb
+                  ChatBnb
                 </Text>
               </HStack>
               <Text fontSize="lg" color="gray.500" mb={12} maxW="md" mx="auto" lineHeight="1.6">
@@ -499,7 +520,7 @@ function App() {
                   resize="none"
                   minH="52px"
                   maxH="120px"
-                  bg="gray.100"
+                  bg="white"
                   border="1px"
                   borderColor="gray.300"
                   _focus={{
@@ -570,11 +591,10 @@ function App() {
             </Box>
           </Flex>
         ) : (
-          <Box maxW="3xl" mx="auto" px={4} py={6} w="full" bg="white" borderRadius="lg" my={4} border="1px" borderColor="gray.200">
-
-          {/* Chat Messages */}
-          {messages.map((message) => (
-            <Box key={message.id} mb={8}>
+          <Box maxW="3xl" mx="auto" px={4} py={6} w="full">
+            {/* Chat Messages */}
+            {messages.map((message) => (
+              <Box key={message.id} mb={8}>
               {message.type === 'user' ? (
                 <Flex justify="flex-end">
                   <Box
@@ -589,126 +609,10 @@ function App() {
                 </Flex>
               ) : (
                 <Box>
-                    <Text fontSize="md" color="gray.800" mb={4} lineHeight="1.6">
-                      {message.content}
-                    </Text>
-                        
-                    {/* Show listings if present */}
-                    {message.listings && (
-                      <Box w="full">
-
-                        {/* Property Grid */}
-                        <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-                          {message.listings.map((listing) => (
-                            <Box 
-                              key={listing.id} 
-                              border="1px" 
-                              borderColor="gray.200"
-                              borderRadius="md"
-                              overflow="hidden"
-                              bg="white"
-                              _hover={{ 
-                                borderColor: 'gray.300'
-                              }}
-                              transition="border-color 0.2s"
-                            >
-                              <Box p={4}>
-                                <VStack align="start" gap={3}>
-                                  <Text fontWeight="600" color="gray.900" lineHeight="1.4" lineClamp={2}>
-                                    {(listing.name && typeof listing.name === 'string' && listing.name.length < 200) 
-                                      ? listing.name 
-                                      : 'Property name not available'}
-                                  </Text>
-                                  
-                                  <HStack justify="space-between" w="full">
-                                    <HStack gap={1}>
-                                      <Icon as={MapPin} color="gray.400" w={4} h={4} />
-                                      <Text fontSize="sm" color="gray.600">
-                                        {listing.location.country ? 
-                                          `${listing.location.city}, ${listing.location.country}` : 
-                                          listing.location.city
-                                        }
-                                      </Text>
-                                    </HStack>
-                                    <HStack gap={1}>
-                                      <Icon as={Star} color="yellow.400" w={4} h={4} />
-                                      <Text fontSize="sm" color="gray.600">
-                                        {listing.rating} ({listing.reviewsCount})
-                                      </Text>
-                                    </HStack>
-                                  </HStack>
-
-                                  <HStack justify="space-between" w="full" align="center">
-                                    <VStack align="start" gap={1}>
-                                      <Text fontSize="sm" color="gray.500">
-                                        {listing.roomType}
-                                      </Text>
-                                      <Text fontWeight="600" color="gray.900">
-                                        ${listing.price.rate}/night
-                                      </Text>
-                                    </VStack>
-                                    
-                                    <VStack align="end" gap={1}>
-                                      {listing.host.isSuperhost && (
-                                        <HStack gap={1}>
-                                          <Icon as={Crown} w={3} h={3} color="yellow.400" />
-                                          <Text fontSize="xs" color="gray.500">Superhost</Text>
-                                        </HStack>
-                                      )}
-                                      <Link href={listing.url} target="_blank" rel="noopener noreferrer">
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          borderColor="gray.300"
-                                          _hover={{ bg: "gray.50" }}
-                                        >
-                                          View
-                                          <Icon as={ExternalLink} ml={1} w={3} h={3} />
-                                        </Button>
-                                      </Link>
-                                    </VStack>
-                                  </HStack>
-                                </VStack>
-                              </Box>
-                            </Box>
-                          ))}
-                        </SimpleGrid>
-
-                        {/* Pagination Controls */}
-                        {message.listings.length > 0 && (
-                          <Box mt={6} pt={4} borderTop="1px" borderColor="gray.200">
-                            <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
-                              <Text fontSize="sm" color="gray.500">
-                                Page {currentPage} • {message.listings.length} properties
-                              </Text>
-                              <HStack>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={handlePrevPage}
-                                  disabled={currentPage === 1 || loading}
-                                  borderColor="gray.300"
-                                  _hover={{ bg: "gray.50" }}
-                                >
-                                  ← Previous
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={handleNextPage}
-                                  disabled={!hasMore || loading}
-                                  borderColor="gray.300"
-                                  _hover={{ bg: "gray.50" }}
-                                >
-                                  Next →
-                                </Button>
-                              </HStack>
-                            </Flex>
-                          </Box>
-                        )}
-                      </Box>
-                    )}
-                  </Box>
+                  <Text fontSize="md" color="gray.800" mb={4} lineHeight="1.6">
+                    {message.content}
+                  </Text>
+                </Box>
                 )}
 
                 {/* Follow-up Suggestions - Outside the main content */}
@@ -774,7 +678,7 @@ function App() {
                 resize="none"
                 minH="44px"
                 maxH="120px"
-                bg="white"
+                bg="gray.100"
                 border="1px"
                 borderColor="gray.300"
                 _focus={{
@@ -808,6 +712,158 @@ function App() {
           </Box>
         </Box>
       )}
+      </Box>
+
+      {/* Results Panel */}
+      <Box 
+        w={showResults ? "400px" : "0"} 
+        bg="white" 
+        borderLeft="1px" 
+        borderColor="gray.200"
+        transition="width 0.3s ease"
+        overflow="hidden"
+        display="flex"
+        flexDirection="column"
+      >
+        {showResults && (
+          <>
+            <Box p={4} borderBottom="1px" borderColor="gray.200">
+              <HStack justify="space-between" align="center">
+                <HStack gap={2}>
+                  <Icon as={Home} w={4} h={4} color="gray.600" />
+                  <Text fontSize="sm" fontWeight="500" color="gray.700">
+                    Properties ({currentResults.length})
+                  </Text>
+                </HStack>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setShowResults(false)}
+                >
+                  <Icon as={X} w={3} h={3} />
+                </Button>
+              </HStack>
+            </Box>
+            
+            <Box flex="1" overflow="auto" p={4}>
+              {currentResults.length === 0 ? (
+                <Text fontSize="sm" color="gray.500" textAlign="center" mt={4}>
+                  No properties to display
+                </Text>
+              ) : (
+                <VStack gap={4} align="stretch">
+                  {currentResults.map((listing) => (
+                    <Box
+                      key={listing.id}
+                      border="1px"
+                      borderColor="gray.200"
+                      borderRadius="md"
+                      overflow="hidden"
+                      bg="gray.50"
+                      _hover={{ 
+                        borderColor: 'gray.300',
+                        bg: 'white'
+                      }}
+                      transition="all 0.2s"
+                    >
+                      <Box p={3}>
+                        <VStack align="start" gap={2}>
+                          <Text fontWeight="600" color="gray.900" lineHeight="1.3" fontSize="sm" lineClamp={2}>
+                            {(listing.name && typeof listing.name === 'string' && listing.name.length < 200) 
+                              ? listing.name 
+                              : 'Property name not available'}
+                          </Text>
+                          
+                          <HStack justify="space-between" w="full">
+                            <HStack gap={1}>
+                              <Icon as={MapPin} color="gray.400" w={3} h={3} />
+                              <Text fontSize="xs" color="gray.600" lineClamp={1}>
+                                {listing.location.country ? 
+                                  `${listing.location.city}, ${listing.location.country}` : 
+                                  listing.location.city
+                                }
+                              </Text>
+                            </HStack>
+                            <HStack gap={1}>
+                              <Icon as={Star} color="yellow.400" w={3} h={3} />
+                              <Text fontSize="xs" color="gray.600">
+                                {listing.rating}
+                              </Text>
+                            </HStack>
+                          </HStack>
+
+                          <HStack justify="space-between" w="full" align="center">
+                            <VStack align="start" gap={0}>
+                              <Text fontSize="xs" color="gray.500">
+                                {listing.roomType}
+                              </Text>
+                              <Text fontWeight="600" color="gray.900" fontSize="sm">
+                                ${listing.price.rate}/night
+                              </Text>
+                            </VStack>
+                            
+                            <VStack align="end" gap={1}>
+                              {listing.host.isSuperhost && (
+                                <HStack gap={1}>
+                                  <Icon as={Crown} w={2} h={2} color="yellow.400" />
+                                  <Text fontSize="xs" color="gray.500">Host</Text>
+                                </HStack>
+                              )}
+                              <Link href={listing.url} target="_blank" rel="noopener noreferrer">
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  borderColor="gray.300"
+                                  _hover={{ bg: "gray.50" }}
+                                >
+                                  View
+                                  <Icon as={ExternalLink} ml={1} w={2} h={2} />
+                                </Button>
+                              </Link>
+                            </VStack>
+                          </HStack>
+                        </VStack>
+                      </Box>
+                    </Box>
+                  ))}
+                </VStack>
+              )}
+            </Box>
+            
+            {/* Pagination in results panel */}
+            {currentResults.length > 0 && (
+              <Box p={3} borderTop="1px" borderColor="gray.200">
+                <Flex justify="space-between" align="center">
+                  <Text fontSize="xs" color="gray.500">
+                    Page {currentPage}
+                  </Text>
+                  <HStack gap={1}>
+                    <Button 
+                      size="xs" 
+                      variant="outline"
+                      onClick={handlePrevPage}
+                      disabled={currentPage === 1 || loading}
+                      borderColor="gray.300"
+                      _hover={{ bg: "gray.50" }}
+                    >
+                      ←
+                    </Button>
+                    <Button 
+                      size="xs" 
+                      variant="outline"
+                      onClick={handleNextPage}
+                      disabled={!hasMore || loading}
+                      borderColor="gray.300"
+                      _hover={{ bg: "gray.50" }}
+                    >
+                      →
+                    </Button>
+                  </HStack>
+                </Flex>
+              </Box>
+            )}
+          </>
+        )}
       </Box>
     </Box>
   )
