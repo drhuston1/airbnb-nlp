@@ -333,124 +333,162 @@ function App() {
         }
       }
       
-      // Apply complex filtering based on extracted criteria
+      // Apply complex filtering based on extracted criteria with progressive relaxation
       let filteredResults = searchResults
       
       if (queryAnalysis?.extractedCriteria) {
         const criteria = queryAnalysis.extractedCriteria
         
-        // Filter by rating
+        // Helper function to apply filter with fallback
+        const applyFilterWithFallback = (
+          results: typeof searchResults,
+          filterFn: (listing: typeof searchResults[0]) => boolean,
+          filterName: string,
+          allowEmpty = false
+        ) => {
+          const filtered = results.filter(filterFn)
+          if (filtered.length === 0 && !allowEmpty && results.length > 0) {
+            console.log(`${filterName} would eliminate all results, skipping filter`)
+            return results
+          }
+          console.log(`${filterName}: ${filtered.length} results`)
+          return filtered
+        }
+        
+        // Filter by rating (strict - usually reasonable)
         if (criteria.rating?.min) {
-          filteredResults = filteredResults.filter(listing => 
-            listing.rating >= criteria.rating.min!
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => listing.rating >= criteria.rating.min!,
+            `Filtered by rating >= ${criteria.rating.min}`,
+            criteria.rating.min > 4.5 // Allow empty for very high rating requirements
           )
-          console.log(`Filtered by rating >= ${criteria.rating.min}: ${filteredResults.length} results`)
         }
         
-        // Filter by price range
+        // Filter by price range (strict - user specified budget)
         if (criteria.priceRange?.min || criteria.priceRange?.max) {
-          filteredResults = filteredResults.filter(listing => {
-            const price = listing.price.rate
-            const minOk = !criteria.priceRange?.min || price >= criteria.priceRange.min
-            const maxOk = !criteria.priceRange?.max || price <= criteria.priceRange.max
-            return minOk && maxOk
-          })
-          console.log(`Filtered by price range: ${filteredResults.length} results`)
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => {
+              const price = listing.price.rate
+              const minOk = !criteria.priceRange?.min || price >= criteria.priceRange.min
+              const maxOk = !criteria.priceRange?.max || price <= criteria.priceRange.max
+              return minOk && maxOk
+            },
+            `Filtered by price range`,
+            true // Allow empty for price filtering
+          )
         }
         
-        // Filter by property type
+        // Filter by property type (lenient - expand search if needed)
         if (criteria.propertyType) {
           const targetType = criteria.propertyType.toLowerCase()
-          filteredResults = filteredResults.filter(listing => {
-            const roomType = listing.roomType.toLowerCase()
-            const name = listing.name.toLowerCase()
-            return roomType.includes(targetType) || name.includes(targetType)
-          })
-          console.log(`Filtered by property type '${targetType}': ${filteredResults.length} results`)
-        }
-        
-        // Filter by amenities
-        if (criteria.amenities && criteria.amenities.length > 0) {
-          filteredResults = filteredResults.filter(listing => {
-            return criteria.amenities!.some((amenity: string) => 
-              listing.amenities.some((listingAmenity: string) => 
-                listingAmenity.toLowerCase().includes(amenity.toLowerCase())
-              ) || listing.name.toLowerCase().includes(amenity.toLowerCase())
-            )
-          })
-          console.log(`Filtered by amenities [${criteria.amenities.join(', ')}]: ${filteredResults.length} results`)
-        }
-        
-        // Filter by superhost requirement
-        if (criteria.rating?.superhost) {
-          filteredResults = filteredResults.filter(listing => listing.host.isSuperhost)
-          console.log(`Filtered by superhost requirement: ${filteredResults.length} results`)
-        }
-        
-        // Filter by review count
-        if (criteria.rating?.reviewCount) {
-          filteredResults = filteredResults.filter(listing => 
-            listing.reviewsCount >= criteria.rating!.reviewCount!
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => {
+              const roomType = listing.roomType.toLowerCase()
+              const name = listing.name.toLowerCase()
+              return roomType.includes(targetType) || name.includes(targetType)
+            },
+            `Filtered by property type '${targetType}'`
           )
-          console.log(`Filtered by minimum ${criteria.rating.reviewCount} reviews: ${filteredResults.length} results`)
         }
         
-        // Smart bedroom filtering using heuristics (API doesn't provide structured bedroom data)
+        // Filter by amenities (very lenient - amenity matching is unreliable)
+        if (criteria.amenities && criteria.amenities.length > 0) {
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => {
+              return criteria.amenities!.some((amenity: string) => 
+                listing.amenities.some((listingAmenity: string) => 
+                  listingAmenity.toLowerCase().includes(amenity.toLowerCase())
+                ) || listing.name.toLowerCase().includes(amenity.toLowerCase())
+              )
+            },
+            `Filtered by amenities [${criteria.amenities.join(', ')}]`
+          )
+        }
+        
+        // Filter by superhost requirement (lenient)
+        if (criteria.rating?.superhost) {
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => listing.host.isSuperhost,
+            `Filtered by superhost requirement`
+          )
+        }
+        
+        // Filter by review count (lenient - review count can be unreliable)
+        if (criteria.rating?.reviewCount) {
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => listing.reviewsCount >= criteria.rating!.reviewCount!,
+            `Filtered by minimum ${criteria.rating.reviewCount} reviews`
+          )
+        }
+        
+        // Smart bedroom filtering using heuristics (lenient - bedroom data is unreliable)
         if (criteria.bedrooms) {
-          filteredResults = filteredResults.filter(listing => {
-            const roomType = listing.roomType.toLowerCase()
-            const name = listing.name.toLowerCase()
-            
-            // Primary heuristic: Use property type as main signal
-            if (criteria.bedrooms === 1) {
-              // 1 bedroom: Allow private rooms, studios, and entire places
-              return true // Don't filter out for 1 bedroom requests
-            } else if (criteria.bedrooms >= 2) {
-              // 2+ bedrooms: Strongly prefer entire homes/apartments
-              if (!roomType.includes('entire')) {
-                // Check if name explicitly mentions multiple bedrooms
-                const hasMultiBedInName = /\b([2-9]|[1-9][0-9]+)\s*(bed|br)\b/i.test(name)
-                if (!hasMultiBedInName) {
-                  return false // Filter out non-entire places without explicit multi-bed mention
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => {
+              const roomType = listing.roomType.toLowerCase()
+              const name = listing.name.toLowerCase()
+              
+              // Primary heuristic: Use property type as main signal
+              if (criteria.bedrooms === 1) {
+                // 1 bedroom: Allow private rooms, studios, and entire places
+                return true // Don't filter out for 1 bedroom requests
+              } else if (criteria.bedrooms >= 2) {
+                // 2+ bedrooms: Strongly prefer entire homes/apartments
+                if (!roomType.includes('entire')) {
+                  // Check if name explicitly mentions multiple bedrooms
+                  const hasMultiBedInName = /\b([2-9]|[1-9][0-9]+)\s*(bed|br)\b/i.test(name)
+                  if (!hasMultiBedInName) {
+                    return false // Filter out non-entire places without explicit multi-bed mention
+                  }
                 }
               }
-            }
-            
-            // Secondary heuristic: Basic name parsing with fallbacks
-            const bedroomMatch = name.match(/\b(\d+)\s*(bed|br|bedroom)\b/i)
-            if (bedroomMatch) {
-              const nameBedroomCount = parseInt(bedroomMatch[1])
-              return nameBedroomCount >= criteria.bedrooms!
-            }
-            
-            // Fallback: If we can't determine bedroom count but it's an entire place, allow it
-            return roomType.includes('entire')
-          })
-          console.log(`Smart bedroom filtering (${criteria.bedrooms}+ bedrooms): ${filteredResults.length} results`)
+              
+              // Secondary heuristic: Basic name parsing with fallbacks
+              const bedroomMatch = name.match(/\b(\d+)\s*(bed|br|bedroom)\b/i)
+              if (bedroomMatch) {
+                const nameBedroomCount = parseInt(bedroomMatch[1])
+                return nameBedroomCount >= criteria.bedrooms!
+              }
+              
+              // Fallback: If we can't determine bedroom count but it's an entire place, allow it
+              return roomType.includes('entire')
+            },
+            `Smart bedroom filtering (${criteria.bedrooms}+ bedrooms)`
+          )
         }
         
-        // Smart bathroom filtering using heuristics
+        // Smart bathroom filtering using heuristics (very lenient - bathroom data is unreliable)
         if (criteria.bathrooms) {
-          filteredResults = filteredResults.filter(listing => {
-            const name = listing.name.toLowerCase()
-            const roomType = listing.roomType.toLowerCase()
-            
-            // Try to parse bathroom count from name
-            const bathroomMatch = name.match(/\b(\d+(?:\.5)?|\d+\s*1\/2)\s*(bath|bathroom)\b/i)
-            if (bathroomMatch) {
-              let nameBathroomCount = parseFloat(bathroomMatch[1].replace(/\s*1\/2/, '.5'))
-              return nameBathroomCount >= criteria.bathrooms!
-            }
-            
-            // Heuristic: For 2+ bathroom requests, prefer entire homes
-            if (criteria.bathrooms >= 2) {
-              return roomType.includes('entire')
-            }
-            
-            // For 1 bathroom requests, don't filter (most places have at least 1)
-            return true
-          })
-          console.log(`Smart bathroom filtering (${criteria.bathrooms}+ bathrooms): ${filteredResults.length} results`)
+          filteredResults = applyFilterWithFallback(
+            filteredResults,
+            listing => {
+              const name = listing.name.toLowerCase()
+              const roomType = listing.roomType.toLowerCase()
+              
+              // Try to parse bathroom count from name
+              const bathroomMatch = name.match(/\b(\d+(?:\.5)?|\d+\s*1\/2)\s*(bath|bathroom)\b/i)
+              if (bathroomMatch) {
+                let nameBathroomCount = parseFloat(bathroomMatch[1].replace(/\s*1\/2/, '.5'))
+                return nameBathroomCount >= criteria.bathrooms!
+              }
+              
+              // Heuristic: For 2+ bathroom requests, prefer entire homes
+              if (criteria.bathrooms >= 2) {
+                return roomType.includes('entire')
+              }
+              
+              // For 1 bathroom requests, don't filter (most places have at least 1)
+              return true
+            },
+            `Smart bathroom filtering (${criteria.bathrooms}+ bathrooms)`
+          )
         }
         
         console.log(`Final filtered results: ${filteredResults.length} out of ${searchResults.length} original results`)
