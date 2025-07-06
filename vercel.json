@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "env": {
+    "MCP_SERVER_URL": "https://airbnb-mcp-production.up.railway.app"
+  }
+}
