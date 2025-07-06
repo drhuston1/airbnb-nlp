@@ -345,20 +345,40 @@ function extractParametersFromQuery(queryText: string): ExtractedParams {
     if (endDate) result.checkout = endDate
   }
   
-  // Week after Labor Day (first Monday in September)
-  if (queryText.toLowerCase().includes('week after labor day')) {
-    const year = new Date().getFullYear()
-    const laborDay = getFirstMondayInSeptember(year)
-    const weekAfter = new Date(laborDay)
-    weekAfter.setDate(weekAfter.getDate() + 7)
-    
-    result.checkin = formatDate(weekAfter)
-    
-    // If they mention "5 days"
-    if (queryText.includes('5 days')) {
-      const checkout = new Date(weekAfter)
-      checkout.setDate(checkout.getDate() + 5)
-      result.checkout = formatDate(checkout)
+  // Labor Day patterns - handle various phrasings
+  const laborDayPatterns = [
+    /(?:week after|post) labor day(?:\s+weekend)?/i,
+    /after labor day(?:\s+weekend)?/i,
+    /labor day(?:\s+weekend)?\s+(?:week|weekend)/i
+  ]
+  
+  for (const pattern of laborDayPatterns) {
+    if (pattern.test(queryText.toLowerCase())) {
+      const year = new Date().getFullYear()
+      const laborDay = getFirstMondayInSeptember(year)
+      
+      // "Post labor day weekend" = Tuesday after Labor Day weekend
+      const startDate = new Date(laborDay)
+      startDate.setDate(startDate.getDate() + 1) // Tuesday after Labor Day Monday
+      
+      result.checkin = formatDate(startDate)
+      
+      // Calculate checkout based on nights mentioned
+      const nightsMatch = queryText.match(/(\d+)\s+nights?/i)
+      const daysMatch = queryText.match(/(\d+)\s+days?/i)
+      
+      if (nightsMatch) {
+        const nights = parseInt(nightsMatch[1])
+        const checkout = new Date(startDate)
+        checkout.setDate(checkout.getDate() + nights)
+        result.checkout = formatDate(checkout)
+      } else if (daysMatch) {
+        const days = parseInt(daysMatch[1])
+        const checkout = new Date(startDate)
+        checkout.setDate(checkout.getDate() + days)
+        result.checkout = formatDate(checkout)
+      }
+      break
     }
   }
   

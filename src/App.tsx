@@ -1,4 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
+
+// Web Speech API type declarations
+declare global {
+  interface Window {
+    SpeechRecognition: any
+    webkitSpeechRecognition: any
+  }
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: any
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string
+}
 import {
   Box,
   Text,
@@ -21,7 +37,9 @@ import {
   Clock,
   X,
   Plus,
-  Menu
+  Menu,
+  Mic,
+  MicOff
 } from 'lucide-react'
 interface AirbnbListing {
   id: string
@@ -75,6 +93,7 @@ interface SearchContext {
   location: string
   adults: number
   children: number
+  nights?: number
   checkin?: string
   checkout?: string
   minPrice?: number
@@ -93,17 +112,75 @@ function App() {
   const [currentResults, setCurrentResults] = useState<AirbnbListing[]>([])
   const [showSidebar, setShowSidebar] = useState(false)
   const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const [speechSupported, setSpeechSupported] = useState(false)
   
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const recognitionRef = useRef<any>(null)
 
 
 
   // Auto-scroll to bottom of chat
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      if (SpeechRecognition) {
+        setSpeechSupported(true)
+        const recognition = new SpeechRecognition()
+        recognition.continuous = false
+        recognition.interimResults = false
+        recognition.lang = 'en-US'
+        
+        recognition.onstart = () => {
+          setIsListening(true)
+        }
+        
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+          const transcript = event.results[0][0].transcript
+          setSearchQuery(prev => prev + (prev ? ' ' : '') + transcript)
+        }
+        
+        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+          console.error('Speech recognition error:', event.error)
+          setIsListening(false)
+        }
+        
+        recognition.onend = () => {
+          setIsListening(false)
+        }
+        
+        recognitionRef.current = recognition
+      }
+    }
+  }, [])
+
+  // Speech recognition functions
+  const startListening = () => {
+    if (recognitionRef.current && speechSupported) {
+      recognitionRef.current.start()
+    }
+  }
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop()
+    }
+  }
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening()
+    } else {
+      startListening()
+    }
   }
 
   // Load search history from localStorage on mount
@@ -168,7 +245,7 @@ function App() {
   }
 
   // Apply natural language filters to listings (more lenient)
-  const applyNaturalLanguageFilters = (listings: AirbnbListing[], query: string) => {
+  const applyNaturalLanguageFilters = (listings: AirbnbListing[], query: string, context?: SearchContext | null) => {
     const lowerQuery = query.toLowerCase()
     let filtered = [...listings]
 
@@ -234,22 +311,62 @@ function App() {
       }
     }
 
-    // Price Range Filters - be very lenient and avoid filtering to zero
-    const priceUnderMatch = lowerQuery.match(/under\s*\$?(\d+)|below\s*\$?(\d+)/)
-    if (priceUnderMatch) {
-      const maxPrice = parseInt(priceUnderMatch[1] || priceUnderMatch[2])
-      if (maxPrice && maxPrice > 0) {
-        // Be very lenient - add 50% to the budget
-        const lenientPrice = Math.floor(maxPrice * 1.5)
-        const priceResults = filtered.filter(listing => listing.price.rate <= lenientPrice)
+    // Price Range Filters - handle both nightly and total budget constraints
+    const pricePatterns = [
+      // Total budget patterns
+      /(?:no\s+more\s+than|under|less\s+than|max(?:imum)?|limit)\s*\$?(\d+)k?\s+total/i,
+      /(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?(\d+)k?(?:\s+total)?/i,
+      // Nightly rate patterns  
+      /under\s*\$?(\d+)k?\s*(?:per\s+night|\/night|nightly)/i,
+      /below\s*\$?(\d+)k?\s*(?:per\s+night|\/night|nightly)/i,
+      // Generic under/below (assume nightly unless "total" specified)
+      /(?:^|\s)under\s*\$?(\d+)k?(?!\s+total)/i,
+      /(?:^|\s)below\s*\$?(\d+)k?(?!\s+total)/i
+    ]
+    
+    for (const pattern of pricePatterns) {
+      const match = lowerQuery.match(pattern)
+      if (match && match[1]) {
+        let maxPrice = parseInt(match[1])
+        
+        // Handle 'k' suffix (5k = 5000)
+        if (lowerQuery.includes(match[1] + 'k')) {
+          maxPrice *= 1000
+        }
+        
+        // Determine if this is a total budget or nightly rate constraint
+        const isTotal = /total|spend|don't|don't/.test(pattern.source) || lowerQuery.includes('total')
+        const isNightly = /night|nightly/.test(pattern.source)
+        
+        console.log(`Price constraint: $${maxPrice} ${isTotal ? 'total' : isNightly ? 'per night' : 'per night (assumed)'}`)
+        
+        let priceResults
+        if (isTotal) {
+          // For total budget, use nights from search context or extract from current query
+          let nights = context?.nights || 5 // default to 5 if not found
+          
+          // Try to get nights from current query first
+          const nightsMatch = lowerQuery.match(/(\d+)\s+nights?/i)
+          if (nightsMatch) {
+            nights = parseInt(nightsMatch[1])
+          }
+          
+          const maxNightlyRate = Math.floor(maxPrice / nights)
+          console.log(`Total budget $${maxPrice} / ${nights} nights = max $${maxNightlyRate}/night`)
+          priceResults = filtered.filter(listing => listing.price.rate <= maxNightlyRate)
+        } else {
+          // For nightly rate constraint
+          priceResults = filtered.filter(listing => listing.price.rate <= maxPrice)
+        }
+        
         if (priceResults.length > 0) {
           filtered = priceResults
-          console.log(`After price filter (under $${maxPrice} -> $${lenientPrice}):`, filtered.length)
+          console.log(`After price filter (${isTotal ? 'total' : 'nightly'} $${maxPrice}):`, filtered.length)
         } else {
-          console.log(`No properties found under $${lenientPrice}, just sorting by price instead`)
-          // If no results, just sort by price instead of filtering
+          console.log(`No properties found within budget, sorting by price instead`)
           filtered = filtered.sort((a, b) => a.price.rate - b.price.rate)
         }
+        break
       }
     }
 
@@ -334,7 +451,46 @@ function App() {
       children = parseInt(childrenMatches[1])
     }
     
-    // Extract dates and prices if needed
+    // Extract nights
+    let nights: number | undefined
+    const nightsMatch = lowerQuery.match(/(\d+)\s+nights?/i)
+    if (nightsMatch) {
+      nights = parseInt(nightsMatch[1])
+    }
+    
+    // Extract dates
+    let checkin: string | undefined
+    let checkout: string | undefined
+    
+    // Labor Day patterns
+    const laborDayPatterns = [
+      /(?:week after|post) labor day(?:\s+weekend)?/i,
+      /after labor day(?:\s+weekend)?/i,
+      /labor day(?:\s+weekend)?\s+(?:week|weekend)/i
+    ]
+    
+    for (const pattern of laborDayPatterns) {
+      if (pattern.test(query)) {
+        const year = new Date().getFullYear()
+        const laborDay = getFirstMondayInSeptember(year)
+        
+        // "Post labor day weekend" = Tuesday after Labor Day weekend
+        const startDate = new Date(laborDay)
+        startDate.setDate(startDate.getDate() + 1) // Tuesday after Labor Day Monday
+        
+        checkin = formatDate(startDate)
+        
+        // Calculate checkout if nights are specified
+        if (nights) {
+          const endDate = new Date(startDate)
+          endDate.setDate(endDate.getDate() + nights)
+          checkout = formatDate(endDate)
+        }
+        break
+      }
+    }
+    
+    // Extract prices
     let minPrice: number | undefined
     let maxPrice: number | undefined
     
@@ -351,9 +507,25 @@ function App() {
       location,
       adults,
       children,
+      nights,
+      checkin,
+      checkout,
       minPrice,
       maxPrice
     }
+  }
+
+  // Helper function for Labor Day calculation
+  const getFirstMondayInSeptember = (year: number): Date => {
+    const sept1 = new Date(year, 8, 1) // September 1st
+    const dayOfWeek = sept1.getDay()
+    const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek
+    return new Date(year, 8, 1 + daysToMonday)
+  }
+
+  // Helper function for date formatting
+  const formatDate = (date: Date): string => {
+    return date.toISOString().split('T')[0]
   }
 
   // Update existing search context with new parameters from followup query
@@ -501,6 +673,8 @@ function App() {
         if (searchContext.checkout) searchPayload.checkout = searchContext.checkout
         if (searchContext.minPrice) searchPayload.minPrice = searchContext.minPrice
         if (searchContext.maxPrice) searchPayload.maxPrice = searchContext.maxPrice
+        
+        console.log('Sending search with context:', searchPayload)
       }
 
       const response = await fetch('/api/mcp-search', {
@@ -535,7 +709,7 @@ function App() {
       }
       
       // Apply natural language filters
-      const filteredResults = applyNaturalLanguageFilters(searchResults, query)
+      const filteredResults = applyNaturalLanguageFilters(searchResults, query, searchContext)
       
       setCurrentPage(page)
       setHasMore(data.hasMore || false)
@@ -800,32 +974,57 @@ function App() {
             {/* Chat Input - Centered */}
             <Box w="full" maxW="2xl" mb={8}>
               <HStack gap={3}>
-                <Textarea
-                  placeholder="Beach house in Malibu, dog-friendly cabin, modern loft downtown..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSearch()
-                    }
-                  }}
-                  resize="none"
-                  minH="52px"
-                  maxH="120px"
-                  bg="white"
-                  border="1px"
-                  borderColor="gray.300"
-                  _focus={{
-                    borderColor: "green.500",
-                    boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
-                  }}
-                  _hover={{ borderColor: "gray.400" }}
-                  borderRadius="xl"
-                  py={4}
-                  px={4}
-                  fontSize="md"
-                />
+                <Box position="relative" flex="1">
+                  <Textarea
+                    placeholder={speechSupported ? "Type or click the mic to speak your search..." : "Beach house in Malibu, dog-friendly cabin, modern loft downtown..."}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSearch()
+                      }
+                    }}
+                    resize="none"
+                    minH="52px"
+                    maxH="120px"
+                    bg="white"
+                    border="1px"
+                    borderColor="gray.300"
+                    _focus={{
+                      borderColor: "green.500",
+                      boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
+                    }}
+                    _hover={{ borderColor: "gray.400" }}
+                    borderRadius="xl"
+                    py={4}
+                    px={4}
+                    pr={speechSupported ? "48px" : "16px"}
+                    fontSize="md"
+                  />
+                  {speechSupported && (
+                    <Button
+                      position="absolute"
+                      right="8px"
+                      top="50%"
+                      transform="translateY(-50%)"
+                      size="sm"
+                      variant="ghost"
+                      onClick={toggleListening}
+                      bg={isListening ? "red.100" : "gray.100"}
+                      color={isListening ? "red.600" : "gray.600"}
+                      _hover={{ 
+                        bg: isListening ? "red.200" : "gray.200" 
+                      }}
+                      borderRadius="lg"
+                      w="32px"
+                      h="32px"
+                      minW="32px"
+                    >
+                      <Icon as={isListening ? MicOff : Mic} w={4} h={4} />
+                    </Button>
+                  )}
+                </Box>
                 <Button
                   onClick={() => handleSearch()}
                   disabled={!searchQuery.trim() || loading}
@@ -848,7 +1047,14 @@ function App() {
 
             {/* Example searches */}
             <Box textAlign="center">
-              <Text fontSize="sm" color="gray.500" mb={4}>Ask complex questions in plain English:</Text>
+              <Text fontSize="sm" color="gray.500" mb={4}>
+                Ask complex questions in plain English{speechSupported ? ' or use your voice:' : ':'}
+              </Text>
+              {isListening && (
+                <Text fontSize="sm" color="red.600" mb={4} fontWeight="500">
+                  🎤 Listening... speak now
+                </Text>
+              )}
               <Flex gap={3} flexWrap="wrap" justify="center" maxW="4xl">
                 {[
                   "Luxury beachfront villa in Malibu for 6 people with pool, superhost only",
@@ -962,32 +1168,57 @@ function App() {
         <Box bg="white" px={4} py={4} borderTop="1px" borderColor="gray.200">
           <Box maxW="3xl" mx="auto">
             <HStack gap={3}>
-              <Textarea
-                placeholder="Ask for more properties or refine your search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSearch()
-                  }
-                }}
-                resize="none"
-                minH="44px"
-                maxH="120px"
-                bg="white"
-                border="1px"
-                borderColor="gray.300"
-                _focus={{
-                  borderColor: "green.500",
-                  boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
-                }}
-                _hover={{ borderColor: "gray.400" }}
-                borderRadius="xl"
-                py={3}
-                px={4}
-                fontSize="md"
-              />
+              <Box position="relative" flex="1">
+                <Textarea
+                  placeholder={speechSupported ? "Type or click the mic to speak..." : "Ask for more properties or refine your search..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSearch()
+                    }
+                  }}
+                  resize="none"
+                  minH="44px"
+                  maxH="120px"
+                  bg="white"
+                  border="1px"
+                  borderColor="gray.300"
+                  _focus={{
+                    borderColor: "green.500",
+                    boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
+                  }}
+                  _hover={{ borderColor: "gray.400" }}
+                  borderRadius="xl"
+                  py={3}
+                  px={4}
+                  pr={speechSupported ? "44px" : "16px"}
+                  fontSize="md"
+                />
+                {speechSupported && (
+                  <Button
+                    position="absolute"
+                    right="6px"
+                    top="50%"
+                    transform="translateY(-50%)"
+                    size="sm"
+                    variant="ghost"
+                    onClick={toggleListening}
+                    bg={isListening ? "red.100" : "gray.100"}
+                    color={isListening ? "red.600" : "gray.600"}
+                    _hover={{ 
+                      bg: isListening ? "red.200" : "gray.200" 
+                    }}
+                    borderRadius="lg"
+                    w="28px"
+                    h="28px"
+                    minW="28px"
+                  >
+                    <Icon as={isListening ? MicOff : Mic} w={3} h={3} />
+                  </Button>
+                )}
+              </Box>
               <Button
                 onClick={() => handleSearch()}
                 disabled={!searchQuery.trim() || loading}
