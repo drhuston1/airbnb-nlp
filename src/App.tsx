@@ -101,7 +101,7 @@ function App() {
     if (savedHistory) {
       try {
         const parsed = JSON.parse(savedHistory)
-        setSearchHistory(parsed.map((item: any) => ({
+        setSearchHistory(parsed.map((item: SearchHistory) => ({
           ...item,
           timestamp: new Date(item.timestamp)
         })))
