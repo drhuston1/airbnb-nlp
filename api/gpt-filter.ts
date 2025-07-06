@@ -91,83 +91,92 @@ async function filterListingsWithGPT(
   apiKey: string
 ): Promise<string[]> {
   try {
-    const prompt = `Query: "${query}"
-
-Properties:
-${listings.map(listing => 
-  `${listing.id}: ${listing.name} | ${listing.roomType} | $${listing.price}/night | ${listing.rating}/5 | Superhost: ${listing.isSuperhost}`
-).join('\n')}
-
-Rules:
-- If query contains "superhost only" or "superhost" → ONLY return IDs where Superhost: true
-- If query contains "luxury" → ONLY return IDs where price ≥ $200 OR rating ≥ 4.8 OR Superhost: true  
-- If query contains "villa" → ONLY return IDs where name/type contains "villa" or "estate"
-- If query contains "hostel" → ONLY return IDs where name/type contains "hostel" or "shared"
-
-For query "${query}":
-Return JSON array of matching property IDs only: ["id1", "id2"]
-If no matches, return: []`
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a selective travel accommodation matcher. Your job is to filter properties to return only the most relevant matches. Be strict and exclude properties that don\'t genuinely match the user\'s intent. Quality over quantity. Always return valid JSON arrays.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 200, // Shorter response for simple filtering
-        temperature: 0 // Zero temperature for deterministic filtering
-      })
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    const gptResponse = data.choices[API_CONFIG.FIRST_CHOICE_INDEX]?.message?.content?.trim()
+    // Rule-based filtering instead of GPT (since GPT is not following instructions)
+    const queryLower = query.toLowerCase()
     
-    if (!gptResponse) {
-      throw new Error('Empty response from GPT')
+    let filteredListings = [...listings]
+    
+    // Apply strict filtering rules
+    if (queryLower.includes('superhost only') || (queryLower.includes('superhost') && !queryLower.includes('non-superhost'))) {
+      filteredListings = filteredListings.filter(listing => listing.isSuperhost)
+      console.log(`Superhost filter: ${filteredListings.length} properties`)
     }
-
-    // Parse the JSON response
-    let filteredIds: string[]
-    try {
-      filteredIds = JSON.parse(gptResponse)
+    
+    if (queryLower.includes('luxury')) {
+      filteredListings = filteredListings.filter(listing => 
+        listing.price >= 200 || listing.rating >= 4.8 || listing.isSuperhost
+      )
+      console.log(`Luxury filter: ${filteredListings.length} properties`)
+    }
+    
+    if (queryLower.includes('villa')) {
+      filteredListings = filteredListings.filter(listing => {
+        const nameType = (listing.name + ' ' + listing.roomType).toLowerCase()
+        return nameType.includes('villa') || nameType.includes('estate') || nameType.includes('luxury home')
+      })
+      console.log(`Villa filter: ${filteredListings.length} properties`)
+    }
+    
+    if (queryLower.includes('budget') || queryLower.includes('cheap') || queryLower.includes('under $')) {
+      const priceMatch = queryLower.match(/under \$(\d+)/)
+      const maxPrice = priceMatch ? parseInt(priceMatch[1]) : 150
+      filteredListings = filteredListings.filter(listing => listing.price <= maxPrice)
+      console.log(`Budget filter (under $${maxPrice}): ${filteredListings.length} properties`)
+    }
+    
+    if (queryLower.includes('apartment') || queryLower.includes('apt')) {
+      filteredListings = filteredListings.filter(listing => {
+        const nameType = (listing.name + ' ' + listing.roomType).toLowerCase()
+        return nameType.includes('apartment') || nameType.includes('condo') || nameType.includes('flat') || nameType.includes('studio')
+      })
+      console.log(`Apartment filter: ${filteredListings.length} properties`)
+    }
+    
+    if (queryLower.includes('house') && !queryLower.includes('villa')) {
+      filteredListings = filteredListings.filter(listing => {
+        const nameType = (listing.name + ' ' + listing.roomType).toLowerCase()
+        return nameType.includes('house') || nameType.includes('home') || nameType.includes('cottage') || nameType.includes('cabin')
+      })
+      console.log(`House filter: ${filteredListings.length} properties`)
+    }
+    
+    // Rating filters
+    if (queryLower.includes('4.8+') || queryLower.includes('excellent') || queryLower.includes('highly rated')) {
+      const minRating = queryLower.includes('4.8+') ? 4.8 : 4.5
+      filteredListings = filteredListings.filter(listing => listing.rating >= minRating)
+      console.log(`Rating filter (${minRating}+): ${filteredListings.length} properties`)
+    }
+    
+    // If filters eliminate everything and we started with results, be less strict on secondary criteria
+    if (filteredListings.length === 0 && listings.length > 0) {
+      console.log('All properties filtered out, applying progressive relaxation')
       
-      // Validate that it's an array of strings
-      if (!Array.isArray(filteredIds) || !filteredIds.every(id => typeof id === 'string')) {
-        throw new Error('Invalid response format')
+      // Relax in order of importance: keep superhost requirement, relax luxury/property type
+      if (queryLower.includes('superhost only')) {
+        filteredListings = listings.filter(listing => listing.isSuperhost)
+      } else if (queryLower.includes('luxury')) {
+        filteredListings = listings.filter(listing => listing.price >= 150 || listing.rating >= 4.5)
+      } else {
+        // Return top-rated properties as fallback
+        filteredListings = listings.sort((a, b) => b.rating - a.rating).slice(0, Math.ceil(listings.length * 0.5))
       }
-      
-      // Filter to only include valid IDs that exist in the input
-      const validIds = new Set(listings.map(l => l.id))
-      filteredIds = filteredIds.filter(id => validIds.has(id))
-      
-    } catch (parseError) {
-      console.error('Failed to parse GPT response:', gptResponse)
-      // Fallback: return all IDs if parsing fails
-      filteredIds = listings.map(l => l.id)
+      console.log(`Progressive relaxation: ${filteredListings.length} properties`)
     }
-
-    console.log(`GPT matched ${filteredIds.length} properties:`, filteredIds.slice(0, 5))
+    
+    // Sort by relevance: superhosts first, then rating, then price
+    filteredListings.sort((a, b) => {
+      if (a.isSuperhost !== b.isSuperhost) return b.isSuperhost ? 1 : -1
+      if (Math.abs(a.rating - b.rating) > 0.1) return b.rating - a.rating
+      return a.price - b.price
+    })
+    
+    const filteredIds = filteredListings.map(listing => listing.id)
+    console.log(`Rule-based filtering: ${filteredIds.length}/${listings.length} properties matched for "${query}"`)
     return filteredIds
 
   } catch (error) {
-    console.error('GPT filtering failed:', error)
-    throw error
+    console.error('Rule-based filtering failed:', error)
+    // Fallback to all properties
+    return listings.map(l => l.id)
   }
 }
