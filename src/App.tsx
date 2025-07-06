@@ -206,24 +206,29 @@ function App() {
     }
 
     try {
+      // Extract context first to ensure we have location for API call
+      let contextToUse = searchContext
+      if (!contextToUse) {
+        contextToUse = extractSearchContextFromNLP(nlpAnalysis)
+        console.log('Extracted context for API call:', contextToUse)
+      }
+
       // Prepare search payload with context
       const searchPayload: Record<string, unknown> = {
         query,
-        page
+        page,
+        location: contextToUse.location || 'Unknown',
+        adults: contextToUse.adults || 1,
+        children: contextToUse.children || 0
       }
 
-      // If we have existing search context, include it (for followup queries)
-      if (searchContext) {
-        searchPayload.location = searchContext.location
-        searchPayload.adults = searchContext.adults
-        searchPayload.children = searchContext.children
-        if (searchContext.checkin) searchPayload.checkin = searchContext.checkin
-        if (searchContext.checkout) searchPayload.checkout = searchContext.checkout
-        if (searchContext.minPrice) searchPayload.minPrice = searchContext.minPrice
-        if (searchContext.maxPrice) searchPayload.maxPrice = searchContext.maxPrice
-        
-        console.log('Sending search with context:', searchPayload)
-      }
+      // Add optional parameters if available
+      if (contextToUse.checkin) searchPayload.checkin = contextToUse.checkin
+      if (contextToUse.checkout) searchPayload.checkout = contextToUse.checkout
+      if (contextToUse.minPrice) searchPayload.minPrice = contextToUse.minPrice
+      if (contextToUse.maxPrice) searchPayload.maxPrice = contextToUse.maxPrice
+      
+      console.log('Sending search payload:', searchPayload)
 
       const response = await fetch('/api/mcp-search', {
         method: 'POST',
@@ -313,15 +318,28 @@ function App() {
       addToHistory(query, filteredResults.length)
 
     } catch (error) {
-      // Add error message
+      // Add error message with more details for debugging
+      console.error('Search error details:', error)
+      
+      let errorContent = 'Sorry, I had trouble searching for properties. Please try again.'
+      
+      // Provide more specific error messages based on the error
+      if (error instanceof Error) {
+        if (error.message.includes('Location is required')) {
+          errorContent = 'I couldn\'t identify a location in your search. Could you please specify where you\'d like to stay?'
+        } else if (error.message.includes('filter refinement')) {
+          errorContent = 'This seems like a refinement request, but I need a location first. Where would you like to search?'
+        }
+        console.error('Search API error:', error.message)
+      }
+      
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: 'Sorry, I had trouble searching for properties. Please try again.',
+        content: errorContent,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
-      console.error(error)
     } finally {
       setLoading(false)
     }

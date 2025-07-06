@@ -24,6 +24,11 @@ export interface QueryAnalysis {
     propertyType: string | null
     accessibility: string[]
   }
+  reviewRequirements: {
+    minReviews: number | null
+    minRating: number | null
+    qualityKeywords: string[]
+  }
   sentiment: {
     score: number
     label: 'positive' | 'negative' | 'neutral'
@@ -63,9 +68,9 @@ export function analyzeQuery(query: string, context?: SearchContext): QueryAnaly
   // Use compromise for NLP parsing
   const doc = nlp(query)
   
-  // Extract entities using compromise's built-in recognizers
+  // Extract entities using compromise's built-in recognizers + enhanced place detection
   const entities = {
-    places: doc.places().out('array') || [],
+    places: extractEnhancedPlaces(query, doc),
     dates: doc.match('#Date').out('array') || [],
     people: doc.people().out('array') || [],
     money: doc.money().out('array') || [],
@@ -77,6 +82,9 @@ export function analyzeQuery(query: string, context?: SearchContext): QueryAnaly
   
   // Extract property requirements using NLP
   const propertyNeeds = extractPropertyNeeds(query, doc, guestInfo)
+  
+  // Extract review requirements
+  const reviewRequirements = extractReviewRequirements(query)
   
   // Use sentiment analysis
   const sentiment = analyzeSentiment(query)
@@ -99,6 +107,7 @@ export function analyzeQuery(query: string, context?: SearchContext): QueryAnaly
     entities,
     guestInfo,
     propertyNeeds,
+    reviewRequirements,
     sentiment,
     keywords,
     intents,
@@ -498,4 +507,97 @@ function extractPropertyNeeds(query: string, _doc: unknown, guestInfo: unknown) 
     propertyType,
     accessibility
   }
+}
+
+// Extract review and rating requirements using NLP
+function extractReviewRequirements(query: string) {
+  const lowerQuery = query.toLowerCase()
+  
+  let minReviews: number | null = null
+  let minRating: number | null = null
+  const qualityKeywords: string[] = []
+  
+  // Extract review count requirements
+  const reviewPatterns = [
+    /(?:at least|minimum|min)?\s*(\d+)\s*(?:\+)?\s*reviews?/i,
+    /(?:over|more than)\s*(\d+)\s*reviews?/i,
+    /(\d+)\s*(?:\+)?\s*reviews?\s*(?:or more|minimum|min)/i
+  ]
+  
+  for (const pattern of reviewPatterns) {
+    const match = lowerQuery.match(pattern)
+    if (match && match[1]) {
+      minReviews = parseInt(match[1])
+      break
+    }
+  }
+  
+  // Extract rating requirements
+  const ratingPatterns = [
+    /(?:highest|best|top)\s*(?:rated?|rating)/i,
+    /(\d(?:\.\d)?)\s*(?:\+)?\s*(?:star|rating)/i,
+    /rating\s*(?:of\s*)?(\d(?:\.\d)?)\s*(?:\+)?/i
+  ]
+  
+  for (const pattern of ratingPatterns) {
+    const match = lowerQuery.match(pattern)
+    if (match && match[1]) {
+      minRating = parseFloat(match[1])
+      break
+    } else if (pattern.test(lowerQuery)) {
+      // "highest rating" without specific number
+      qualityKeywords.push('highest_rating')
+      break
+    }
+  }
+  
+  // Extract quality keywords
+  const qualityTerms = ['well reviewed', 'highly rated', 'top rated', 'best rated', 'excellent', 'superhost']
+  qualityTerms.forEach(term => {
+    if (lowerQuery.includes(term)) {
+      qualityKeywords.push(term.replace(/\s+/g, '_'))
+    }
+  })
+  
+  return {
+    minReviews,
+    minRating,
+    qualityKeywords
+  }
+}
+
+// Enhanced place detection that combines NLP with location patterns
+function extractEnhancedPlaces(query: string, doc: unknown): string[] {
+  // Start with Compromise.js built-in place detection
+  const nlpDoc = doc as { places(): { out(format: string): string[] } }
+  const nlpPlaces = nlpDoc.places().out('array') || []
+  
+  // If NLP found places, use them
+  if (nlpPlaces.length > 0) {
+    return nlpPlaces
+  }
+  
+  // Enhanced place detection using location context patterns
+  const locationContextPatterns = [
+    /(?:near|in|at|around|by)\s+([A-Z][a-zA-Z\s]+?)(?:\s+under|\s+with|\s+for|\s*$|\s+\d)/i,
+    /(?:cabin|property|house|home)\s+(?:near|in|at)\s+([A-Z][a-zA-Z\s]+?)(?:\s+under|\s+with|\s+for|\s*$)/i
+  ]
+  
+  for (const pattern of locationContextPatterns) {
+    const match = query.match(pattern)
+    if (match && match[1]) {
+      let place = match[1].trim()
+      // Remove common non-location words
+      place = place.replace(/\b(for|with|and|the|a|an|property|house|cabin|under|over|rating)\b/gi, '')
+      place = place.replace(/\s+/g, ' ').trim()
+      
+      // Only return if it looks like a valid place name (starts with capital, reasonable length)
+      if (place.length >= 3 && /^[A-Z]/.test(place) && !/^\d/.test(place)) {
+        console.log(`Enhanced place detection found: "${place}"`)
+        return [place]
+      }
+    }
+  }
+  
+  return []
 }

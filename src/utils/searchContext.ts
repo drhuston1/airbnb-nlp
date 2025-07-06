@@ -80,6 +80,14 @@ export const extractSearchContextFromNLP = (analysis: QueryAnalysis): SearchCont
     }
   }
 
+  // Debug logging for this specific query issue
+  console.log('NLP Analysis Debug:', {
+    originalQuery: analysis.keywords.join(' '),
+    extractedLocation: analysis.entities.places[0],
+    allPlaces: analysis.entities.places,
+    context
+  })
+
   return context
 }
 
@@ -116,3 +124,4 @@ export const updateSearchContextFromNLP = (
 
   return updated
 }
+
