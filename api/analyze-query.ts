@@ -1,0 +1,299 @@
+// Enhanced query analysis with GPT-4o-mini for location and refinement understanding
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+
+interface QueryAnalysisRequest {
+  query: string
+  previousLocation?: string
+  hasExistingResults?: boolean
+}
+
+interface QueryAnalysis {
+  location: string
+  isRefinement: boolean
+  refinementType?: 'price' | 'rating' | 'amenity' | 'property_type' | 'host_type' | 'general'
+  extractedCriteria: {
+    priceRange?: {
+      min?: number
+      max?: number
+      budget?: 'budget' | 'mid-range' | 'luxury'
+    }
+    rating?: {
+      min?: number
+      excellent?: boolean
+      superhost?: boolean
+    }
+    amenities?: string[]
+    propertyType?: string
+    guests?: {
+      adults?: number
+      children?: number
+      total?: number
+    }
+    dates?: {
+      checkin?: string
+      checkout?: string
+      flexible?: boolean
+    }
+  }
+  intent: 'new_search' | 'refine_location' | 'refine_criteria' | 'more_specific'
+  confidence: number
+}
+
+interface QueryAnalysisResponse {
+  analysis: QueryAnalysis
+  success: boolean
+  error?: string
+}
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  try {
+    const { query, previousLocation, hasExistingResults }: QueryAnalysisRequest = req.body
+
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Query is required and must be a string'
+      })
+    }
+
+    // Check for OpenAI API key
+    const openaiKey = process.env.OPENAI_API_KEY
+    if (!openaiKey) {
+      console.error('OPENAI_API_KEY not configured')
+      return res.status(500).json({ 
+        success: false, 
+        error: 'OpenAI API key not configured'
+      })
+    }
+
+    console.log('Analyzing query with context:', { 
+      query, 
+      previousLocation, 
+      hasExistingResults 
+    })
+    
+    const analysis = await analyzeQueryWithGPT(query, openaiKey, previousLocation, hasExistingResults)
+    
+    const response: QueryAnalysisResponse = {
+      analysis,
+      success: true
+    }
+
+    console.log('Query analysis result:', response)
+    return res.status(200).json(response)
+
+  } catch (error) {
+    console.error('Query analysis error:', error)
+    return res.status(500).json({ 
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+}
+
+async function analyzeQueryWithGPT(
+  query: string, 
+  apiKey: string, 
+  previousLocation?: string,
+  hasExistingResults?: boolean
+): Promise<QueryAnalysis> {
+  try {
+    const contextInfo = previousLocation 
+      ? `Previous search was for: "${previousLocation}". ${hasExistingResults ? 'User has existing search results.' : ''}`
+      : 'This is a new search with no previous context.'
+
+    const prompt = `Analyze this travel accommodation query and extract structured information. Consider the context and determine if this is a new search or a refinement.
+
+Context: ${contextInfo}
+
+Query: "${query}"
+
+Analyze and return a JSON object with this exact structure:
+{
+  "location": "extracted city/state/country or 'SAME' if refining existing location",
+  "isRefinement": boolean,
+  "refinementType": "price|rating|amenity|property_type|host_type|general|null",
+  "extractedCriteria": {
+    "priceRange": {
+      "min": number or null,
+      "max": number or null,
+      "budget": "budget|mid-range|luxury|null"
+    },
+    "rating": {
+      "min": number or null,
+      "excellent": boolean,
+      "superhost": boolean
+    },
+    "amenities": ["extracted amenities"],
+    "propertyType": "extracted property type or null",
+    "guests": {
+      "adults": number or null,
+      "children": number or null,
+      "total": number or null
+    },
+    "dates": {
+      "checkin": "YYYY-MM-DD or null",
+      "checkout": "YYYY-MM-DD or null",
+      "flexible": boolean
+    }
+  },
+  "intent": "new_search|refine_location|refine_criteria|more_specific",
+  "confidence": number between 0 and 1
+}
+
+Examples:
+
+Query: "Beach house in Malibu for 6 people"
+Previous: none
+→ {
+  "location": "Malibu",
+  "isRefinement": false,
+  "refinementType": null,
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": null, "budget": null },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": [],
+    "propertyType": "house",
+    "guests": { "adults": null, "children": null, "total": 6 },
+    "dates": { "checkin": null, "checkout": null, "flexible": false }
+  },
+  "intent": "new_search",
+  "confidence": 0.95
+}
+
+Query: "under $200 per night"
+Previous: "Malibu"
+→ {
+  "location": "SAME",
+  "isRefinement": true,
+  "refinementType": "price",
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": 200, "budget": null },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": [],
+    "propertyType": null,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": null, "checkout": null, "flexible": false }
+  },
+  "intent": "refine_criteria",
+  "confidence": 0.9
+}
+
+Query: "with pool and hot tub"
+Previous: "Malibu"
+→ {
+  "location": "SAME",
+  "isRefinement": true,
+  "refinementType": "amenity",
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": null, "budget": null },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": ["pool", "hot tub"],
+    "propertyType": null,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": null, "checkout": null, "flexible": false }
+  },
+  "intent": "refine_criteria",
+  "confidence": 0.85
+}
+
+Query: "superhost only with excellent reviews"
+Previous: "Malibu"
+→ {
+  "location": "SAME",
+  "isRefinement": true,
+  "refinementType": "rating",
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": null, "budget": null },
+    "rating": { "min": null, "excellent": true, "superhost": true },
+    "amenities": [],
+    "propertyType": null,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": null, "checkout": null, "flexible": false }
+  },
+  "intent": "refine_criteria",
+  "confidence": 0.9
+}
+
+Return ONLY the JSON object, no other text:`
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a travel query analysis expert. Extract structured information from accommodation search queries and determine if they are new searches or refinements. Always return valid JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 800,
+        temperature: 0
+      })
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`)
+    }
+
+    const data = await response.json()
+    const analysisText = data.choices[0]?.message?.content?.trim()
+    
+    if (!analysisText) {
+      throw new Error('Empty response from GPT')
+    }
+
+    // Parse the JSON response
+    let analysis: QueryAnalysis
+    try {
+      analysis = JSON.parse(analysisText)
+    } catch (parseError) {
+      console.error('Failed to parse GPT response:', analysisText)
+      // Fallback analysis
+      analysis = {
+        location: previousLocation || 'Unknown',
+        isRefinement: !!previousLocation,
+        extractedCriteria: {},
+        intent: previousLocation ? 'refine_criteria' : 'new_search',
+        confidence: 0.5
+      }
+    }
+
+    // Validate and clean up the analysis
+    if (analysis.location === 'SAME' && previousLocation) {
+      analysis.location = previousLocation
+    }
+
+    console.log(`GPT analyzed query: "${query}" →`, analysis)
+    return analysis
+
+  } catch (error) {
+    console.error('GPT query analysis failed:', error)
+    throw error
+  }
+}

@@ -22,14 +22,19 @@ import {
   Clock,
   X,
   Plus,
-  Menu
+  Menu,
+  DollarSign,
+  Award,
+  Wifi,
+  Filter
 } from 'lucide-react'
 
 // Import types
 import type { SearchContext } from './types'
 
-// Import pure NER extraction
+// Import enhanced query analysis and refinement utilities
 import { extractWithTransformers } from './utils/transformersExtraction'
+import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinementAnalyzer'
 interface AirbnbListing {
   id: string
   name: string
@@ -75,6 +80,7 @@ interface ChatMessage {
   type: 'user' | 'assistant'
   content: string
   followUps?: string[]
+  refinementSuggestions?: RefinementSuggestion[]
   timestamp: Date
 }
 
@@ -97,6 +103,8 @@ function App() {
   const [currentResults, setCurrentResults] = useState<AirbnbListing[]>([])
   const [showSidebar, setShowSidebar] = useState(false)
   const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
+  const [, setLastQueryAnalysis] = useState<any>(null)
+  const [quickFilters, setQuickFilters] = useState<RefinementSuggestion[]>([])
   
   
   // Refs
@@ -169,6 +177,8 @@ function App() {
     setCurrentQuery('')
     setSearchQuery('')
     setSearchContext(null)
+    setLastQueryAnalysis(null)
+    setQuickFilters([])
   }
 
 
@@ -189,14 +199,43 @@ function App() {
     const query = searchQuery
     setSearchQuery('')
 
-    // Use transformers.js NER for location extraction
+    // Use enhanced query analysis to understand intent and extract location
     let extractedLocation = 'Unknown'
+    let queryAnalysis: any = null
+    
     try {
-      const analysis = await extractWithTransformers(query)
-      extractedLocation = analysis.location
-      console.log('NER Analysis:', analysis)
+      const analysisResponse = await fetch('/api/analyze-query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          previousLocation: searchContext?.location,
+          hasExistingResults: currentResults.length > 0
+        })
+      })
+      
+      if (analysisResponse.ok) {
+        const analysisData = await analysisResponse.json()
+        queryAnalysis = analysisData.analysis
+        extractedLocation = queryAnalysis.location
+        setLastQueryAnalysis(queryAnalysis)
+        console.log('Enhanced Query Analysis:', queryAnalysis)
+      } else {
+        // Fallback to basic extraction
+        const analysis = await extractWithTransformers(query)
+        extractedLocation = analysis.location
+        console.log('Fallback NER Analysis:', analysis)
+      }
     } catch (error) {
-      console.error('NER extraction failed:', error)
+      console.error('Query analysis failed, using fallback:', error)
+      try {
+        const analysis = await extractWithTransformers(query)
+        extractedLocation = analysis.location
+      } catch (fallbackError) {
+        console.error('Fallback extraction also failed:', fallbackError)
+      }
     }
     
     // If no location found, ask for one
@@ -260,13 +299,33 @@ function App() {
         }, {} as Record<string, number>)
       })
       
-      // Simple context tracking
-      if (page === 1 && !searchContext) {
-        setSearchContext({
-          location: extractedLocation,
-          adults: 2,
-          children: 0
-        })
+      // Enhanced context tracking with refinement awareness
+      if (page === 1) {
+        if (queryAnalysis?.isRefinement && searchContext) {
+          // Update existing context with new criteria
+          const updatedContext = {
+            ...searchContext,
+            location: extractedLocation,
+            // Merge any extracted criteria from the query analysis
+            ...(queryAnalysis.extractedCriteria.guests?.adults && {
+              adults: queryAnalysis.extractedCriteria.guests.adults
+            }),
+            ...(queryAnalysis.extractedCriteria.guests?.children && {
+              children: queryAnalysis.extractedCriteria.guests.children
+            })
+          }
+          setSearchContext(updatedContext)
+          console.log('Updated search context for refinement:', updatedContext)
+        } else {
+          // New search context
+          const newContext = {
+            location: extractedLocation,
+            adults: queryAnalysis?.extractedCriteria.guests?.adults || 2,
+            children: queryAnalysis?.extractedCriteria.guests?.children || 0
+          }
+          setSearchContext(newContext)
+          console.log('Created new search context:', newContext)
+        }
       }
       
       // Simple pass-through - no complex filtering
@@ -292,14 +351,26 @@ function App() {
         responseContent += ` (${platformSummary}). Check the results panel →`  
       }
       
-      // No follow-up suggestions - keeping it pure
+      // Generate intelligent refinement suggestions based on search results
       const followUpSuggestions: string[] = []
+      let refinementSuggestions: RefinementSuggestion[] = []
+      
+      if (filteredResults.length > 0) {
+        try {
+          const analyzer = new RefinementAnalyzer(filteredResults)
+          refinementSuggestions = analyzer.generateRefinementSuggestions(query)
+          console.log('Generated refinement suggestions:', refinementSuggestions)
+        } catch (error) {
+          console.error('Failed to generate refinement suggestions:', error)
+        }
+      }
       
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: responseContent,
         followUps: followUpSuggestions,
+        refinementSuggestions: refinementSuggestions,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
@@ -307,6 +378,9 @@ function App() {
       setCurrentResults(filteredResults)
       setShowResults(true)
       addToHistory(query, filteredResults.length)
+      
+      // Set quick filters for the results panel
+      setQuickFilters(refinementSuggestions.slice(0, 4))
 
     } catch (error) {
       // Add error message with more details for debugging
@@ -661,8 +735,88 @@ function App() {
                 </Box>
                 )}
 
-                {/* Follow-up Suggestions - Outside the main content */}
-                {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && (
+                {/* Intelligent Refinement Suggestions */}
+                {message.type === 'assistant' && message.refinementSuggestions && message.refinementSuggestions.length > 0 && (
+                  <Box mt={6}>
+                    <HStack mb={4} align="center">
+                      <Icon as={Filter} w={4} h={4} color="blue.500" />
+                      <Text fontSize="sm" fontWeight="500" color="gray.700">
+                        Refine your search:
+                      </Text>
+                    </HStack>
+                    <Grid templateColumns="repeat(auto-fit, minmax(200px, 1fr))" gap={3}>
+                      {message.refinementSuggestions.map((suggestion, index) => {
+                        const getIcon = () => {
+                          switch (suggestion.type) {
+                            case 'price': return DollarSign
+                            case 'rating': return Star
+                            case 'amenity': return Wifi
+                            case 'host_type': return Award
+                            case 'property_type': return Home
+                            default: return Filter
+                          }
+                        }
+                        
+                        const getColor = () => {
+                          switch (suggestion.priority) {
+                            case 'high': return 'blue'
+                            case 'medium': return 'green'
+                            default: return 'gray'
+                          }
+                        }
+                        
+                        const color = getColor()
+                        
+                        return (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSearchQuery(suggestion.query)
+                              setTimeout(() => handleSearch(), 100)
+                            }}
+                            borderColor={`${color}.300`}
+                            color={`${color}.700`}
+                            bg={`${color}.50`}
+                            _hover={{ 
+                              bg: `${color}.100`,
+                              borderColor: `${color}.400`,
+                              transform: 'translateY(-1px)',
+                              boxShadow: 'sm'
+                            }}
+                            borderRadius="lg"
+                            p={3}
+                            h="auto"
+                            flexDirection="column"
+                            alignItems="flex-start"
+                            whiteSpace="normal"
+                            textAlign="left"
+                            transition="all 0.2s"
+                          >
+                            <HStack w="full" justify="space-between" mb={1}>
+                              <HStack>
+                                <Icon as={getIcon()} w={3} h={3} />
+                                <Text fontSize="xs" fontWeight="600">
+                                  {suggestion.label}
+                                </Text>
+                              </HStack>
+                              <Text fontSize="xs" color={`${color}.600`} fontWeight="500">
+                                {suggestion.count}
+                              </Text>
+                            </HStack>
+                            <Text fontSize="xs" color="gray.600" lineHeight="1.3">
+                              {suggestion.description}
+                            </Text>
+                          </Button>
+                        )
+                      })}
+                    </Grid>
+                  </Box>
+                )}
+                
+                {/* Legacy Follow-up Suggestions (fallback) */}
+                {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && !message.refinementSuggestions && (
                   <Box mt={4}>
                     <Text fontSize="sm" color="gray.600" mb={3}>You might also want to:</Text>
                     <Flex gap={2} flexWrap="wrap">
@@ -673,7 +827,6 @@ function App() {
                           size="sm"
                           onClick={() => {
                             setSearchQuery(followUp)
-                            // Automatically trigger search after setting query
                             setTimeout(() => handleSearch(), 100)
                           }}
                           borderColor="green.400"
@@ -781,7 +934,7 @@ function App() {
         {showResults && (
           <>
             <Box p={4} borderBottom="1px" borderColor="gray.200">
-              <HStack justify="space-between" align="center">
+              <HStack justify="space-between" align="center" mb={3}>
                 <HStack gap={2}>
                   <Icon as={Home} w={4} h={4} color="gray.600" />
                   <Text fontSize="sm" fontWeight="500" color="gray.700">
@@ -796,6 +949,59 @@ function App() {
                   <Icon as={X} w={3} h={3} />
                 </Button>
               </HStack>
+              
+              {/* Quick Filter Chips */}
+              {quickFilters.length > 0 && (
+                <Box>
+                  <Text fontSize="xs" color="gray.500" mb={2} fontWeight="500">
+                    Quick filters:
+                  </Text>
+                  <Flex gap={2} flexWrap="wrap">
+                    {quickFilters.map((filter, index) => {
+                      const getIcon = () => {
+                        switch (filter.type) {
+                          case 'price': return DollarSign
+                          case 'rating': return Star
+                          case 'amenity': return Wifi
+                          case 'host_type': return Award
+                          case 'property_type': return Home
+                          default: return Filter
+                        }
+                      }
+                      
+                      return (
+                        <Button
+                          key={index}
+                          size="xs"
+                          variant="outline"
+                          onClick={() => {
+                            setSearchQuery(filter.query)
+                            setTimeout(() => handleSearch(), 100)
+                          }}
+                          borderColor="blue.300"
+                          color="blue.700"
+                          bg="blue.50"
+                          _hover={{ 
+                            bg: "blue.100",
+                            borderColor: "blue.400"
+                          }}
+                          borderRadius="full"
+                          px={3}
+                          py={1}
+                          h="auto"
+                          fontSize="xs"
+                        >
+                          <Icon as={getIcon()} w={3} h={3} mr={1} />
+                          {filter.label}
+                          <Text as="span" ml={1} color="blue.600" fontWeight="600">
+                            ({filter.count})
+                          </Text>
+                        </Button>
+                      )
+                    })}
+                  </Flex>
+                </Box>
+              )}
             </Box>
             
             <Box flex="1" overflow="auto" p={4}>
