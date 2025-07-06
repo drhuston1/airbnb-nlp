@@ -189,25 +189,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-// Helper function to call individual platform APIs
+// Import the API handlers directly to avoid HTTP round-trips
+import mcpSearchHandler from './mcp-search'
+import bookingSearchHandler from './booking-search'
+
+// Helper function to call individual platform APIs directly
 async function callPlatformAPI(endpoint: string, payload: any, platform: string) {
   try {
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'
+    console.log(`Calling ${platform} API directly with payload:`, payload)
     
-    const response = await fetch(`${baseUrl}${endpoint}`, {
+    // Create mock request/response objects for the handlers
+    const mockReq = {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-
-    if (!response.ok) {
-      throw new Error(`${platform} API returned ${response.status}`)
+      body: payload
+    } as any
+    
+    let result: any = null
+    let mockRes: any = {
+      status: (code: number) => ({
+        json: (data: any) => {
+          result = { statusCode: code, data }
+          return result
+        }
+      })
     }
-
-    const data = await response.json()
-    return { platform, data, status: 'success' as const }
+    
+    // Call the appropriate handler directly
+    if (endpoint === '/api/mcp-search') {
+      await mcpSearchHandler(mockReq, mockRes)
+    } else if (endpoint === '/api/booking-search') {
+      await bookingSearchHandler(mockReq, mockRes)
+    } else {
+      throw new Error(`Unknown endpoint: ${endpoint}`)
+    }
+    
+    if (result?.statusCode === 200) {
+      return { platform, data: result.data, status: 'success' as const }
+    } else {
+      throw new Error(`${platform} API returned ${result?.statusCode || 'unknown status'}: ${JSON.stringify(result?.data)}`)
+    }
+    
   } catch (error) {
     console.error(`${platform} API error:`, error)
     return { 

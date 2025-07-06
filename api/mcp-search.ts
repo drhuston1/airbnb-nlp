@@ -68,48 +68,28 @@ export default async function handler(
   try {
     const { query, location, adults = 1, children = 0, infants = 0, checkin, checkout, minPrice, maxPrice, page = 1 }: SearchRequest = req.body
 
-    // Extract parameters from natural language query if needed
-    const queryText = query || location
-    const extractedParams = extractParametersFromQuery(queryText)
+    // Location should already be extracted by NER in the frontend
+    // No pattern-based extraction in the API
     
-    // Check if this is a filter-only query
-    const filterOnlyPatterns = [
-      /^(?:i\s+)?(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?\d+k?(?:\s+total)?$/i,
-      /^(?:show\s+)?(?:options\s+)?(?:under|less\s+than|max|maximum|limit|below)\s*\$?\d+k?(?:\s+total)?$/i,
-      /^(?:at\s+least|minimum|min)\s+\d+\s+reviews?$/i,
-      /^(?:show\s+)?(?:only\s+)?(?:entire\s+house|private\s+room|luxury|budget)(?:\s+only)?$/i,
-      /^(?:sort\s+by|cheapest|highest\s+rated|most\s+reviews)/i,
-      /^(?:with\s+)?(?:pool|kitchen|parking|hot\s+tub)$/i,
-      /^(?:pet\s+friendly|dog\s+friendly)$/i
-    ]
-    const isFilterOnlyQuery = filterOnlyPatterns.some(pattern => pattern.test((query || '').trim()))
-    
-    // Use extracted location if found, otherwise fall back to original location
-    const finalLocation = extractedParams.location || location || ''
+    // Use only the location parameter (should be extracted by NER in frontend)
+    const finalLocation = location || ''
     
     const searchParams = {
       location: finalLocation,
-      adults: extractedParams.adults || adults,
-      children: (extractedParams.children || children) + infants,
+      adults,
+      children: children + infants,
       page,
       ignoreRobotsText: true,
-      ...(extractedParams.checkin || checkin ? { checkin: extractedParams.checkin || checkin } : {}),
-      ...(extractedParams.checkout || checkout ? { checkout: extractedParams.checkout || checkout } : {}),
-      ...(extractedParams.minPrice || minPrice ? { minPrice: extractedParams.minPrice || minPrice } : {}),
-      ...(extractedParams.maxPrice || maxPrice ? { maxPrice: extractedParams.maxPrice || maxPrice } : {})
+      ...(checkin ? { checkin } : {}),
+      ...(checkout ? { checkout } : {}),
+      ...(minPrice ? { minPrice } : {}),
+      ...(maxPrice ? { maxPrice } : {})
     }
 
-    // If no location found and this seems like a followup query, return error to prevent random results
+    // Require location parameter (should be provided by NER extraction)
     if (!finalLocation) {
       console.log('No location found for query:', query)
-      if (isFilterOnlyQuery) {
-        return res.status(400).json({ 
-          error: 'This appears to be a filter refinement, but no location context was provided. Please start with a location-based search first.',
-          isFilterQuery: true 
-        })
-      } else if (!query) {
-        return res.status(400).json({ error: 'Location is required for search' })
-      }
+      return res.status(400).json({ error: 'Location is required for search' })
     }
 
     console.log('Calling MCP server with params:', searchParams)
@@ -301,192 +281,7 @@ async function getCityFromCoordinates(lat?: number, lng?: number): Promise<strin
   return undefined
 }
 
-interface ExtractedParams {
-  location: string
-  adults?: number
-  children?: number
-  checkin?: string
-  checkout?: string
-  minPrice?: number
-  maxPrice?: number
-}
-
-function extractParametersFromQuery(queryText: string): ExtractedParams {
-  if (!queryText) return { location: '' }
-  
-  const result: ExtractedParams = { location: '' }
-  
-  // First check if this is a price-only or filter-only query (no location)
-  const filterOnlyPatterns = [
-    /^(?:i\s+)?(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?\d+k?(?:\s+total)?$/i,
-    /^(?:show\s+)?(?:options\s+)?(?:under|less\s+than|max|maximum|limit|below)\s*\$?\d+k?(?:\s+total)?$/i,
-    /^(?:at\s+least|minimum|min)\s+\d+\s+reviews?$/i,
-    /^(?:show\s+)?(?:only\s+)?(?:entire\s+house|private\s+room|luxury|budget)(?:\s+only)?$/i,
-    /^(?:sort\s+by|cheapest|highest\s+rated|most\s+reviews)/i,
-    /^(?:with\s+)?(?:pool|kitchen|parking|hot\s+tub)$/i,
-    /^(?:pet\s+friendly|dog\s+friendly)$/i
-  ]
-  
-  const isFilterOnlyQuery = filterOnlyPatterns.some(pattern => pattern.test(queryText.trim()))
-  
-  if (isFilterOnlyQuery) {
-    // This is a followup query with no location - leave location empty
-    result.location = ''
-  } else {
-    // Try to extract location
-    const locationPatterns = [
-      /(?:near|in|at|around)\s+([a-zA-Z\s,]+?)(?:\s+for|\s+with|\s*$|\s+\d|\.|,)/i,
-      /(?:beachfront|beach|property)\s+(?:in|at|near)\s+([a-zA-Z\s,]+?)(?:\s+for|\s*$|\s+\d)/i,
-      /^([a-zA-Z\s,]+?)\s+(?:beachfront|beach|property|villa|house|home)/i,
-      // Fallback: if no specific patterns match and it looks like a location
-      /^([a-zA-Z\s,]+?)(?:\s*\.|\s*$)/i
-    ]
-    
-    for (const pattern of locationPatterns) {
-      const match = queryText.match(pattern)
-      if (match && match[1]) {
-        let location = match[1].trim()
-        location = location.replace(/\b(for|with|and|the|a|an|property|properties|beachfront|beach|house|home|villa|apartment|condo|looking|front)\b/gi, '')
-        location = location.replace(/\s+/g, ' ').trim()
-        
-        // Exclude obvious non-locations
-        const nonLocationTerms = /^(i|don't|don't|do|not|want|spend|more|than|under|less|max|maximum|limit|total|nights|adults|children|toddler|highly|rated|reviews)$/i
-        
-        if (location.length >= 2 && !/^\d+$/.test(location) && !nonLocationTerms.test(location)) {
-          result.location = location
-          break
-        }
-      }
-    }
-  }
-  
-  // Extract guest counts - enhanced to handle complex patterns
-  
-  // Convert text numbers to digits for better parsing
-  const textToNumber: Record<string, string> = {
-    'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
-    'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10'
-  }
-  
-  let normalizedText = queryText.toLowerCase()
-  for (const [word, digit] of Object.entries(textToNumber)) {
-    normalizedText = normalizedText.replace(new RegExp(`\\b${word}\\b`, 'g'), digit)
-  }
-  
-  // Extract adults with various patterns
-  const adultPatterns = [
-    /(\d+)\s+adults?/i,
-    /for\s+(\d+)\s+adults?/i
-  ]
-  
-  for (const pattern of adultPatterns) {
-    const match = normalizedText.match(pattern)
-    if (match) {
-      result.adults = parseInt(match[1])
-      break
-    }
-  }
-  
-  // Extract children/toddlers with various patterns  
-  const childPatterns = [
-    /(\d+)\s+(?:child|children|toddler|toddlers|kids?)/i,
-    /and\s+(\d+)\s+(?:child|children|toddler|toddlers|kids?)/i
-  ]
-  
-  for (const pattern of childPatterns) {
-    const match = normalizedText.match(pattern)
-    if (match) {
-      result.children = parseInt(match[1])
-      break
-    }
-  }
-  
-  // Fallback: Extract total people count if no specific adults/children found
-  if (!result.adults && !result.children) {
-    const peopleMatches = normalizedText.match(/for\s+(\d+)\s+people/i)
-    if (peopleMatches) {
-      result.adults = parseInt(peopleMatches[1])
-    }
-  }
-  
-  // Debug logging
-  console.log(`Guest extraction from "${queryText}":`, {
-    normalizedText,
-    adults: result.adults,
-    children: result.children
-  })
-  
-  // Extract price constraints
-  const pricePatterns = [
-    /(?:under|less\s+than|no\s+more\s+than)\s*\$?(\d+)k?/i,
-    /(?:max(?:imum)?|limit)\s*\$?(\d+)k?/i,
-    /(?:don't|don't|do\s+not)\s+(?:want\s+to\s+)?spend\s+(?:more\s+than\s+)?\$?(\d+)k?/i,
-    /\$?(\d+)k?\s+(?:total|max|maximum|limit)/i
-  ]
-  
-  for (const pattern of pricePatterns) {
-    const match = queryText.match(pattern)
-    if (match && match[1]) {
-      let price = parseInt(match[1])
-      // Handle 'k' suffix (5k = 5000)
-      if (queryText.toLowerCase().includes(match[1] + 'k')) {
-        price *= 1000
-      }
-      result.maxPrice = price
-      break
-    }
-  }
-  
-  // Extract dates (basic patterns)
-  const dateRangeMatch = queryText.match(/from\s+([a-zA-Z]+\s+\d+)(?:st|nd|rd|th)?\s+to\s+([a-zA-Z]+\s+\d+)/i)
-  if (dateRangeMatch) {
-    // Convert to YYYY-MM-DD format (basic implementation)
-    const startDate = parseNaturalDate(dateRangeMatch[1])
-    const endDate = parseNaturalDate(dateRangeMatch[2])
-    if (startDate) result.checkin = startDate
-    if (endDate) result.checkout = endDate
-  }
-  
-  // Labor Day patterns - handle various phrasings
-  const laborDayPatterns = [
-    /(?:week after|post) labor day(?:\s+weekend)?/i,
-    /after labor day(?:\s+weekend)?/i,
-    /labor day(?:\s+weekend)?\s+(?:week|weekend)/i
-  ]
-  
-  for (const pattern of laborDayPatterns) {
-    if (pattern.test(queryText.toLowerCase())) {
-      const year = new Date().getFullYear()
-      const laborDay = getFirstMondayInSeptember(year)
-      
-      // "Post labor day weekend" = Tuesday after Labor Day weekend
-      const startDate = new Date(laborDay)
-      startDate.setDate(startDate.getDate() + 1) // Tuesday after Labor Day Monday
-      
-      result.checkin = formatDate(startDate)
-      
-      // Calculate checkout based on nights mentioned
-      const nightsMatch = queryText.match(/(\d+)\s+nights?/i)
-      const daysMatch = queryText.match(/(\d+)\s+days?/i)
-      
-      if (nightsMatch) {
-        const nights = parseInt(nightsMatch[1])
-        const checkout = new Date(startDate)
-        checkout.setDate(checkout.getDate() + nights)
-        result.checkout = formatDate(checkout)
-      } else if (daysMatch) {
-        const days = parseInt(daysMatch[1])
-        const checkout = new Date(startDate)
-        checkout.setDate(checkout.getDate() + days)
-        result.checkout = formatDate(checkout)
-      }
-      break
-    }
-  }
-  
-  console.log(`Extracted params from "${queryText}":`, result)
-  return result
-}
+// Removed pattern-based parameter extraction - using only NER from frontend
 
 function parseNaturalDate(dateStr: string): string | undefined {
   // Basic date parsing - convert "September 9" to "2024-09-09"

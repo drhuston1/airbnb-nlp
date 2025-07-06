@@ -28,8 +28,8 @@ import {
 // Import types
 import type { SearchContext } from './types'
 
-// Import enhanced NLP utilities
-import { extractLocationFromQuery, generateSimpleFollowUps } from './utils/simpleExtraction'
+// Import pure NER extraction
+import { extractWithTransformers } from './utils/transformersExtraction'
 interface AirbnbListing {
   id: string
   name: string
@@ -189,8 +189,15 @@ function App() {
     const query = searchQuery
     setSearchQuery('')
 
-    // Simple location extraction
-    const extractedLocation = extractLocationFromQuery(query)
+    // Use transformers.js NER for location extraction
+    let extractedLocation = 'Unknown'
+    try {
+      const analysis = await extractWithTransformers(query)
+      extractedLocation = analysis.location
+      console.log('NER Analysis:', analysis)
+    } catch (error) {
+      console.error('NER extraction failed:', error)
+    }
     
     // If no location found, ask for one
     if (extractedLocation === 'Unknown') {
@@ -198,7 +205,7 @@ function App() {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: 'I need to know where you\'d like to stay. Could you please specify a location?',
-        followUps: ['Try: "Austin, TX"', 'Try: "Charleston, SC"', 'Try: "Miami Beach"'],
+        followUps: ['Try: "Dog-friendly cabin near Yellowstone"', 'Try: "Charleston vacation rental"', 'Try: "Austin loft for 2 adults"'],
         timestamp: new Date()
       }
       setMessages(prev => [...prev, clarificationMessage])
@@ -285,7 +292,8 @@ function App() {
         responseContent += ` (${platformSummary}). Check the results panel →`  
       }
       
-      const followUpSuggestions = generateSimpleFollowUps(filteredResults, query)
+      // No follow-up suggestions - keeping it pure
+      const followUpSuggestions: string[] = []
       
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
