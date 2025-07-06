@@ -90,8 +90,8 @@ export default async function handler(
 
     console.log('Calling MCP server with params:', searchParams)
 
-    // Call the MCP server
-    const mcpResult = await callMCPAirbnbSearch(searchParams)
+    // Call the local OpenBNB MCP server
+    const mcpResult = await callLocalOpenBNBMCP(searchParams)
     
     console.log('MCP Result received:', JSON.stringify(mcpResult, null, 2))
     console.log('MCP searchResults count:', mcpResult.searchResults?.length)
@@ -134,31 +134,90 @@ export default async function handler(
   }
 }
 
-async function callMCPAirbnbSearch(params: Record<string, unknown>) {
-  console.log('Calling Railway MCP server with params:', params)
+async function callLocalOpenBNBMCP(params: Record<string, unknown>) {
+  console.log('Calling local OpenBNB MCP with params:', params)
   
-  const mcpServerUrl = process.env.MCP_SERVER_URL || 'https://airbnb-nlp-production.up.railway.app'
+  let client = null
   
   try {
-    const response = await fetch(`${mcpServerUrl}/airbnb-search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params)
+    // Use dynamic import for ES modules
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js')
+    
+    // Create a client connection to the OpenBNB MCP server
+    const transport = new StdioClientTransport({
+      command: 'npx',
+      args: ['@openbnb/mcp-server-airbnb']
     })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`MCP server error: ${response.status} - ${errorText}`)
+    
+    client = new Client({
+      name: 'airbnb-search-client-vercel',
+      version: '1.0.0'
+    }, {
+      capabilities: {}
+    })
+    
+    // Connect and call tool
+    await client.connect(transport)
+    console.log('Connected to OpenBNB MCP server')
+    
+    // List tools to find correct name
+    let toolToUse = 'airbnb_search'
+    
+    try {
+      const tools = await client.listTools()
+      console.log('Available OpenBNB tools:', tools.tools?.map(t => t.name))
+      
+      const availableToolNames = tools.tools?.map(tool => tool.name) || []
+      const searchTool = availableToolNames.find(name => 
+        name.includes('search') || name.includes('airbnb')
+      ) || availableToolNames[0]
+      
+      if (searchTool) {
+        toolToUse = searchTool
+        console.log(`Using OpenBNB tool: ${searchTool}`)
+      }
+    } catch {
+      console.log('Could not list tools, using default:', toolToUse)
     }
-
-    const result = await response.json()
-    return result
+    
+    // Call the tool
+    const result = await client.callTool({
+      name: toolToUse,
+      arguments: params
+    })
+    
+    console.log('OpenBNB MCP tool call successful')
+    
+    // Handle error responses
+    if (result.isError || (result.content && result.content[0] && result.content[0].text && result.content[0].text.startsWith('Error:'))) {
+      const errorMsg = result.content?.[0]?.text || 'Unknown MCP error'
+      throw new Error(`OpenBNB MCP tool error: ${errorMsg}`)
+    }
+    
+    // Handle different response formats
+    if (result.content && result.content[0] && result.content[0].text) {
+      try {
+        return JSON.parse(result.content[0].text)
+      } catch {
+        console.log('OpenBNB response is not JSON, returning as-is')
+        return { searchResults: [], searchUrl: '', message: result.content[0].text }
+      }
+    } else {
+      return result
+    }
     
   } catch (error) {
-    console.error('Railway MCP server call failed:', error)
-    throw error
+    console.error('OpenBNB MCP SDK error:', error)
+    throw new Error(`OpenBNB MCP SDK error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  } finally {
+    if (client) {
+      try {
+        await client.close()
+      } catch (closeError) {
+        console.error('Error closing OpenBNB MCP client:', closeError)
+      }
+    }
   }
 }
 
