@@ -894,6 +894,7 @@ function App() {
                             </HStack>
                           </HStack>
 
+
                           <HStack justify="space-between" w="full" align="center">
                             <VStack align="start" gap={0}>
                               <Text fontSize="xs" color="gray.500">
