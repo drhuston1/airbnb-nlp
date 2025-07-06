@@ -113,6 +113,17 @@ function App() {
     localStorage.removeItem('airbnb-search-history')
   }
 
+  // Start new chat
+  const startNewChat = () => {
+    setMessages([])
+    setCurrentResults([])
+    setShowResults(false)
+    setCurrentPage(1)
+    setHasMore(false)
+    setCurrentQuery('')
+    setSearchQuery('')
+  }
+
   // Apply natural language filters to listings (more lenient)
   const applyNaturalLanguageFilters = (listings: AirbnbListing[], query: string) => {
     const lowerQuery = query.toLowerCase()
@@ -121,10 +132,29 @@ function App() {
     console.log('Original listings:', listings.length)
     console.log('Query:', query)
 
-    // Rating & Review Filters
-    if (lowerQuery.includes('superhost') || lowerQuery.includes('super host')) {
-      filtered = filtered.filter(listing => listing.host.isSuperhost)
-      console.log('After superhost filter:', filtered.length)
+    // Rating & Review Filters - only apply superhost filter if "only" is specified
+    if ((lowerQuery.includes('superhost') || lowerQuery.includes('super host')) && lowerQuery.includes('only')) {
+      const superhostResults = filtered.filter(listing => listing.host.isSuperhost)
+      if (superhostResults.length > 0) {
+        filtered = superhostResults
+        console.log('After superhost only filter:', filtered.length)
+      } else {
+        console.log('No superhosts found, keeping all results and sorting superhosts first')
+        // Sort superhosts to the top instead of filtering
+        filtered = filtered.sort((a, b) => {
+          if (a.host.isSuperhost && !b.host.isSuperhost) return -1
+          if (!a.host.isSuperhost && b.host.isSuperhost) return 1
+          return b.rating - a.rating // Then by rating
+        })
+      }
+    } else if (lowerQuery.includes('superhost') || lowerQuery.includes('super host')) {
+      // Just sort superhosts to the top without filtering
+      filtered = filtered.sort((a, b) => {
+        if (a.host.isSuperhost && !b.host.isSuperhost) return -1
+        if (!a.host.isSuperhost && b.host.isSuperhost) return 1
+        return b.rating - a.rating
+      })
+      console.log('Sorted superhosts to top without filtering')
     }
     
     if (lowerQuery.includes('high rated') || lowerQuery.includes('highly rated')) {
@@ -187,6 +217,14 @@ function App() {
     // Sorting (instead of hard filtering)
     if (lowerQuery.includes('highest rated') || lowerQuery.includes('best rated') || lowerQuery.includes('top rated')) {
       filtered = filtered.sort((a, b) => b.rating - a.rating)
+    } else if (lowerQuery.includes('luxury')) {
+      // For luxury searches, sort by price (highest first) and rating
+      filtered = filtered.sort((a, b) => {
+        const priceSort = b.price.rate - a.price.rate
+        const ratingSort = b.rating - a.rating
+        return priceSort * 0.7 + ratingSort * 0.3 // Weight price more heavily for luxury
+      })
+      console.log('Sorted by luxury criteria (price + rating)')
     }
 
     console.log('Final filtered count:', filtered.length)
@@ -453,18 +491,36 @@ function App() {
       <Box flex="1" display="flex" flexDirection="column" minW="0">
         {/* Header with controls */}
         <Box p={3} borderBottom="1px" borderColor="gray.200" bg="white">
-          <HStack justify="space-between">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowHistory(!showHistory)}
-              borderColor="gray.300"
-              color="gray.600"
-              _hover={{ bg: "gray.50" }}
-            >
-              <Icon as={History} w={4} h={4} mr={2} />
-              {showHistory ? 'Hide History' : 'Show History'}
-            </Button>
+          <HStack justify="space-between" align="center">
+            <HStack gap={3} align="center">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowHistory(!showHistory)}
+                color="gray.600"
+                _hover={{ bg: "gray.50" }}
+                px={2}
+              >
+                <Icon as={History} w={4} h={4} />
+              </Button>
+              
+              <Text fontSize="sm" color="gray.600" maxW="md">
+                Search properties with natural language. Describe what you want and get personalized results.
+              </Text>
+              
+              {messages.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={startNewChat}
+                  borderColor="green.300"
+                  color="green.700"
+                  _hover={{ bg: "green.50" }}
+                >
+                  + New Chat
+                </Button>
+              )}
+            </HStack>
             
             {showResults && (
               <Button
