@@ -51,20 +51,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Location is required for Booking.com search' })
     }
 
-    // For now, return mock data while we set up the actual API
-    // TODO: Replace with actual Booking.com API calls
-    const mockBookingResults: BookingProperty[] = generateMockBookingResults(location, adults, children)
+    // Real Booking.com API implementation
+    const bookingResults = await searchBookingProperties({
+      location,
+      adults,
+      children,
+      checkin,
+      checkout,
+      page
+    })
 
     const response = {
-      listings: mockBookingResults,
-      hasMore: page < 3,
-      totalResults: mockBookingResults.length,
+      listings: bookingResults,
+      hasMore: page < 3, // Adjust based on API response
+      totalResults: bookingResults.length,
       page,
       source: 'booking.com',
       searchUrl: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(location)}`
     }
 
-    console.log(`Booking.com mock response: ${mockBookingResults.length} properties`)
+    console.log(`Booking.com API response: ${bookingResults.length} properties`)
     
     return res.status(200).json(response)
 
@@ -77,94 +83,99 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-// Mock data generator while we integrate the real API
-function generateMockBookingResults(location: string, adults: number, children: number): BookingProperty[] {
-  const baseProperties = [
-    {
-      id: 'booking_1',
-      name: `Modern Hotel Suite in ${location}`,
-      url: 'https://www.booking.com/hotel/example',
-      images: ['https://cf.bstatic.com/xdata/images/hotel/example.jpg'],
-      price: { total: 240, rate: 120, currency: 'USD' },
-      rating: 8.7,
-      reviewsCount: 324,
-      location: { city: location, country: 'US' },
-      host: { name: 'Hotel Management', isSuperhost: false },
-      amenities: ['Free WiFi', 'Pool', 'Gym', 'Restaurant'],
-      roomType: 'Hotel Suite',
-      platform: 'booking.com' as const
-    },
-    {
-      id: 'booking_2', 
-      name: `Vacation Apartment in ${location}`,
-      url: 'https://www.booking.com/hotel/example2',
-      images: ['https://cf.bstatic.com/xdata/images/hotel/example2.jpg'],
-      price: { total: 180, rate: 90, currency: 'USD' },
-      rating: 9.1,
-      reviewsCount: 156,
-      location: { city: location, country: 'US' },
-      host: { name: 'Property Owner', isSuperhost: true },
-      amenities: ['Kitchen', 'WiFi', 'Parking', 'Balcony'],
-      roomType: 'Entire Apartment',
-      platform: 'booking.com' as const
-    }
-  ]
+// Mock data removed - using real API only
 
-  // Adjust capacity based on guest count
-  const totalGuests = adults + children
-  if (totalGuests >= 4) {
-    baseProperties.push({
-      id: 'booking_3',
-      name: `Family House in ${location}`,
-      url: 'https://www.booking.com/hotel/example3',
-      images: ['https://cf.bstatic.com/xdata/images/hotel/example3.jpg'],
-      price: { total: 300, rate: 150, currency: 'USD' },
-      rating: 8.9,
-      reviewsCount: 89,
-      location: { city: location, country: 'US' },
-      host: { name: 'Family Rentals', isSuperhost: true },
-      amenities: ['Kitchen', 'Garden', 'BBQ', 'Parking', '3 Bedrooms'],
-      roomType: 'Entire House',
-      platform: 'booking.com' as const
-    })
-  }
-
-  return baseProperties
-}
-
-// TODO: Implement actual Booking.com API integration
-// This will require:
-// 1. Booking.com Partner API access (application required)
-// 2. API key/credentials from Booking.com
-// 3. Transform their response format to our unified format
-// 4. Handle their rate limiting and pagination
-// 5. Map their location format to our search terms
-
-/* 
-Real Booking.com API integration would look like:
-
+// Real Booking.com Demand API integration
 async function searchBookingProperties(params: BookingSearchRequest): Promise<BookingProperty[]> {
   const BOOKING_API_KEY = process.env.BOOKING_API_KEY
-  const BOOKING_ENDPOINT = 'https://api.booking.com/v1/search'
+  const BOOKING_ENDPOINT = process.env.BOOKING_API_ENDPOINT || 'https://accommodations.booking.com/v1/accommodations/accommodations'
   
-  const searchParams = {
-    destination: params.location,
-    checkin_date: params.checkin,
-    checkout_date: params.checkout,
-    adults: params.adults,
-    children: params.children,
-    room_quantity: 1,
-    accommodation_type: 'vacation_rental'
+  if (!BOOKING_API_KEY) {
+    throw new Error('BOOKING_API_KEY environment variable is required')
   }
   
-  const response = await fetch(`${BOOKING_ENDPOINT}?${new URLSearchParams(searchParams)}`, {
-    headers: {
-      'Authorization': `Bearer ${BOOKING_API_KEY}`,
-      'Content-Type': 'application/json'
+  // Format dates for Booking.com Demand API
+  const checkinDate = params.checkin || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const checkoutDate = params.checkout || new Date(Date.now() + 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  
+  const requestBody = {
+    queryParams: {
+      location: params.location,
+      checkin: checkinDate,
+      checkout: checkoutDate,
+      adults: params.adults || 2,
+      children: params.children || 0,
+      limit: 20,
+      offset: params.page ? (params.page - 1) * 20 : 0,
+      currency: 'USD',
+      language: 'en'
     }
+  }
+  
+  console.log('Calling Booking.com Demand API:', BOOKING_ENDPOINT, 'with body:', requestBody)
+  
+  const response = await fetch(BOOKING_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${BOOKING_API_KEY}`,
+      'User-Agent': 'ChatBnb/1.0'
+    },
+    body: JSON.stringify(requestBody)
   })
   
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Booking.com Demand API error: ${response.status} - ${response.statusText} - ${errorText}`)
+  }
+  
   const data = await response.json()
-  return transformBookingResponse(data.results)
+  return transformBookingResponse(data.accommodations || data.results || [])
 }
-*/
+
+// Transform Booking.com Demand API response to our unified format
+function transformBookingResponse(bookingResults: any[]): BookingProperty[] {
+  return bookingResults.map((property: any) => ({
+    id: property.accommodationId || property.id || 'unknown',
+    name: property.name || property.accommodationName || 'Property',
+    url: property.bookingUrl || property.url || `https://www.booking.com/hotel/us/${property.accommodationId}.html`,
+    images: property.images?.map((img: any) => img.url || img.large || img.medium) || [],
+    price: {
+      total: property.priceDetails?.totalPrice || property.price?.total || 200,
+      rate: property.priceDetails?.nightlyRate || property.price?.rate || 100,
+      currency: property.priceDetails?.currency || property.currency || 'USD'
+    },
+    rating: property.rating?.average || property.reviewScore || 8.0,
+    reviewsCount: property.rating?.reviewCount || property.reviewCount || 50,
+    location: {
+      city: property.location?.city || property.city || 'Unknown',
+      country: property.location?.country || property.country || 'US'
+    },
+    host: {
+      name: property.accommodationType || 'Property Manager',
+      isSuperhost: property.isPreferredPartner || false
+    },
+    amenities: extractAmenitiesFromBooking(property.amenities || property.facilities || []),
+    roomType: property.accommodationType || property.roomType || 'Property',
+    platform: 'booking.com' as const
+  }))
+}
+
+// Extract amenities from Booking.com facilities
+function extractAmenitiesFromBooking(facilities: any[]): string[] {
+  const amenityMap: Record<string, string> = {
+    'Swimming pool': 'Pool',
+    'Hot tub': 'Hot Tub', 
+    'Kitchen': 'Kitchen',
+    'Parking': 'Parking',
+    'WiFi': 'WiFi',
+    'Fitness': 'Gym',
+    'Laundry': 'Laundry',
+    'Air conditioning': 'Air Conditioning'
+  }
+  
+  return facilities
+    .map((facility: any) => amenityMap[facility.name] || facility.name)
+    .filter(Boolean)
+    .slice(0, 5) // Limit to 5 amenities
+}

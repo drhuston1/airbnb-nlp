@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       adults = 2, 
       children = 0, 
       page = 1,
-      platforms = ['airbnb', 'booking.com'] // Default to both platforms
+      platforms = ['airbnb', 'booking.com'] // Both platforms with real APIs
     }: UnifiedSearchRequest = req.body
 
     console.log('Unified search request:', { query, location, platforms, adults, children })

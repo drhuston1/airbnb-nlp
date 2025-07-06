@@ -769,7 +769,7 @@ function App() {
 
       {/* Results Panel */}
       <Box 
-        w={showResults ? "400px" : "0"} 
+        w={showResults ? "800px" : "0"} 
         bg="white" 
         borderLeft="1px" 
         borderColor="gray.200"
