@@ -9,7 +9,7 @@ interface UnifiedSearchRequest {
   adults?: number
   children?: number
   page?: number
-  platforms?: string[] // ['airbnb'] - which platforms to search
+  platforms?: string[] // ['airbnb', 'vrbo'] - which platforms to search
 }
 
 interface UnifiedProperty {
@@ -34,7 +34,7 @@ interface UnifiedProperty {
   }
   amenities: string[]
   roomType: string
-  platform: 'airbnb' // Source platform
+  platform: 'airbnb' | 'vrbo' // Source platform
 }
 
 interface UnifiedSearchResponse {
@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       adults = 2, 
       children = 0, 
       page = 1,
-      platforms = ['airbnb'] // Airbnb only - all mock implementations removed
+      platforms = ['airbnb'] // Airbnb only - VRBO requires Expedia Partner Network credentials
     }: UnifiedSearchRequest = req.body
 
     console.log('Unified search request:', { query, location, platforms, adults, children })
@@ -93,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
     }
 
-    // Booking.com integration removed - focus on Airbnb only
+    // VRBO integration removed - requires Expedia Partner Network credentials
 
     console.log(`Searching ${platforms.length} platforms in parallel...`)
 
@@ -277,7 +277,7 @@ async function callMCPSearchDirect(payload: any, platform: string) {
   }
 }
 
-// Booking.com integration removed
+// VRBO integration removed - requires Expedia Partner Network credentials
 
 // Transform MCP results helper function
 async function transformMCPResults(searchResults: any[], payload?: any) {

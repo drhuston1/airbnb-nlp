@@ -222,21 +222,24 @@ function App() {
 
 
 
-  const handleSearch = async (page = 1) => {
-    if (!searchQuery.trim()) return
+  const handleSearch = async (page = 1, directQuery?: string) => {
+    const query = directQuery || searchQuery
+    if (!query.trim()) return
 
     // Add user message
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: 'user',
-      content: searchQuery,
+      content: query,
       timestamp: new Date()
     }
     setMessages(prev => [...prev, userMessage])
 
     setLoading(true)
-    const query = searchQuery
-    setSearchQuery('')
+    // Only clear search query if not using directQuery (refinement)
+    if (!directQuery) {
+      setSearchQuery('')
+    }
 
     // Use enhanced query analysis to understand intent and extract location
     let extractedLocation = 'Unknown'
@@ -671,6 +674,12 @@ function App() {
     }
   }
 
+  // Handle refinement queries directly without setting input box
+  const handleRefinementQuery = (query: string) => {
+    if (loading) return
+    handleSearch(1, query)
+  }
+
 
   return (
     <Box h="100vh" bg="green.25" display="flex" flexDirection="row">
@@ -1021,10 +1030,7 @@ function App() {
                             key={index}
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              setSearchQuery(suggestion.query)
-                              setTimeout(() => handleSearch(), SEARCH_CONFIG.SEARCH_DEBOUNCE_MS)
-                            }}
+                            onClick={() => handleRefinementQuery(suggestion.query)}
                             borderColor={`${color}.300`}
                             color={`${color}.700`}
                             bg={`${color}.50`}
@@ -1074,10 +1080,7 @@ function App() {
                           key={index}
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setSearchQuery(followUp)
-                            setTimeout(() => handleSearch(), SEARCH_CONFIG.SEARCH_DEBOUNCE_MS)
-                          }}
+                          onClick={() => handleRefinementQuery(followUp)}
                           borderColor="green.400"
                           color="green.800"
                           bg="green.50"
@@ -1223,10 +1226,7 @@ function App() {
                           key={index}
                           size="xs"
                           variant="outline"
-                          onClick={() => {
-                            setSearchQuery(filter.query)
-                            setTimeout(() => handleSearch(), SEARCH_CONFIG.SEARCH_DEBOUNCE_MS)
-                          }}
+                          onClick={() => handleRefinementQuery(filter.query)}
                           borderColor="blue.300"
                           color="blue.700"
                           bg="blue.50"
