@@ -157,7 +157,7 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // Load search history from localStorage on mount
+  // Load search history from localStorage on mount only
   useEffect(() => {
     const savedHistory = localStorage.getItem('airbnb-search-history')
     if (savedHistory) {
@@ -173,18 +173,7 @@ function App() {
     }
   }, [])
 
-  // Save search history to localStorage whenever it changes
-  useEffect(() => {
-    if (searchHistory.length > 0) {
-      localStorage.setItem('airbnb-search-history', JSON.stringify(searchHistory))
-    }
-  }, [searchHistory])
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, loading])
-
-  // Add search to history
+  // Add search to history and persist to localStorage
   const addToHistory = (query: string, resultCount: number) => {
     const newHistoryItem: SearchHistory = {
       id: Date.now().toString(),
@@ -196,11 +185,16 @@ function App() {
     setSearchHistory(prev => {
       // Remove duplicate queries and keep only the latest 20
       const filtered = prev.filter(item => item.query !== query)
-      return [newHistoryItem, ...filtered].slice(0, SEARCH_CONFIG.MAX_SEARCH_HISTORY_ITEMS)
+      const newHistory = [newHistoryItem, ...filtered].slice(0, SEARCH_CONFIG.MAX_SEARCH_HISTORY_ITEMS)
+      
+      // Persist to localStorage immediately
+      localStorage.setItem('airbnb-search-history', JSON.stringify(newHistory))
+      
+      return newHistory
     })
   }
 
-  // Clear search history
+  // Clear search history and localStorage
   const clearHistory = () => {
     setSearchHistory([])
     localStorage.removeItem('airbnb-search-history')
@@ -236,6 +230,9 @@ function App() {
     setMessages(prev => [...prev, userMessage])
 
     setLoading(true)
+    // Scroll to bottom to show user message and loading state
+    setTimeout(scrollToBottom, 100)
+    
     // Only clear search query if not using directQuery (refinement)
     if (!directQuery) {
       setSearchQuery('')
@@ -286,6 +283,7 @@ function App() {
         timestamp: new Date()
       }
       setMessages(prev => [...prev, clarificationMessage])
+      setTimeout(scrollToBottom, 100)
       setLoading(false)
       return
     }
@@ -626,6 +624,7 @@ function App() {
         timestamp: new Date()
       }
       setMessages(prev => [...prev, assistantMessage])
+      setTimeout(scrollToBottom, 100)
 
       setCurrentResults(filteredResults)
       setShowResults(true)
@@ -657,6 +656,7 @@ function App() {
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
+      setTimeout(scrollToBottom, 100)
     } finally {
       setLoading(false)
     }
