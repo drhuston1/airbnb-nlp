@@ -9,7 +9,7 @@ interface UnifiedSearchRequest {
   adults?: number
   children?: number
   page?: number
-  platforms?: string[] // ['airbnb', 'vrbo'] - which platforms to search
+  platforms?: string[] // ['airbnb', 'booking', 'vrbo'] - which platforms to search
 }
 
 interface UnifiedProperty {
@@ -34,7 +34,7 @@ interface UnifiedProperty {
   }
   amenities: string[]
   roomType: string
-  platform: 'airbnb' | 'vrbo' // Source platform
+  platform: 'airbnb' | 'booking' | 'vrbo' // Source platform
 }
 
 interface UnifiedSearchResponse {
@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       adults = 2, 
       children = 0, 
       page = 1,
-      platforms = ['airbnb'] // Airbnb only - VRBO requires Expedia Partner Network credentials
+      platforms = ['airbnb', 'booking', 'vrbo'] // Now supports Airbnb, Booking.com, and VRBO via scraping
     }: UnifiedSearchRequest = req.body
 
     console.log('Unified search request:', { query, location, platforms, adults, children })
@@ -93,7 +93,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
     }
 
-    // VRBO integration removed - requires Expedia Partner Network credentials
+    if (platforms.includes('booking')) {
+      searchPromises.push(
+        callPlatformAPI('/api/scraper', searchPayload, 'booking')
+      )
+    }
+
+    if (platforms.includes('vrbo')) {
+      searchPromises.push(
+        callPlatformAPI('/api/scraper', searchPayload, 'vrbo')
+      )
+    }
 
     console.log(`Searching ${platforms.length} platforms in parallel...`)
 
@@ -199,6 +209,9 @@ async function callPlatformAPI(endpoint: string, payload: any, platform: string)
     if (endpoint === '/api/mcp-search') {
       // Call MCP search directly by reimplementing the core logic
       return await callMCPSearchDirect(payload, platform)
+    } else if (endpoint === '/api/scraper') {
+      // Call scraper directly for Booking.com and VRBO
+      return await callScraperFallback(payload, platform)
     } else {
       throw new Error(`Unknown endpoint: ${endpoint}`)
     }
@@ -214,7 +227,7 @@ async function callPlatformAPI(endpoint: string, payload: any, platform: string)
   }
 }
 
-// Direct MCP search implementation
+// Direct MCP search implementation with scraper fallback
 async function callMCPSearchDirect(payload: any, platform: string) {
   try {
     const { location, adults = 2, children = 0, page = 1 } = payload
@@ -236,45 +249,124 @@ async function callMCPSearchDirect(payload: any, platform: string) {
     // Use environment variable or default to the enhanced MCP server
     const mcpServerUrl = process.env.MCP_SERVER_URL || 'https://airbnb-mcp-production.up.railway.app'
     
-    const response = await fetch(`${mcpServerUrl}/airbnb-search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(searchParams)
-    })
+    try {
+      const response = await fetch(`${mcpServerUrl}/airbnb-search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(searchParams),
+        signal: AbortSignal.timeout(20000) // 20 second timeout
+      })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`External MCP server error: ${response.status} - ${errorText}`)
-    }
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`External MCP server error: ${response.status} - ${errorText}`)
+      }
 
-    const mcpResult = await response.json()
-    
-    if (!mcpResult || !mcpResult.searchResults) {
-      throw new Error(`MCP server returned data but no searchResults`)
-    }
+      const mcpResult = await response.json()
+      
+      if (!mcpResult || !mcpResult.searchResults) {
+        throw new Error(`MCP server returned data but no searchResults`)
+      }
 
-    // Transform MCP results to our format
-    const listings = await transformMCPResults(mcpResult.searchResults, payload)
+      // Transform MCP results to our format
+      const listings = await transformMCPResults(mcpResult.searchResults, payload)
 
-    return {
-      platform,
-      data: {
-        listings,
-        searchUrl: mcpResult.searchUrl,
-        totalResults: listings.length,
-        page: page,
-        hasMore: listings.length >= 18,
-        source: 'Real Airbnb MCP Server'
-      },
-      status: 'success' as const
+      return {
+        platform,
+        data: {
+          listings,
+          searchUrl: mcpResult.searchUrl,
+          totalResults: listings.length,
+          page: page,
+          hasMore: listings.length >= 18,
+          source: 'Real Airbnb MCP Server'
+        },
+        status: 'success' as const
+      }
+    } catch (mcpError) {
+      console.error('MCP server failed, falling back to scraper:', mcpError)
+      
+      // Fallback to web scraper
+      return await callScraperFallback(payload, platform)
     }
 
   } catch (error) {
-    console.error('MCP search direct call failed:', error)
+    console.error('Both MCP and scraper failed:', error)
     throw error
   }
+}
+
+// Scraper fallback implementation
+async function callScraperFallback(payload: any, platform: string) {
+  try {
+    console.log('Using web scraper fallback for platform:', platform)
+    
+    const scraperPayload = {
+      platform: platform as 'airbnb' | 'booking' | 'vrbo',
+      location: payload.location,
+      checkin: payload.checkin,
+      checkout: payload.checkout,
+      adults: payload.adults || 2,
+      children: payload.children || 0,
+      page: payload.page || 1
+    }
+
+    // Call our scraper API directly
+    const scraperResult = await callScraperDirect(scraperPayload)
+    
+    return {
+      platform,
+      data: {
+        listings: scraperResult.listings,
+        searchUrl: scraperResult.searchUrl,
+        totalResults: scraperResult.totalResults,
+        page: scraperResult.page,
+        hasMore: scraperResult.hasMore,
+        source: `Web Scraper (${platform})`
+      },
+      status: 'success' as const
+    }
+    
+  } catch (error) {
+    console.error('Scraper fallback failed:', error)
+    throw error
+  }
+}
+
+// Direct scraper call (reimplemented to avoid circular imports)
+async function callScraperDirect(scraperPayload: any) {
+  // Import scraper functions dynamically to avoid Vercel build issues
+  const scraper = await import('./scraper')
+  
+  // Create a mock request/response for the scraper handler
+  const mockReq = {
+    method: 'POST',
+    body: scraperPayload
+  } as any
+
+  let result: any
+  const mockRes = {
+    status: (code: number) => ({
+      json: (data: any) => {
+        result = { statusCode: code, data }
+        return result
+      }
+    }),
+    json: (data: any) => {
+      result = { statusCode: 200, data }
+      return result
+    }
+  } as any
+
+  await scraper.default(mockReq, mockRes)
+  
+  if (result.statusCode !== 200) {
+    throw new Error(result.data.error || 'Scraper failed')
+  }
+  
+  return result.data
 }
 
 // VRBO integration removed - requires Expedia Partner Network credentials
