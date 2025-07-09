@@ -4,7 +4,7 @@
 
 The MCP server has been **temporarily disabled** to test the full scraping functionality with images.
 
-**✅ FIXED**: Chrome compatibility issue resolved by switching to `@sparticuz/chromium` for Vercel serverless functions.
+**✅ FIXED**: Chrome compatibility issue resolved by switching to Playwright + `@sparticuz/chromium` for Vercel serverless functions.
 
 ### What's Changed
 
@@ -121,26 +121,28 @@ curl -X POST https://your-app.vercel.app/api/unified-search \
 ### Recent Fixes Applied
 
 **✅ Chrome Installation Issue Fixed**:
-- **Problem**: `Could not find Chrome (ver. 138.0.7204.92)` in Vercel serverless environment
-- **Solution**: Switched from `puppeteer` to `puppeteer-core` + `@sparticuz/chromium`
-- **Result**: Chrome now works in serverless Vercel functions
+- **Problem**: `Executable doesn't exist at /home/sbx_user1051/.cache/ms-playwright/chromium_headless_shell` in Vercel serverless environment
+- **Solution**: Switched from `puppeteer` to `playwright-chromium` + `@sparticuz/chromium` with environment detection
+- **Result**: Chrome now works in serverless Vercel functions with automatic local/serverless detection
 
 **✅ Function Timeout Extended**:
 - **Added**: 60-second timeout for scraper functions in `vercel.json`
 - **Reason**: Puppeteer needs more time than the default 10-second limit
 
 **✅ Development vs Production**:
-- **Local**: Uses system Chrome for development
-- **Vercel**: Uses serverless-compatible Chrome in production
+- **Local**: Uses system Chromium via Playwright for development  
+- **Vercel**: Uses @sparticuz/chromium for serverless compatibility
+- **Auto-detection**: Automatically detects environment and chooses appropriate browser
 
 ### Debugging Issues
 
 If you encounter problems:
 
 1. **Check Vercel function logs** for error details
-2. **Look for Chrome/Puppeteer errors** (should be fixed now)
+2. **Look for Chrome/Playwright errors** (should be fixed now with @sparticuz/chromium)
 3. **Verify platform selectors** are still working
-4. **Test individual platforms** separately:
+4. **Check environment detection** - should log either "Local environment" or "Serverless environment"
+5. **Test individual platforms** separately:
 
 ```bash
 # Test Airbnb scraper only

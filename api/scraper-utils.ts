@@ -1,5 +1,6 @@
-// Utility functions for web scraping using Playwright
+// Utility functions for web scraping using Playwright with serverless Chromium
 import { chromium, Browser, Page } from 'playwright-chromium'
+import chromiumPkg from '@sparticuz/chromium'
 
 export interface ScraperConfig {
   timeout: number
@@ -28,23 +29,44 @@ export class ScraperManager {
       return
     }
 
-    console.log('🎭 Using Playwright for serverless scraping')
+    console.log('🎭 Using Playwright with serverless Chromium')
     
-    // Playwright has built-in serverless support - much simpler!
-    this.browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--window-size=1920,1080',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--hide-scrollbars'
-      ]
-    })
+    // Detect if we're in a serverless environment
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+    
+    if (isServerless) {
+      console.log('🌐 Serverless environment detected, using @sparticuz/chromium')
+      // Use serverless-compatible Chromium
+      this.browser = await chromium.launch({
+        executablePath: await chromiumPkg.executablePath(),
+        headless: chromiumPkg.headless,
+        args: [
+          ...chromiumPkg.args,
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--window-size=1920,1080',
+          '--hide-scrollbars'
+        ]
+      })
+    } else {
+      console.log('💻 Local environment detected, using system Chromium')
+      // Use local Chromium for development
+      this.browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--window-size=1920,1080',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--hide-scrollbars'
+        ]
+      })
+    }
   }
 
   async createPage(): Promise<Page> {
