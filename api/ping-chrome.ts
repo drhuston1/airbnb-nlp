@@ -6,7 +6,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log('🏥 Chrome health check starting...')
     
     // Use Function wrapper to import Chrome modules
-    const ChromiumClass = (await (new Function('s', 'return import(s)'))('@sparticuz/chromium-min')).default;
+    const ChromiumClass = (await (new Function('s', 'return import(s)'))('@sparticuz/chromium')).default;
     const puppeteerModule = await (new Function('s', 'return import(s)'))('puppeteer-core');
     
     console.log('✅ Modules imported successfully')

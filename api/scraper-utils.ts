@@ -43,13 +43,13 @@ export class ScraperManager {
     console.log('🎯 Environment detection result:', isServerless ? 'SERVERLESS' : 'LOCAL')
     
     if (isServerless) {
-      console.log('🌐 Serverless environment detected, using @sparticuz/chromium-min')
+      console.log('🌐 Serverless environment detected, using @sparticuz/chromium')
       try {
-        console.log('📦 Loading chromium-min and puppeteer-core...')
+        console.log('📦 Loading chromium and puppeteer-core...')
         
         // Dynamically import ESM-only modules with a Function wrapper so the bundler
         // can't rewrite `import()` into `require()`. This avoids ERR_REQUIRE_ESM in Vercel.
-        const ChromiumClass = (await (new Function('s', 'return import(s)'))('@sparticuz/chromium-min')).default;
+        const ChromiumClass = (await (new Function('s', 'return import(s)'))('@sparticuz/chromium')).default;
         const puppeteerModule =       await (new Function('s', 'return import(s)'))('puppeteer-core');
         console.log('✅ Modules loaded successfully')
         
@@ -76,7 +76,7 @@ export class ScraperManager {
         console.log('✅ Chromium launched successfully in serverless mode!')
         
       } catch (error) {
-        console.error('❌ Failed to load @sparticuz/chromium-min:')
+        console.error('❌ Failed to load @sparticuz/chromium:')
         console.error('  - Error type:', (error as Error).constructor.name)
         console.error('  - Error message:', (error as Error).message)
         console.error('  - Error code:', (error as any).code)
@@ -134,7 +134,7 @@ export class ScraperManager {
         } catch (fallbackError) {
           console.error('❌ System Chrome fallback also failed:')
           console.error('  - Fallback error:', (fallbackError as Error).message)
-          throw new Error(`Both @sparticuz/chromium-min and system Chrome failed. Serverless: ${(error as Error).message}, System: ${(fallbackError as Error).message}`)
+          throw new Error(`Both @sparticuz/chromium and system Chrome failed. Serverless: ${(error as Error).message}, System: ${(fallbackError as Error).message}`)
         }
       }
     } else {
