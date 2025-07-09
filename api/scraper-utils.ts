@@ -1,6 +1,5 @@
 // Utility functions for web scraping using Playwright with serverless Chromium
 import { chromium, Browser, Page } from 'playwright-chromium'
-import chromiumPkg from '@sparticuz/chromium'
 
 export interface ScraperConfig {
   timeout: number
@@ -36,19 +35,41 @@ export class ScraperManager {
     
     if (isServerless) {
       console.log('🌐 Serverless environment detected, using @sparticuz/chromium')
-      // Use serverless-compatible Chromium
-      this.browser = await chromium.launch({
-        executablePath: await chromiumPkg.executablePath(),
-        headless: chromiumPkg.headless,
-        args: [
-          ...chromiumPkg.args,
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu',
-          '--window-size=1920,1080',
-          '--hide-scrollbars'
-        ]
-      })
+      try {
+        // Dynamic import for ES module compatibility
+        const chromiumPkg = await import('@sparticuz/chromium')
+        
+        // Use serverless-compatible Chromium
+        this.browser = await chromium.launch({
+          executablePath: await chromiumPkg.default.executablePath(),
+          headless: chromiumPkg.default.headless,
+          args: [
+            ...chromiumPkg.default.args,
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--disable-gpu',
+            '--window-size=1920,1080',
+            '--hide-scrollbars'
+          ]
+        })
+      } catch (error) {
+        console.error('Failed to load @sparticuz/chromium, falling back to system Chrome:', error)
+        // Fallback to system Chrome if @sparticuz/chromium fails
+        this.browser = await chromium.launch({
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--disable-gpu',
+            '--window-size=1920,1080',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--hide-scrollbars'
+          ]
+        })
+      }
     } else {
       console.log('💻 Local environment detected, using system Chromium')
       // Use local Chromium for development

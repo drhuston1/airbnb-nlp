@@ -122,8 +122,8 @@ curl -X POST https://your-app.vercel.app/api/unified-search \
 
 **✅ Chrome Installation Issue Fixed**:
 - **Problem**: `Executable doesn't exist at /home/sbx_user1051/.cache/ms-playwright/chromium_headless_shell` in Vercel serverless environment
-- **Solution**: Switched from `puppeteer` to `playwright-chromium` + `@sparticuz/chromium` with environment detection
-- **Result**: Chrome now works in serverless Vercel functions with automatic local/serverless detection
+- **Solution**: Switched from `puppeteer` to `playwright-chromium` + `@sparticuz/chromium` with dynamic imports and environment detection
+- **Result**: Chrome now works in serverless Vercel functions with automatic local/serverless detection and ES module compatibility
 
 **✅ Function Timeout Extended**:
 - **Added**: 60-second timeout for scraper functions in `vercel.json`
