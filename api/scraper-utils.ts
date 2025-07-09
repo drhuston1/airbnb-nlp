@@ -49,43 +49,39 @@ export class ScraperManager {
     console.log('🎯 Environment detection result:', isServerless ? 'SERVERLESS' : 'LOCAL')
     
     if (isServerless) {
-      console.log('🌐 Serverless environment detected, attempting @sparticuz/chromium')
+      console.log('🌐 Serverless environment detected, using @sparticuz/chromium-min')
       try {
-        console.log('📦 Loading @sparticuz/chromium module...')
+        console.log('📦 Loading chromium-min and puppeteer-core...')
         
-        // Use eval-based dynamic import to bypass bundler transformations
-        const dynamicImport = new Function('specifier', 'return import(specifier)')
-        console.log('✅ Dynamic import function created')
+        // Use the starter kit approach - dynamic import + remote executable
+        const { default: chromium } = await import('@sparticuz/chromium-min')
+        const { default: puppeteerModule } = await import('puppeteer-core')
+        console.log('✅ Modules loaded successfully')
         
-        const chromiumModule = await dynamicImport('@sparticuz/chromium') as { default: any }
-        const chromium = chromiumModule.default
-        console.log('✅ @sparticuz/chromium module loaded successfully')
+        // Use remote executable as recommended in starter kit
+        const REMOTE_EXECUTABLE = 
+          process.env.CHROMIUM_REMOTE_EXEC_PATH ?? 
+          'https://github.com/Sparticuz/chromium/releases/download/v133.0.0/chromium-v133.0.0-pack.tar.br'
         
-        // Use the standard @sparticuz/chromium approach
-        console.log('🚀 Checking @sparticuz/chromium configuration...')
+        console.log('🚀 Chromium configuration:')
+        console.log('  - Remote executable:', REMOTE_EXECUTABLE)
+        console.log('  - Args count:', chromium.args.length)
+        
+        const executablePath = await chromium.executablePath(REMOTE_EXECUTABLE)
+        console.log('  - Resolved executable path:', executablePath)
         
         const options = {
+          executablePath,
           args: chromium.args,
-          executablePath: await chromium.executablePath(),
-          headless: chromium.headless,
+          headless: 'new' as const
         }
         
-        console.log('🔍 Launch options:')
-        console.log('  - Executable path:', options.executablePath)
-        console.log('  - Headless mode:', options.headless)
-        console.log('  - Args count:', options.args.length)
-        console.log('  - Sample args:', options.args.slice(0, 5).join(', '), '...')
-        
-        if (!options.executablePath) {
-          throw new Error('@sparticuz/chromium failed to provide executable path')
-        }
-        
-        console.log('🚀 Launching Chromium with serverless configuration...')
-        this.browser = await puppeteer.launch(options)
+        console.log('🚀 Launching Chromium with starter kit configuration...')
+        this.browser = await puppeteerModule.launch(options)
         console.log('✅ Chromium launched successfully in serverless mode!')
         
       } catch (error) {
-        console.error('❌ Failed to load @sparticuz/chromium:')
+        console.error('❌ Failed to load @sparticuz/chromium-min:')
         console.error('  - Error type:', error.constructor.name)
         console.error('  - Error message:', error.message)
         console.error('  - Error code:', (error as any).code)
@@ -140,7 +136,7 @@ export class ScraperManager {
         } catch (fallbackError) {
           console.error('❌ System Chrome fallback also failed:')
           console.error('  - Fallback error:', fallbackError.message)
-          throw new Error(`Both @sparticuz/chromium and system Chrome failed. Serverless: ${error.message}, System: ${fallbackError.message}`)
+          throw new Error(`Both @sparticuz/chromium-min and system Chrome failed. Serverless: ${error.message}, System: ${fallbackError.message}`)
         }
       }
     } else {
