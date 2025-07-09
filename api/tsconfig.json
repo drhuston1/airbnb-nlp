@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.node.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": "../dist/api",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": [
+    "**/*.ts"
+  ]
+}

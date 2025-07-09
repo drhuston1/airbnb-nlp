@@ -1,12 +1,6 @@
 // Utility functions for web scraping using Puppeteer with serverless Chromium
 import type { Browser, Page } from 'puppeteer-core'
 
-// Type definition for chrome-aws-lambda
-interface ChromiumPackage {
-  executablePath: string
-  headless: boolean
-  args: string[]
-}
 
 export interface ScraperConfig {
   timeout: number
@@ -55,7 +49,7 @@ export class ScraperManager {
         
         // Use the starter kit approach - dynamic import + remote executable
         const { default: ChromiumClass } = await import('@sparticuz/chromium-min')
-        const { default: puppeteerModule } = await import('puppeteer-core')
+        const puppeteerModule = await import('puppeteer-core')
         console.log('✅ Modules loaded successfully')
         
         // Use remote executable as recommended in starter kit
@@ -73,7 +67,7 @@ export class ScraperManager {
         const options = {
           executablePath,
           args: ChromiumClass.args || [],
-          headless: 'new' as const
+          headless: true
         }
         
         console.log('🚀 Launching Chromium with starter kit configuration...')
@@ -82,8 +76,8 @@ export class ScraperManager {
         
       } catch (error) {
         console.error('❌ Failed to load @sparticuz/chromium-min:')
-        console.error('  - Error type:', error.constructor.name)
-        console.error('  - Error message:', error.message)
+        console.error('  - Error type:', (error as Error).constructor.name)
+        console.error('  - Error message:', (error as Error).message)
         console.error('  - Error code:', (error as any).code)
         console.error('  - Full error:', error)
         
@@ -99,10 +93,10 @@ export class ScraperManager {
             'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
           ]
           
-          let executablePath = null
+          let executablePath: string | null = null
           for (const path of possiblePaths) {
             try {
-              const { existsSync } = await import('fs')
+              const { existsSync } = await import('node:fs')
               if (existsSync(path)) {
                 executablePath = path
                 console.log('  - Found Chrome at:', path)
@@ -115,7 +109,7 @@ export class ScraperManager {
           
           if (executablePath) {
             // Import puppeteer-core dynamically for fallback
-            const { default: puppeteerFallback } = await import('puppeteer-core')
+            const puppeteerFallback = await import('puppeteer-core')
             
             this.browser = await puppeteerFallback.launch({
               executablePath,
@@ -138,8 +132,8 @@ export class ScraperManager {
           }
         } catch (fallbackError) {
           console.error('❌ System Chrome fallback also failed:')
-          console.error('  - Fallback error:', fallbackError.message)
-          throw new Error(`Both @sparticuz/chromium-min and system Chrome failed. Serverless: ${error.message}, System: ${fallbackError.message}`)
+          console.error('  - Fallback error:', (fallbackError as Error).message)
+          throw new Error(`Both @sparticuz/chromium-min and system Chrome failed. Serverless: ${(error as Error).message}, System: ${(fallbackError as Error).message}`)
         }
       }
     } else {
@@ -157,10 +151,10 @@ export class ScraperManager {
           'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
         ]
         
-        let executablePath = null
+        let executablePath: string | null = null
         for (const path of possiblePaths) {
           try {
-            const { existsSync } = await import('fs')
+            const { existsSync } = await import('node:fs')
             if (existsSync(path)) {
               executablePath = path
               console.log('  - Found Chrome at:', path)
@@ -176,7 +170,7 @@ export class ScraperManager {
         }
         
         // Import puppeteer-core dynamically for local environment
-        const { default: puppeteerModule } = await import('puppeteer-core')
+        const puppeteerModule = await import('puppeteer-core')
         
         this.browser = await puppeteerModule.launch({
           executablePath,
@@ -196,15 +190,15 @@ export class ScraperManager {
         console.log('✅ System Chrome launched successfully!')
       } catch (error) {
         console.error('❌ System Chrome launch failed:')
-        console.error('  - Error:', error.message)
+        console.error('  - Error:', (error as Error).message)
         throw error
       }
     }
     
     console.log('🎉 Browser initialization completed successfully!')
     console.log('📊 Browser info:')
-    console.log('  - Version:', await this.browser.version())
-    console.log('  - Connected:', this.browser.isConnected())
+    console.log('  - Version:', await this.browser!.version())
+    console.log('  - Connected:', this.browser!.isConnected())
   }
 
   async createPage(): Promise<Page> {
@@ -263,7 +257,7 @@ export class ScraperManager {
         return await operation()
       } catch (error) {
         lastError = error as Error
-        console.warn(`Attempt ${attempt} failed:`, error)
+        console.warn(`Attempt ${attempt} failed:`, (error as Error).message)
         
         if (attempt < this.config.retries) {
           // Wait before retrying with exponential backoff
@@ -323,7 +317,6 @@ export function sanitizeText(text: string): string {
 
 export function extractAmenitiesFromText(text: string): string[] {
   const amenities: string[] = []
-  const lowerText = text.toLowerCase()
   
   const amenityPatterns = [
     { pattern: /pool/i, amenity: 'Pool' },
