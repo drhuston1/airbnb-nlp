@@ -47,9 +47,10 @@ export class ScraperManager {
       try {
         console.log('📦 Loading chromium-min and puppeteer-core...')
         
-        // Use the starter kit approach - dynamic import + remote executable
-        const { default: ChromiumClass } = await import('@sparticuz/chromium-min')
-        const puppeteerModule = await import('puppeteer-core')
+        // Dynamically import ESM-only modules with a Function wrapper so the bundler
+        // can't rewrite `import()` into `require()`. This avoids ERR_REQUIRE_ESM in Vercel.
+        const ChromiumClass = (await (new Function('s', 'return import(s)'))('@sparticuz/chromium-min')).default;
+        const puppeteerModule =       await (new Function('s', 'return import(s)'))('puppeteer-core');
         console.log('✅ Modules loaded successfully')
         
         // Use remote executable as recommended in starter kit
@@ -96,7 +97,7 @@ export class ScraperManager {
           let executablePath: string | null = null
           for (const path of possiblePaths) {
             try {
-              const { existsSync } = await import('node:fs')
+              const { existsSync } = await (new Function('s', 'return import(s)'))('node:fs')
               if (existsSync(path)) {
                 executablePath = path
                 console.log('  - Found Chrome at:', path)
@@ -109,7 +110,7 @@ export class ScraperManager {
           
           if (executablePath) {
             // Import puppeteer-core dynamically for fallback
-            const puppeteerFallback = await import('puppeteer-core')
+            const puppeteerFallback = await (new Function('s', 'return import(s)'))('puppeteer-core')
             
             this.browser = await puppeteerFallback.launch({
               executablePath,
@@ -154,7 +155,7 @@ export class ScraperManager {
         let executablePath: string | null = null
         for (const path of possiblePaths) {
           try {
-            const { existsSync } = await import('node:fs')
+            const { existsSync } = await (new Function('s', 'return import(s)'))('node:fs')
             if (existsSync(path)) {
               executablePath = path
               console.log('  - Found Chrome at:', path)
@@ -170,7 +171,7 @@ export class ScraperManager {
         }
         
         // Import puppeteer-core dynamically for local environment
-        const puppeteerModule = await import('puppeteer-core')
+        const puppeteerModule = await (new Function('s', 'return import(s)'))('puppeteer-core')
         
         this.browser = await puppeteerModule.launch({
           executablePath,
