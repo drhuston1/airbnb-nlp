@@ -54,7 +54,7 @@ export class ScraperManager {
         console.log('📦 Loading chromium-min and puppeteer-core...')
         
         // Use the starter kit approach - dynamic import + remote executable
-        const { default: chromium } = await import('@sparticuz/chromium-min')
+        const { default: ChromiumClass } = await import('@sparticuz/chromium-min')
         const { default: puppeteerModule } = await import('puppeteer-core')
         console.log('✅ Modules loaded successfully')
         
@@ -65,14 +65,14 @@ export class ScraperManager {
         
         console.log('🚀 Chromium configuration:')
         console.log('  - Remote executable:', REMOTE_EXECUTABLE)
-        console.log('  - Args count:', chromium.args.length)
+        console.log('  - Using static methods from ChromiumClass')
         
-        const executablePath = await chromium.executablePath(REMOTE_EXECUTABLE)
+        const executablePath = await ChromiumClass.executablePath(REMOTE_EXECUTABLE)
         console.log('  - Resolved executable path:', executablePath)
         
         const options = {
           executablePath,
-          args: chromium.args,
+          args: ChromiumClass.args || [],
           headless: 'new' as const
         }
         
