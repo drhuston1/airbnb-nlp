@@ -6,8 +6,7 @@
   "functions": {
     "api/scraper.ts": {
       "memory": 1024,
-      "maxDuration": 60,
-      "includeFiles": "node_modules/@sparticuz/chromium-min/bin/**"
+      "maxDuration": 60
     },
     "api/unified-search.ts": {
       "maxDuration": 60
