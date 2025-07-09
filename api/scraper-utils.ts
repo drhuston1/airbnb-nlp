@@ -1,5 +1,5 @@
 // Utility functions for web scraping using Puppeteer with serverless Chromium
-import puppeteer, { Browser, Page } from 'puppeteer-core'
+import { Browser, Page } from 'puppeteer-core'
 
 // Type definition for chrome-aws-lambda
 interface ChromiumPackage {
@@ -102,8 +102,8 @@ export class ScraperManager {
           let executablePath = null
           for (const path of possiblePaths) {
             try {
-              const fs = require('fs')
-              if (fs.existsSync(path)) {
+              const { existsSync } = await import('fs')
+              if (existsSync(path)) {
                 executablePath = path
                 console.log('  - Found Chrome at:', path)
                 break
@@ -114,7 +114,10 @@ export class ScraperManager {
           }
           
           if (executablePath) {
-            this.browser = await puppeteer.launch({
+            // Import puppeteer-core dynamically for fallback
+            const { default: puppeteerFallback } = await import('puppeteer-core')
+            
+            this.browser = await puppeteerFallback.launch({
               executablePath,
               headless: true,
               args: [
@@ -157,8 +160,8 @@ export class ScraperManager {
         let executablePath = null
         for (const path of possiblePaths) {
           try {
-            const fs = require('fs')
-            if (fs.existsSync(path)) {
+            const { existsSync } = await import('fs')
+            if (existsSync(path)) {
               executablePath = path
               console.log('  - Found Chrome at:', path)
               break
@@ -172,7 +175,10 @@ export class ScraperManager {
           throw new Error('No Chrome executable found. Please install Chrome or set CHROME_BIN environment variable.')
         }
         
-        this.browser = await puppeteer.launch({
+        // Import puppeteer-core dynamically for local environment
+        const { default: puppeteerModule } = await import('puppeteer-core')
+        
+        this.browser = await puppeteerModule.launch({
           executablePath,
           headless: true,
           args: [
