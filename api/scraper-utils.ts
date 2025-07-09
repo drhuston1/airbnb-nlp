@@ -150,7 +150,6 @@ export class ScraperManager {
     console.log('  - Version:', await this.browser.version())
     console.log('  - Connected:', this.browser.isConnected())
   }
-  }
 
   async createPage(): Promise<Page> {
     console.log('📄 Creating new page...')
