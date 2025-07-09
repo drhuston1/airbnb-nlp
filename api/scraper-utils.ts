@@ -63,7 +63,7 @@ export class ScraperManager {
           '--hide-scrollbars',
         ],
         defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath,
+        executablePath: await chromium.executablePath(),
         headless: chromium.headless,
         ignoreHTTPSErrors: true,
       })
