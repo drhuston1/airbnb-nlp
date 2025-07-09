@@ -1,6 +1,6 @@
 // Web scraper for property listings from multiple platforms
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { ScraperManager, waitForSelector, extractNumber, extractRating, randomDelay, sanitizeText, extractAmenitiesFromText } from './scraper-utils.mjs'
+import { ScraperManager, waitForSelector, extractNumber, extractRating, randomDelay, sanitizeText, extractAmenitiesFromText } from './scraper-utils'
 
 interface ScraperRequest {
   platform: 'airbnb' | 'booking' | 'vrbo'

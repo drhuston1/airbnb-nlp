@@ -1,6 +1,6 @@
 // GPT-powered semantic filtering for property listings
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { API_CONFIG } from './config.mjs'
+import { API_CONFIG } from './config'
 
 interface ListingSummary {
   id: string
