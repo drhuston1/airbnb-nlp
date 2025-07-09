@@ -1,6 +1,5 @@
-// Utility functions for web scraping
-import puppeteer, { Browser, Page } from 'puppeteer-core'
-import chromium from 'chrome-aws-lambda'
+// Utility functions for web scraping using Playwright
+import { chromium, Browser, Page } from 'playwright-chromium'
 
 export interface ScraperConfig {
   timeout: number
@@ -29,52 +28,23 @@ export class ScraperManager {
       return
     }
 
-    // Configure Chromium for serverless environments (like Vercel)
-    const isDev = process.env.NODE_ENV === 'development'
-    console.log('🔧 Scraper environment:', { 
-      NODE_ENV: process.env.NODE_ENV, 
-      isDev, 
-      VERCEL: process.env.VERCEL,
-      AWS_LAMBDA_FUNCTION_NAME: process.env.AWS_LAMBDA_FUNCTION_NAME 
-    })
+    console.log('🎭 Using Playwright for serverless scraping')
     
-    // Force serverless Chrome for testing
-    if (false && isDev) {
-      // Local development - use local Chrome
-      this.browser = await puppeteer.launch({
-        headless: this.config.headless,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu',
-          '--window-size=1920x1080',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
-        ]
-      })
-    } else {
-      // Production/Vercel - use chrome-aws-lambda (CommonJS compatible)
-      this.browser = await puppeteer.launch({
-        args: [
-          ...chromium.args,
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu',
-          '--window-size=1920x1080',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--hide-scrollbars',
-        ],
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath,
-        headless: chromium.headless,
-        ignoreHTTPSErrors: true,
-      })
-    }
+    // Playwright has built-in serverless support - much simpler!
+    this.browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--window-size=1920,1080',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--hide-scrollbars'
+      ]
+    })
   }
 
   async createPage(): Promise<Page> {
@@ -84,18 +54,19 @@ export class ScraperManager {
 
     const page = await this.browser!.newPage()
     
-    // Set user agent and viewport
-    await page.setUserAgent(this.config.userAgent)
-    await page.setViewport({ width: 1920, height: 1080 })
+    // Set user agent and viewport (Playwright API)
+    await page.setExtraHTTPHeaders({
+      'User-Agent': this.config.userAgent
+    })
+    await page.setViewportSize({ width: 1920, height: 1080 })
     
     // Block unnecessary resources for faster loading (but allow images)
-    await page.setRequestInterception(true)
-    page.on('request', (req) => {
-      const resourceType = req.resourceType()
+    await page.route('**/*', (route) => {
+      const resourceType = route.request().resourceType()
       if (['stylesheet', 'font', 'media'].includes(resourceType)) {
-        req.abort()
+        route.abort()
       } else {
-        req.continue()
+        route.continue()
       }
     })
 
