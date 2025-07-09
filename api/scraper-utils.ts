@@ -1,5 +1,5 @@
 // Utility functions for web scraping using Puppeteer with serverless Chromium
-import { Browser, Page } from 'puppeteer-core'
+import type { Browser, Page } from 'puppeteer-core'
 
 // Type definition for chrome-aws-lambda
 interface ChromiumPackage {
