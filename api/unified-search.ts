@@ -88,8 +88,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const searchPromises: Promise<{platform: string, data: any, status: 'success' | 'error', error?: string}>[] = []
 
     if (platforms.includes('airbnb')) {
+      // Temporarily disabled MCP - using scraper for testing
+      // searchPromises.push(
+      //   callPlatformAPI('/api/mcp-search', searchPayload, 'airbnb')
+      // )
+      
+      // Force use of scraper for Airbnb to test image functionality
+      console.log('🔧 TESTING MODE: Using scraper for Airbnb instead of MCP server')
       searchPromises.push(
-        callPlatformAPI('/api/mcp-search', searchPayload, 'airbnb')
+        callPlatformAPI('/api/scraper', searchPayload, 'airbnb')
       )
     }
 
@@ -210,7 +217,7 @@ async function callPlatformAPI(endpoint: string, payload: any, platform: string)
       // Call MCP search directly by reimplementing the core logic
       return await callMCPSearchDirect(payload, platform)
     } else if (endpoint === '/api/scraper') {
-      // Call scraper directly for Booking.com and VRBO
+      // Call scraper directly for all platforms (temporarily including Airbnb for testing)
       return await callScraperFallback(payload, platform)
     } else {
       throw new Error(`Unknown endpoint: ${endpoint}`)
