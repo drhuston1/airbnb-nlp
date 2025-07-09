@@ -31,8 +31,15 @@ export class ScraperManager {
 
     // Configure Chromium for serverless environments (like Vercel)
     const isDev = process.env.NODE_ENV === 'development'
+    console.log('🔧 Scraper environment:', { 
+      NODE_ENV: process.env.NODE_ENV, 
+      isDev, 
+      VERCEL: process.env.VERCEL,
+      AWS_LAMBDA_FUNCTION_NAME: process.env.AWS_LAMBDA_FUNCTION_NAME 
+    })
     
-    if (isDev) {
+    // Force serverless Chrome for testing
+    if (false && isDev) {
       // Local development - use local Chrome
       this.browser = await puppeteer.launch({
         headless: this.config.headless,
