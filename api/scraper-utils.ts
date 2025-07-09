@@ -54,11 +54,11 @@ export class ScraperManager {
     await page.setUserAgent(this.config.userAgent)
     await page.setViewport({ width: 1920, height: 1080 })
     
-    // Block unnecessary resources for faster loading
+    // Block unnecessary resources for faster loading (but allow images)
     await page.setRequestInterception(true)
     page.on('request', (req) => {
       const resourceType = req.resourceType()
-      if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+      if (['stylesheet', 'font', 'media'].includes(resourceType)) {
         req.abort()
       } else {
         req.continue()

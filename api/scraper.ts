@@ -144,10 +144,21 @@ async function scrapeAirbnb(params: Omit<ScraperRequest, 'platform'>): Promise<S
           const idMatch = url.match(/\/rooms\/(\d+)/)
           const id = idMatch ? idMatch[1] : `airbnb_${index}`
 
-          // Extract image
-          const imgElement = card.querySelector('img[data-testid="card-image"]') as HTMLImageElement
-          const image = imgElement?.src || ''
-          const images = image ? [image] : []
+          // Extract images - try to get multiple if available
+          const imgElements = card.querySelectorAll('img[data-testid="card-image"], img')
+          const images: string[] = []
+          imgElements.forEach((img: HTMLImageElement) => {
+            if (img.src && !img.src.includes('data:image') && !img.src.includes('blank')) {
+              images.push(img.src)
+            }
+          })
+          // Ensure we have at least one image, even if placeholder
+          if (images.length === 0) {
+            const fallbackImg = card.querySelector('img') as HTMLImageElement
+            if (fallbackImg?.src) {
+              images.push(fallbackImg.src)
+            }
+          }
 
           // Extract price
           const priceElement = card.querySelector('[data-testid="price-availability-row"] span')
@@ -283,10 +294,21 @@ async function scrapeBooking(params: Omit<ScraperRequest, 'platform'>): Promise<
           const idMatch = url.match(/hotel\/([^\/\?]+)/)
           const id = idMatch ? idMatch[1] : `booking_${index}`
 
-          // Extract image
-          const imgElement = card.querySelector('img[data-testid="image"]') as HTMLImageElement
-          const image = imgElement?.src || ''
-          const images = image ? [image] : []
+          // Extract images - try to get multiple if available
+          const imgElements = card.querySelectorAll('img[data-testid="image"], img')
+          const images: string[] = []
+          imgElements.forEach((img: HTMLImageElement) => {
+            if (img.src && !img.src.includes('data:image') && !img.src.includes('blank') && !img.src.includes('placeholder')) {
+              images.push(img.src)
+            }
+          })
+          // Ensure we have at least one image
+          if (images.length === 0) {
+            const fallbackImg = card.querySelector('img') as HTMLImageElement
+            if (fallbackImg?.src) {
+              images.push(fallbackImg.src)
+            }
+          }
 
           // Extract price
           const priceElement = card.querySelector('[data-testid="price-and-discounted-price"]')
@@ -425,10 +447,21 @@ async function scrapeVrbo(params: Omit<ScraperRequest, 'platform'>): Promise<Scr
           const idMatch = url.match(/\/(\d+)/) || url.match(/\/([a-zA-Z0-9]+)$/)
           const id = idMatch ? idMatch[1] : `vrbo_${index}`
 
-          // Extract image
-          const imgElement = card.querySelector('img') as HTMLImageElement
-          const image = imgElement?.src || ''
-          const images = image ? [image] : []
+          // Extract images - VRBO often has multiple images
+          const imgElements = card.querySelectorAll('img')
+          const images: string[] = []
+          imgElements.forEach((img: HTMLImageElement) => {
+            if (img.src && !img.src.includes('data:image') && !img.src.includes('blank') && !img.src.includes('placeholder')) {
+              images.push(img.src)
+            }
+          })
+          // Ensure we have at least one image
+          if (images.length === 0) {
+            const fallbackImg = card.querySelector('img') as HTMLImageElement
+            if (fallbackImg?.src) {
+              images.push(fallbackImg.src)
+            }
+          }
 
           // Extract price - VRBO shows nightly rates
           const priceElement = card.querySelector('[data-testid="price-summary"]') ||

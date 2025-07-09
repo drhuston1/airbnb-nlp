@@ -23,7 +23,7 @@ interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
-  platform?: 'airbnb' | 'booking.com' | 'vrbo'
+  platform?: 'airbnb' | 'booking' | 'vrbo'
 }
 
 interface PriceInsights {

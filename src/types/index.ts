@@ -36,6 +36,7 @@ export interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
+  platform?: 'airbnb' | 'booking' | 'vrbo'
 }
 
 export interface SearchResponse {

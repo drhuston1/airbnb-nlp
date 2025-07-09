@@ -11,7 +11,8 @@ This project now includes a robust web scraper that can extract property listing
 ✅ **Rate limiting**: Built-in delays to avoid detection  
 ✅ **Error handling**: Comprehensive retry logic  
 ✅ **Data normalization**: Consistent output format across platforms  
-✅ **Resource optimization**: Blocks unnecessary resources for faster scraping  
+✅ **Image extraction**: Multiple images per listing with fallback handling  
+✅ **Resource optimization**: Blocks unnecessary resources while preserving images  
 
 ## Architecture
 
@@ -165,6 +166,17 @@ No results found → Return empty array with proper metadata
 - **MCP fallback**: Uses fast MCP server first, scraper as backup
 - **Superhost badges**: Includes superhost status
 - **Rich amenities**: Better amenity detection
+
+### Image Handling
+
+The scraper now includes comprehensive image extraction:
+
+- **Multiple images**: Extracts all available images per listing
+- **Image filtering**: Filters out placeholder and data URIs
+- **Fallback handling**: Graceful degradation when images fail to load
+- **UI display**: Images displayed in listing cards with overlays
+- **Performance optimized**: Allows images while blocking other resources
+- **Error resilience**: Shows platform-branded placeholders when images unavailable
 
 ## Monitoring and Debugging
 

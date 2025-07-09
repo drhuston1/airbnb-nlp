@@ -96,7 +96,7 @@ interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
-  platform?: 'airbnb' | 'booking.com' | 'vrbo'
+  platform?: 'airbnb' | 'booking' | 'vrbo'
 }
 
 interface SearchResponse {
@@ -1187,12 +1187,49 @@ function App() {
           <>
             <Box p={4} borderBottom="1px" borderColor="gray.200">
               <HStack justify="space-between" align="center" mb={3}>
-                <HStack gap={2}>
-                  <Icon as={Home} w={4} h={4} color="gray.600" />
-                  <Text fontSize="sm" fontWeight="500" color="gray.700">
-                    Properties ({currentResults.length})
-                  </Text>
-                </HStack>
+                <VStack align="start" gap={1}>
+                  <HStack gap={2}>
+                    <Icon as={Home} w={4} h={4} color="gray.600" />
+                    <Text fontSize="sm" fontWeight="500" color="gray.700">
+                      Properties ({currentResults.length})
+                    </Text>
+                  </HStack>
+                  {/* Platform Summary */}
+                  {currentResults.length > 0 && (
+                    <HStack gap={2} flexWrap="wrap">
+                      {Object.entries(
+                        currentResults.reduce((acc, listing) => {
+                          const platform = listing.platform || 'unknown'
+                          acc[platform] = (acc[platform] || 0) + 1
+                          return acc
+                        }, {} as Record<string, number>)
+                      ).map(([platform, count]) => (
+                        <Box
+                          key={platform}
+                          px={2}
+                          py={1}
+                          borderRadius="full"
+                          fontSize="xs"
+                          fontWeight="500"
+                          bg={
+                            platform === 'airbnb' ? 'red.50' :
+                            platform === 'booking' ? 'blue.50' :
+                            platform === 'vrbo' ? 'orange.50' : 'gray.50'
+                          }
+                          color={
+                            platform === 'airbnb' ? 'red.600' :
+                            platform === 'booking' ? 'blue.600' :
+                            platform === 'vrbo' ? 'orange.600' : 'gray.600'
+                          }
+                        >
+                          {count} from {platform === 'airbnb' ? 'Airbnb' : 
+                                        platform === 'booking' ? 'Booking.com' :
+                                        platform === 'vrbo' ? 'VRBO' : platform}
+                        </Box>
+                      ))}
+                    </HStack>
+                  )}
+                </VStack>
                 <Button
                   size="xs"
                   variant="ghost"
@@ -1274,11 +1311,114 @@ function App() {
                       }}
                       transition="all 0.2s"
                     >
+                      {/* Property Image */}
+                      <Box 
+                        h="120px" 
+                        bg="gray.100" 
+                        position="relative"
+                        overflow="hidden"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                      >
+                        {listing.images && listing.images.length > 0 ? (
+                          <>
+                            <img
+                              src={listing.images[0]}
+                              alt={listing.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                objectPosition: 'center'
+                              }}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                                // Show placeholder when image fails
+                                const parent = target.parentElement
+                                if (parent) {
+                                  const placeholder = parent.querySelector('.image-placeholder') as HTMLElement
+                                  if (placeholder) {
+                                    placeholder.style.display = 'flex'
+                                  }
+                                }
+                              }}
+                            />
+                            {/* Image overlay with additional info */}
+                            {listing.images.length > 1 && (
+                              <Box
+                                position="absolute"
+                                bottom={2}
+                                right={2}
+                                bg="blackAlpha.700"
+                                color="white"
+                                px={2}
+                                py={1}
+                                borderRadius="md"
+                                fontSize="xs"
+                                fontWeight="500"
+                              >
+                                +{listing.images.length - 1} more
+                              </Box>
+                            )}
+                          </>
+                        ) : (
+                          <Box
+                            className="image-placeholder"
+                            w="full"
+                            h="full"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="center"
+                            bg="gray.200"
+                            color="gray.500"
+                          >
+                            <VStack gap={1}>
+                              <Icon as={Home} w={6} h={6} />
+                              <Text fontSize="xs" fontWeight="500">
+                                {listing.platform === 'airbnb' ? 'Airbnb' :
+                                 listing.platform === 'booking' ? 'Booking' :
+                                 listing.platform === 'vrbo' ? 'VRBO' : 'Property'}
+                              </Text>
+                            </VStack>
+                          </Box>
+                        )}
+                      </Box>
+                      
                       <Box p={3}>
                         <VStack align="start" gap={2}>
-                          <Text fontWeight="600" color="gray.900" lineHeight="1.3" fontSize="sm" lineClamp={2}>
-                            {listing.name}
-                          </Text>
+                          <HStack justify="space-between" w="full" align="start">
+                            <Text fontWeight="600" color="gray.900" lineHeight="1.3" fontSize="sm" lineClamp={2} flex="1">
+                              {listing.name}
+                            </Text>
+                            {/* Platform Badge */}
+                            <Box
+                              px={2}
+                              py={1}
+                              borderRadius="full"
+                              fontSize="xs"
+                              fontWeight="600"
+                              textTransform="uppercase"
+                              letterSpacing="0.5px"
+                              bg={
+                                listing.platform === 'airbnb' ? 'red.100' :
+                                listing.platform === 'booking' ? 'blue.100' :
+                                listing.platform === 'vrbo' ? 'orange.100' : 'gray.100'
+                              }
+                              color={
+                                listing.platform === 'airbnb' ? 'red.700' :
+                                listing.platform === 'booking' ? 'blue.700' :
+                                listing.platform === 'vrbo' ? 'orange.700' : 'gray.700'
+                              }
+                              flexShrink={0}
+                              ml={2}
+                            >
+                              {listing.platform === 'airbnb' ? 'Airbnb' :
+                               listing.platform === 'booking' ? 'Booking' :
+                               listing.platform === 'vrbo' ? 'VRBO' : listing.platform}
+                            </Box>
+                          </HStack>
                           
                           <HStack justify="space-between" w="full">
                             <HStack gap={1}>
