@@ -1,5 +1,6 @@
 // Utility functions for web scraping
-import puppeteer, { Browser, Page } from 'puppeteer'
+import puppeteer, { Browser, Page } from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 
 export interface ScraperConfig {
   timeout: number
@@ -28,19 +29,47 @@ export class ScraperManager {
       return
     }
 
-    this.browser = await puppeteer.launch({
-      headless: this.config.headless,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--window-size=1920x1080',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
-      ]
-    })
+    // Configure Chromium for serverless environments (like Vercel)
+    const isDev = process.env.NODE_ENV === 'development'
+    
+    if (isDev) {
+      // Local development - use local Chrome
+      this.browser = await puppeteer.launch({
+        headless: this.config.headless,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--window-size=1920x1080',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor'
+        ]
+      })
+    } else {
+      // Production/Vercel - use @sparticuz/chromium
+      this.browser = await puppeteer.launch({
+        args: [
+          ...chromium.args,
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--window-size=1920x1080',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--hide-scrollbars',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+        ],
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+      })
+    }
   }
 
   async createPage(): Promise<Page> {
