@@ -53,8 +53,12 @@ export class ScraperManager {
       try {
         console.log('📦 Loading @sparticuz/chromium module...')
         
-        // Use CommonJS require for @sparticuz/chromium (avoids ES module issues)
-        const chromium = require('@sparticuz/chromium')
+        // Use eval-based dynamic import to bypass bundler transformations
+        const dynamicImport = new Function('specifier', 'return import(specifier)')
+        console.log('✅ Dynamic import function created')
+        
+        const chromiumModule = await dynamicImport('@sparticuz/chromium') as { default: any }
+        const chromium = chromiumModule.default
         console.log('✅ @sparticuz/chromium module loaded successfully')
         
         // Use the standard @sparticuz/chromium approach
