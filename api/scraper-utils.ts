@@ -1,6 +1,5 @@
 // Utility functions for web scraping
 import puppeteer, { Browser, Page } from 'puppeteer-core'
-import chromium from '@sparticuz/chromium'
 
 export interface ScraperConfig {
   timeout: number
@@ -48,10 +47,12 @@ export class ScraperManager {
         ]
       })
     } else {
-      // Production/Vercel - use @sparticuz/chromium
+      // Production/Vercel - use @sparticuz/chromium with dynamic import
+      const chromium = await import('@sparticuz/chromium')
+      
       this.browser = await puppeteer.launch({
         args: [
-          ...chromium.args,
+          ...chromium.default.args,
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
@@ -61,12 +62,10 @@ export class ScraperManager {
           '--disable-web-security',
           '--disable-features=VizDisplayCompositor',
           '--hide-scrollbars',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
         ],
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
+        defaultViewport: chromium.default.defaultViewport,
+        executablePath: await chromium.default.executablePath(),
+        headless: chromium.default.headless,
         ignoreHTTPSErrors: true,
       })
     }
