@@ -1,6 +1,6 @@
 // Enhanced query analysis with GPT-4o-mini for location and refinement understanding
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { API_CONFIG } from './config'
+import { API_CONFIG } from './config.mjs'
 
 interface QueryAnalysisRequest {
   query: string

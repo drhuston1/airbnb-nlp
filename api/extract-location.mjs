@@ -1,6 +1,6 @@
 // Secure backend endpoint for GPT-4o-mini location extraction
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { API_CONFIG } from './config'
+import { API_CONFIG } from './config.mjs'
 
 interface LocationExtractionRequest {
   query: string
