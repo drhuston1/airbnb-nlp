@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "npx @sparticuz/chromium-min/install"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.21.1",
