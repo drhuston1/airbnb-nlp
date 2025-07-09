@@ -1,5 +1,5 @@
-// Utility functions for web scraping using Playwright with serverless Chromium
-import { chromium, Browser, Page } from 'playwright-chromium'
+// Utility functions for web scraping using Puppeteer with serverless Chromium
+import puppeteer, { Browser, Page } from 'puppeteer-core'
 
 // Type definition for @sparticuz/chromium
 interface ChromiumPackage {
@@ -36,7 +36,7 @@ export class ScraperManager {
       return
     }
 
-    console.log('🎭 Using Playwright with serverless Chromium')
+    console.log('🎭 Using Puppeteer with serverless Chromium')
     console.log('🔍 Environment variables:')
     console.log('  - VERCEL:', process.env.VERCEL || 'undefined')
     console.log('  - AWS_LAMBDA_FUNCTION_NAME:', process.env.AWS_LAMBDA_FUNCTION_NAME || 'undefined')
@@ -82,7 +82,7 @@ export class ScraperManager {
         console.log('🔧 Final launch args count:', launchArgs.length)
         
         console.log('🚀 Launching Chromium with serverless configuration...')
-        this.browser = await chromium.launch({
+        this.browser = await puppeteer.launch({
           executablePath,
           headless: chromiumPkg.headless,
           args: launchArgs
@@ -98,21 +98,50 @@ export class ScraperManager {
         
         console.log('🔄 Attempting fallback to system Chrome...')
         try {
-          this.browser = await chromium.launch({
-            headless: true,
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-accelerated-2d-canvas',
-              '--disable-gpu',
-              '--window-size=1920,1080',
-              '--disable-web-security',
-              '--disable-features=VizDisplayCompositor',
-              '--hide-scrollbars'
-            ]
-          })
-          console.log('✅ System Chrome fallback successful')
+          // Try common Chrome locations for puppeteer-core fallback
+          const possiblePaths = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+          ]
+          
+          let executablePath = null
+          for (const path of possiblePaths) {
+            try {
+              const fs = require('fs')
+              if (fs.existsSync(path)) {
+                executablePath = path
+                console.log('  - Found Chrome at:', path)
+                break
+              }
+            } catch (e) {
+              // Continue checking
+            }
+          }
+          
+          if (executablePath) {
+            this.browser = await puppeteer.launch({
+              executablePath,
+              headless: true,
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--disable-gpu',
+                '--window-size=1920,1080',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor',
+                '--hide-scrollbars'
+              ]
+            })
+            console.log('✅ System Chrome fallback successful')
+          } else {
+            throw new Error('No Chrome executable found in common locations')
+          }
         } catch (fallbackError) {
           console.error('❌ System Chrome fallback also failed:')
           console.error('  - Fallback error:', fallbackError.message)
@@ -120,10 +149,40 @@ export class ScraperManager {
         }
       }
     } else {
-      console.log('💻 Local environment detected, using system Chromium')
+      console.log('💻 Local environment detected, using system Chrome')
       try {
-        console.log('🚀 Launching system Chromium...')
-        this.browser = await chromium.launch({
+        console.log('🚀 Launching system Chrome...')
+        
+        // Find Chrome executable for local development
+        const possiblePaths = [
+          '/usr/bin/google-chrome',
+          '/usr/bin/chromium-browser',
+          '/usr/bin/chromium',
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+          'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+          'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+        ]
+        
+        let executablePath = null
+        for (const path of possiblePaths) {
+          try {
+            const fs = require('fs')
+            if (fs.existsSync(path)) {
+              executablePath = path
+              console.log('  - Found Chrome at:', path)
+              break
+            }
+          } catch (e) {
+            // Continue checking
+          }
+        }
+        
+        if (!executablePath) {
+          throw new Error('No Chrome executable found. Please install Chrome or set CHROME_BIN environment variable.')
+        }
+        
+        this.browser = await puppeteer.launch({
+          executablePath,
           headless: true,
           args: [
             '--no-sandbox',
@@ -137,9 +196,9 @@ export class ScraperManager {
             '--hide-scrollbars'
           ]
         })
-        console.log('✅ System Chromium launched successfully!')
+        console.log('✅ System Chrome launched successfully!')
       } catch (error) {
-        console.error('❌ System Chromium launch failed:')
+        console.error('❌ System Chrome launch failed:')
         console.error('  - Error:', error.message)
         throw error
       }
@@ -162,23 +221,22 @@ export class ScraperManager {
       const page = await this.browser!.newPage()
       console.log('✅ Page created successfully')
       
-      // Set user agent and viewport (Playwright API)
+      // Set user agent and viewport (Puppeteer API)
       console.log('🔧 Setting page configuration...')
-      await page.setExtraHTTPHeaders({
-        'User-Agent': this.config.userAgent
-      })
+      await page.setUserAgent(this.config.userAgent)
       console.log('  - User agent set')
       
-      await page.setViewportSize({ width: 1920, height: 1080 })
+      await page.setViewport({ width: 1920, height: 1080 })
       console.log('  - Viewport size set')
       
       // Block unnecessary resources for faster loading (but allow images)
-      await page.route('**/*', (route) => {
-        const resourceType = route.request().resourceType()
+      await page.setRequestInterception(true)
+      page.on('request', (req) => {
+        const resourceType = req.resourceType()
         if (['stylesheet', 'font', 'media'].includes(resourceType)) {
-          route.abort()
+          req.abort()
         } else {
-          route.continue()
+          req.continue()
         }
       })
       console.log('  - Resource blocking configured')

@@ -144,7 +144,7 @@ async function scrapeAirbnb(params: Omit<ScraperRequest, 'platform'>): Promise<S
     console.log('🔗 Built Airbnb URL:', searchUrl)
 
     console.log('🌐 Navigating to Airbnb...')
-    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 })
     console.log('✅ Navigation completed')
 
     // Add random delay to appear more human-like
@@ -304,7 +304,7 @@ async function scrapeBooking(params: Omit<ScraperRequest, 'platform'>): Promise<
     const searchUrl = buildBookingUrl(params)
     console.log('Navigating to Booking.com URL:', searchUrl)
 
-    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 })
 
     // Add random delay
     await randomDelay(2000, 4000)
@@ -445,7 +445,7 @@ async function scrapeVrbo(params: Omit<ScraperRequest, 'platform'>): Promise<Scr
     const searchUrl = buildVrboUrl(params)
     console.log('Navigating to VRBO URL:', searchUrl)
 
-    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 })
+    await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 })
 
     // Add random delay
     await randomDelay(2000, 4000)
