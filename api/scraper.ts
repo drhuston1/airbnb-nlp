@@ -46,7 +46,11 @@ interface ScraperResponse {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const startTime = Date.now()
+  console.log('🚀 Scraper API request started at:', new Date().toISOString())
+  
   if (req.method !== 'POST') {
+    console.log('❌ Invalid method:', req.method)
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
@@ -61,61 +65,105 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       page = 1 
     }: ScraperRequest = req.body
 
+    console.log('📝 Request parameters:')
+    console.log('  - Platform:', platform)
+    console.log('  - Location:', location)
+    console.log('  - Check-in:', checkin || 'not provided')
+    console.log('  - Check-out:', checkout || 'not provided')
+    console.log('  - Adults:', adults)
+    console.log('  - Children:', children)
+    console.log('  - Page:', page)
+
     if (!platform || !location) {
+      console.log('❌ Missing required parameters')
       return res.status(400).json({ error: 'Platform and location are required' })
     }
 
-    console.log(`Starting ${platform} scraper for:`, { location, adults, children, page })
+    console.log(`🎯 Starting ${platform} scraper for:`, { location, adults, children, page })
 
     let result: ScraperResponse
 
     switch (platform) {
       case 'airbnb':
+        console.log('🏠 Initiating Airbnb scraper...')
         result = await scrapeAirbnb({ location, checkin, checkout, adults, children, page })
         break
       case 'booking':
+        console.log('🏨 Initiating Booking.com scraper...')
         result = await scrapeBooking({ location, checkin, checkout, adults, children, page })
         break
       case 'vrbo':
+        console.log('🏖️ Initiating VRBO scraper...')
         result = await scrapeVrbo({ location, checkin, checkout, adults, children, page })
         break
       default:
+        console.log('❌ Unsupported platform:', platform)
         return res.status(400).json({ error: 'Unsupported platform' })
     }
 
-    console.log(`${platform} scraper completed: ${result.listings.length} properties found`)
+    const duration = Date.now() - startTime
+    console.log(`✅ ${platform} scraper completed successfully!`)
+    console.log('📊 Results summary:')
+    console.log('  - Properties found:', result.listings.length)
+    console.log('  - Has more pages:', result.hasMore)
+    console.log('  - Total duration:', `${duration}ms`)
+    console.log('  - Images extracted:', result.listings.reduce((acc, listing) => acc + listing.images.length, 0))
+    
     return res.status(200).json(result)
 
   } catch (error) {
-    console.error('Scraper error:', error)
+    const duration = Date.now() - startTime
+    console.error('❌ Scraper failed after', `${duration}ms`)
+    console.error('🔍 Error details:')
+    console.error('  - Type:', error.constructor.name)
+    console.error('  - Message:', error.message)
+    console.error('  - Stack:', error.stack)
+    
     return res.status(500).json({ 
       error: 'Scraper failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      duration: `${duration}ms`,
+      timestamp: new Date().toISOString()
     })
   }
 }
 
 async function scrapeAirbnb(params: Omit<ScraperRequest, 'platform'>): Promise<ScraperResponse> {
+  console.log('🏠 Starting Airbnb scraper function')
   const scraper = new ScraperManager()
   
   try {
+    console.log('⚙️ Initializing scraper manager...')
     await scraper.initialize()
+    
+    console.log('📄 Creating page...')
     const page = await scraper.createPage()
 
     // Build Airbnb search URL
     const searchUrl = buildAirbnbUrl(params)
-    console.log('Navigating to Airbnb URL:', searchUrl)
+    console.log('🔗 Built Airbnb URL:', searchUrl)
 
+    console.log('🌐 Navigating to Airbnb...')
     await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 })
+    console.log('✅ Navigation completed')
 
     // Add random delay to appear more human-like
+    console.log('⏱️ Adding human-like delay...')
     await randomDelay(2000, 4000)
 
     // Wait for listings to load
+    console.log('🔍 Waiting for listings to load...')
     const hasListings = await waitForSelector(page, '[data-testid="card-container"]', 15000)
+    console.log('📋 Listings found:', hasListings)
     
     if (!hasListings) {
-      console.warn('No listings found on Airbnb page')
+      console.warn('⚠️ No listings found on Airbnb page')
+      console.log('🔍 Checking page content for debugging...')
+      const pageTitle = await page.title()
+      const pageUrl = page.url()
+      console.log('  - Page title:', pageTitle)
+      console.log('  - Current URL:', pageUrl)
+      
       return {
         listings: [],
         hasMore: false,

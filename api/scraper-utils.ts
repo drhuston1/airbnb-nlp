@@ -1,6 +1,13 @@
 // Utility functions for web scraping using Playwright with serverless Chromium
 import { chromium, Browser, Page } from 'playwright-chromium'
 
+// Type definition for @sparticuz/chromium
+interface ChromiumPackage {
+  executablePath(): Promise<string>
+  headless: boolean
+  args: string[]
+}
+
 export interface ScraperConfig {
   timeout: number
   retries: number
@@ -25,36 +32,97 @@ export class ScraperManager {
 
   async initialize(): Promise<void> {
     if (this.browser) {
+      console.log('🔄 Browser already initialized, reusing existing instance')
       return
     }
 
     console.log('🎭 Using Playwright with serverless Chromium')
+    console.log('🔍 Environment variables:')
+    console.log('  - VERCEL:', process.env.VERCEL || 'undefined')
+    console.log('  - AWS_LAMBDA_FUNCTION_NAME:', process.env.AWS_LAMBDA_FUNCTION_NAME || 'undefined')
+    console.log('  - NODE_ENV:', process.env.NODE_ENV || 'undefined')
+    console.log('  - Platform:', process.platform)
+    console.log('  - Architecture:', process.arch)
     
     // Detect if we're in a serverless environment
     const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+    console.log('🎯 Environment detection result:', isServerless ? 'SERVERLESS' : 'LOCAL')
     
     if (isServerless) {
-      console.log('🌐 Serverless environment detected, using @sparticuz/chromium')
+      console.log('🌐 Serverless environment detected, attempting @sparticuz/chromium')
       try {
-        // Dynamic import for ES module compatibility
-        const chromiumPkg = await import('@sparticuz/chromium')
+        console.log('📦 Loading @sparticuz/chromium module...')
         
-        // Use serverless-compatible Chromium
+        // Use eval to prevent bundlers from transforming dynamic import
+        const dynamicImport = new Function('specifier', 'return import(specifier)')
+        console.log('✅ Dynamic import function created')
+        
+        const chromiumModule = await dynamicImport('@sparticuz/chromium') as { default: ChromiumPackage }
+        console.log('✅ @sparticuz/chromium module loaded successfully')
+        
+        const chromiumPkg = chromiumModule.default
+        console.log('✅ Chromium package extracted from module')
+        
+        // Get executable path and log details
+        const executablePath = await chromiumPkg.executablePath()
+        console.log('🚀 Chromium details:')
+        console.log('  - Executable path:', executablePath)
+        console.log('  - Headless mode:', chromiumPkg.headless)
+        console.log('  - Default args count:', chromiumPkg.args.length)
+        console.log('  - Default args:', chromiumPkg.args.slice(0, 5).join(', '), '...')
+        
+        const launchArgs = [
+          ...chromiumPkg.args,
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--window-size=1920,1080',
+          '--hide-scrollbars'
+        ]
+        console.log('🔧 Final launch args count:', launchArgs.length)
+        
+        console.log('🚀 Launching Chromium with serverless configuration...')
         this.browser = await chromium.launch({
-          executablePath: await chromiumPkg.default.executablePath(),
-          headless: chromiumPkg.default.headless,
-          args: [
-            ...chromiumPkg.default.args,
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--disable-gpu',
-            '--window-size=1920,1080',
-            '--hide-scrollbars'
-          ]
+          executablePath,
+          headless: chromiumPkg.headless,
+          args: launchArgs
         })
+        console.log('✅ Chromium launched successfully in serverless mode!')
+        
       } catch (error) {
-        console.error('Failed to load @sparticuz/chromium, falling back to system Chrome:', error)
-        // Fallback to system Chrome if @sparticuz/chromium fails
+        console.error('❌ Failed to load @sparticuz/chromium:')
+        console.error('  - Error type:', error.constructor.name)
+        console.error('  - Error message:', error.message)
+        console.error('  - Error code:', (error as any).code)
+        console.error('  - Full error:', error)
+        
+        console.log('🔄 Attempting fallback to system Chrome...')
+        try {
+          this.browser = await chromium.launch({
+            headless: true,
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-accelerated-2d-canvas',
+              '--disable-gpu',
+              '--window-size=1920,1080',
+              '--disable-web-security',
+              '--disable-features=VizDisplayCompositor',
+              '--hide-scrollbars'
+            ]
+          })
+          console.log('✅ System Chrome fallback successful')
+        } catch (fallbackError) {
+          console.error('❌ System Chrome fallback also failed:')
+          console.error('  - Fallback error:', fallbackError.message)
+          throw new Error(`Both serverless and system Chrome failed. Serverless: ${error.message}, System: ${fallbackError.message}`)
+        }
+      }
+    } else {
+      console.log('💻 Local environment detected, using system Chromium')
+      try {
+        console.log('🚀 Launching system Chromium...')
         this.browser = await chromium.launch({
           headless: true,
           args: [
@@ -69,51 +137,61 @@ export class ScraperManager {
             '--hide-scrollbars'
           ]
         })
+        console.log('✅ System Chromium launched successfully!')
+      } catch (error) {
+        console.error('❌ System Chromium launch failed:')
+        console.error('  - Error:', error.message)
+        throw error
       }
-    } else {
-      console.log('💻 Local environment detected, using system Chromium')
-      // Use local Chromium for development
-      this.browser = await chromium.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu',
-          '--window-size=1920,1080',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--hide-scrollbars'
-        ]
-      })
     }
+    
+    console.log('🎉 Browser initialization completed successfully!')
+    console.log('📊 Browser info:')
+    console.log('  - Version:', await this.browser.version())
+    console.log('  - Connected:', this.browser.isConnected())
+  }
   }
 
   async createPage(): Promise<Page> {
+    console.log('📄 Creating new page...')
     if (!this.browser) {
+      console.log('🔄 Browser not initialized, initializing now...')
       await this.initialize()
     }
 
-    const page = await this.browser!.newPage()
-    
-    // Set user agent and viewport (Playwright API)
-    await page.setExtraHTTPHeaders({
-      'User-Agent': this.config.userAgent
-    })
-    await page.setViewportSize({ width: 1920, height: 1080 })
-    
-    // Block unnecessary resources for faster loading (but allow images)
-    await page.route('**/*', (route) => {
-      const resourceType = route.request().resourceType()
-      if (['stylesheet', 'font', 'media'].includes(resourceType)) {
-        route.abort()
-      } else {
-        route.continue()
-      }
-    })
-
-    return page
+    try {
+      const page = await this.browser!.newPage()
+      console.log('✅ Page created successfully')
+      
+      // Set user agent and viewport (Playwright API)
+      console.log('🔧 Setting page configuration...')
+      await page.setExtraHTTPHeaders({
+        'User-Agent': this.config.userAgent
+      })
+      console.log('  - User agent set')
+      
+      await page.setViewportSize({ width: 1920, height: 1080 })
+      console.log('  - Viewport size set')
+      
+      // Block unnecessary resources for faster loading (but allow images)
+      await page.route('**/*', (route) => {
+        const resourceType = route.request().resourceType()
+        if (['stylesheet', 'font', 'media'].includes(resourceType)) {
+          route.abort()
+        } else {
+          route.continue()
+        }
+      })
+      console.log('  - Resource blocking configured')
+      
+      console.log('🎉 Page setup completed successfully!')
+      return page
+      
+    } catch (error) {
+      console.error('❌ Failed to create page:')
+      console.error('  - Error:', error.message)
+      throw error
+    }
   }
 
   async close(): Promise<void> {
