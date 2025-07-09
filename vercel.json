@@ -4,11 +4,8 @@
     "CHROMIUM_REMOTE_EXEC_PATH": "https://github.com/Sparticuz/chromium/releases/download/v133.0.0/chromium-v133.0.0-pack.tar.br"
   },
   "functions": {
-    "api/scraper.mts": {
+    "api/*.mts": {
       "memory": 1024,
-      "maxDuration": 60
-    },
-    "api/unified-search.mts": {
       "maxDuration": 60
     }
   }
