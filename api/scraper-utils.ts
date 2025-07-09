@@ -1,9 +1,9 @@
 // Utility functions for web scraping using Puppeteer with serverless Chromium
 import puppeteer, { Browser, Page } from 'puppeteer-core'
 
-// Type definition for @sparticuz/chromium
+// Type definition for chrome-aws-lambda
 interface ChromiumPackage {
-  executablePath(): Promise<string>
+  executablePath: string
   headless: boolean
   args: string[]
 }
@@ -49,30 +49,24 @@ export class ScraperManager {
     console.log('🎯 Environment detection result:', isServerless ? 'SERVERLESS' : 'LOCAL')
     
     if (isServerless) {
-      console.log('🌐 Serverless environment detected, attempting @sparticuz/chromium')
+      console.log('🌐 Serverless environment detected, attempting chrome-aws-lambda')
       try {
-        console.log('📦 Loading @sparticuz/chromium module...')
+        console.log('📦 Loading chrome-aws-lambda module...')
         
-        // Use eval to prevent bundlers from transforming dynamic import
-        const dynamicImport = new Function('specifier', 'return import(specifier)')
-        console.log('✅ Dynamic import function created')
-        
-        const chromiumModule = await dynamicImport('@sparticuz/chromium') as { default: ChromiumPackage }
-        console.log('✅ @sparticuz/chromium module loaded successfully')
-        
-        const chromiumPkg = chromiumModule.default
-        console.log('✅ Chromium package extracted from module')
+        // Use require since chrome-aws-lambda is CommonJS
+        const chromium = require('chrome-aws-lambda')
+        console.log('✅ chrome-aws-lambda module loaded successfully')
         
         // Get executable path and log details
-        const executablePath = await chromiumPkg.executablePath()
+        const executablePath = await chromium.executablePath
         console.log('🚀 Chromium details:')
         console.log('  - Executable path:', executablePath)
-        console.log('  - Headless mode:', chromiumPkg.headless)
-        console.log('  - Default args count:', chromiumPkg.args.length)
-        console.log('  - Default args:', chromiumPkg.args.slice(0, 5).join(', '), '...')
+        console.log('  - Headless mode:', chromium.headless)
+        console.log('  - Default args count:', chromium.args.length)
+        console.log('  - Default args:', chromium.args.slice(0, 5).join(', '), '...')
         
         const launchArgs = [
-          ...chromiumPkg.args,
+          ...chromium.args,
           '--disable-dev-shm-usage',
           '--disable-accelerated-2d-canvas',
           '--disable-gpu',
@@ -84,13 +78,13 @@ export class ScraperManager {
         console.log('🚀 Launching Chromium with serverless configuration...')
         this.browser = await puppeteer.launch({
           executablePath,
-          headless: chromiumPkg.headless,
+          headless: chromium.headless,
           args: launchArgs
         })
         console.log('✅ Chromium launched successfully in serverless mode!')
         
       } catch (error) {
-        console.error('❌ Failed to load @sparticuz/chromium:')
+        console.error('❌ Failed to load chrome-aws-lambda:')
         console.error('  - Error type:', error.constructor.name)
         console.error('  - Error message:', error.message)
         console.error('  - Error code:', (error as any).code)
@@ -145,7 +139,7 @@ export class ScraperManager {
         } catch (fallbackError) {
           console.error('❌ System Chrome fallback also failed:')
           console.error('  - Fallback error:', fallbackError.message)
-          throw new Error(`Both serverless and system Chrome failed. Serverless: ${error.message}, System: ${fallbackError.message}`)
+          throw new Error(`Both chrome-aws-lambda and system Chrome failed. Serverless: ${error.message}, System: ${fallbackError.message}`)
         }
       }
     } else {

@@ -4,7 +4,7 @@
 
 The MCP server has been **temporarily disabled** to test the full scraping functionality with images.
 
-**✅ FIXED**: Chrome compatibility issue resolved by switching to Playwright + `@sparticuz/chromium` for Vercel serverless functions.
+**✅ FIXED**: Chrome compatibility issue resolved by switching to Puppeteer + `chrome-aws-lambda` for Vercel serverless functions.
 
 ### What's Changed
 
@@ -121,9 +121,9 @@ curl -X POST https://your-app.vercel.app/api/unified-search \
 ### Recent Fixes Applied
 
 **✅ Chrome Installation Issue Fixed**:
-- **Problem**: `Executable doesn't exist at /home/sbx_user1051/.cache/ms-playwright/chromium_headless_shell` in Vercel serverless environment
-- **Solution**: Switched from `puppeteer` to `playwright-chromium` + `@sparticuz/chromium` with dynamic imports and environment detection
-- **Result**: Chrome now works in serverless Vercel functions with automatic local/serverless detection and ES module compatibility
+- **Problem**: `Cannot find package '@sparticuz/chromium'` and module resolution issues in Vercel serverless environment
+- **Solution**: Switched to `puppeteer-core` + `chrome-aws-lambda` (CommonJS) with compatible versions and environment detection
+- **Result**: Chrome now works in serverless Vercel functions with automatic local/serverless detection and CommonJS compatibility
 
 **✅ Function Timeout Extended**:
 - **Added**: 60-second timeout for scraper functions in `vercel.json`
