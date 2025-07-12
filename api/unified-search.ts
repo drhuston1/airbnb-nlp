@@ -1,4 +1,4 @@
-// Airbnb search API with enhanced trust scoring and review insights
+// Airbnb search API using HTTP API only
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 interface UnifiedSearchRequest {
@@ -8,8 +8,9 @@ interface UnifiedSearchRequest {
   checkout?: string
   adults?: number
   children?: number
+  priceMin?: number
+  priceMax?: number
   page?: number
-  // Note: Now focused on Airbnb for the best search experience
 }
 
 interface UnifiedProperty {
@@ -36,6 +37,11 @@ interface UnifiedProperty {
   roomType: string
   propertyType?: string
   platform?: string
+  bedrooms?: number
+  bathrooms?: number
+  beds?: number
+  maxGuests?: number
+  trustScore?: number
 }
 
 interface UnifiedSearchResponse {
@@ -63,62 +69,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       checkin, 
       checkout, 
       adults = 2, 
-      children = 0, 
+      children = 0,
+      priceMin,
+      priceMax,
       page = 1
     }: UnifiedSearchRequest = req.body
 
-    console.log('Airbnb search request:', { query, location, adults, children })
+    console.log('Airbnb search request:', { query, location, adults, children, priceMin, priceMax })
 
     if (!location) {
-      return res.status(400).json({ error: 'Location is required for unified search' })
+      return res.status(400).json({ error: 'Location is required for search' })
     }
 
-    // Prepare search payload for all platforms
-    const searchPayload = {
+    // Search Airbnb using HTTP API only
+    console.log('🚀 Searching Airbnb using HTTP API...')
+    
+    const result = await callAirbnbHttpAPI({
       query,
       location,
       checkin,
       checkout,
       adults,
       children,
+      priceMin,
+      priceMax,
       page
-    }
+    })
 
-    // Search Airbnb using HTTP API only
-    console.log('🚀 Searching Airbnb using HTTP API...')
-    
-    const result = await callAirbnbHttpAPI(searchPayload, 'airbnb')
     console.log('Airbnb search completed:', { status: 'success' })
 
     // Process Airbnb results
     let allListings: UnifiedProperty[] = []
     const sourceStatus: UnifiedSearchResponse['sources'] = []
 
-    try {
-      const airbnbResult = result as any
-      if (airbnbResult.status === 'success' && (airbnbResult.data?.listings || airbnbResult.data?.results)) {
-        const rawListings = airbnbResult.data.listings || airbnbResult.data.results
-        allListings = rawListings
-        
-        sourceStatus.push({
-          platform: 'airbnb',
-          count: rawListings.length,
-          status: 'success'
-        })
-      } else {
-        sourceStatus.push({
-          platform: 'airbnb', 
-          count: 0,
-          status: 'error',
-          error: airbnbResult.error || 'Unknown error'
-        })
-      }
-    } catch (error) {
+    if (result.status === 'success' && result.data?.results) {
+      allListings = result.data.results
+      
       sourceStatus.push({
         platform: 'airbnb',
+        count: allListings.length,
+        status: 'success'
+      })
+    } else {
+      sourceStatus.push({
+        platform: 'airbnb', 
         count: 0,
         status: 'error',
-        error: error instanceof Error ? error.message : 'Request failed'
+        error: result.error || 'Unknown error'
       })
     }
 
@@ -154,328 +151,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Unified search error:', error)
     return res.status(500).json({ 
-      error: 'Failed to perform unified search',
+      error: 'Failed to perform search',
       details: error instanceof Error ? error.message : 'Unknown error'
     })
   }
 }
 
-// Direct API integration without importing handlers to avoid mock object issues
-
-// Helper function to call individual platform APIs directly
-async function callPlatformAPI(endpoint: string, payload: any, platform: string) {
-  try {
-    console.log(`Calling ${platform} API directly with payload:`, payload)
-    
-    if (endpoint === '/api/airbnb-api') {
-      // Try HTTP API, fall back to MCP if it fails
-      try {
-        return await callAirbnbHttpAPI(payload, platform)
-      } catch (httpError) {
-        console.log(`❌ HTTP API failed for ${platform}, falling back to MCP:`, httpError)
-        return await callMCPSearchDirect(payload, platform)
-      }
-    } else if (endpoint === '/api/mcp-search') {
-      // Call MCP search directly by reimplementing the core logic
-      return await callMCPSearchDirect(payload, platform)
-    } else if (endpoint === '/api/scraper') {
-      // Call scraper directly for all platforms (temporarily including Airbnb for testing)
-      return await callScraperFallback(payload, platform)
-    } else {
-      throw new Error(`Unknown endpoint: ${endpoint}`)
-    }
-    
-  } catch (error) {
-    console.error(`${platform} API error:`, error)
-    return { 
-      platform, 
-      data: null, 
-      status: 'error' as const, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    }
-  }
-}
-
-// Direct MCP search implementation with scraper fallback
-async function callMCPSearchDirect(payload: any, platform: string) {
-  try {
-    const { location, adults = 2, children = 0, page = 1 } = payload
-    
-    if (!location) {
-      throw new Error('Location is required for MCP search')
-    }
-
-    const searchParams = {
-      location,
-      adults,
-      children,
-      page,
-      ignoreRobotsText: true
-    }
-
-    console.log('Calling external MCP server with params:', searchParams)
-
-    // Use environment variable or default to the enhanced MCP server
-    const mcpServerUrl = process.env.MCP_SERVER_URL || 'https://airbnb-mcp-production.up.railway.app'
-    
-    try {
-      const response = await fetch(`${mcpServerUrl}/airbnb-search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(searchParams),
-        signal: AbortSignal.timeout(20000) // 20 second timeout
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`External MCP server error: ${response.status} - ${errorText}`)
-      }
-
-      const mcpResult = await response.json()
-      
-      if (!mcpResult || !mcpResult.searchResults) {
-        throw new Error(`MCP server returned data but no searchResults`)
-      }
-
-      // Transform MCP results to our format
-      const listings = await transformMCPResults(mcpResult.searchResults, payload)
-
-      return {
-        platform,
-        data: {
-          listings,
-          searchUrl: mcpResult.searchUrl,
-          totalResults: listings.length,
-          page: page,
-          hasMore: listings.length >= 18,
-          source: 'Real Airbnb MCP Server'
-        },
-        status: 'success' as const
-      }
-    } catch (mcpError) {
-      console.error('MCP server failed:', mcpError)
-      throw mcpError
-    }
-
-  } catch (error) {
-    console.error('MCP search failed:', error)
-    throw error
-  }
-}
-
-// Transform MCP results helper function
-async function transformMCPResults(searchResults: any[], payload?: any) {
-  return Promise.all(searchResults.map(async (listing: any) => {
-    // Improved price extraction
-    const priceLabel = listing.structuredDisplayPrice?.primaryLine?.accessibilityLabel || ''
-    const priceDetails = listing.structuredDisplayPrice?.explanationData?.priceDetails || ''
-    
-    // Extract total and nightly rates more accurately
-    let totalPrice = 100
-    let nightlyRate = 100
-    
-    const totalMatch = priceLabel.match(/\$(\d+(?:,\d+)*)\s+for\s+(\d+)\s+night/)
-    if (totalMatch) {
-      totalPrice = parseInt(totalMatch[1].replace(/,/g, ''))
-      const nights = parseInt(totalMatch[2])
-      nightlyRate = Math.round(totalPrice / nights)
-    } else {
-      const priceDetailsMatch = priceDetails.match(/\$(\d+(?:,\d+)*(?:\.\d+)?)\s+x\s+(\d+)\s+night/)
-      if (priceDetailsMatch) {
-        nightlyRate = Math.round(parseFloat(priceDetailsMatch[1].replace(/,/g, '')))
-        const nights = parseInt(priceDetailsMatch[2])
-        totalPrice = nightlyRate * nights
-      }
-    }
-
-    // Extract rating and reviews more accurately
-    const ratingMatch = listing.avgRatingA11yLabel?.match(/([\d.]+)\s+out\s+of\s+5/)
-    const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 4.0
-
-    const reviewMatch = listing.avgRatingA11yLabel?.match(/(\d+(?:,\d+)*)\s+review/)
-    const reviewsCount = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, '')) : 0
-
-    // Enhanced badge detection
-    const badges = listing.badges?.toLowerCase() || ''
-    const isSuperhost = badges.includes('superhost')
-    const isGuestFavorite = badges.includes('guest favorite')
-
-    // Extract amenities from property name and structured content
-    const name = listing.demandStayListing?.description?.name?.localizedStringWithTranslationPreference || 'Property'
-    const primaryLine = listing.structuredContent?.primaryLine || ''
-    const amenities = extractAmenitiesFromText(name + ' ' + primaryLine)
-
-    // Extract city from search location and property name
-    let city = 'Unknown'
-    const searchLocation = payload.location || ''
-    const propertyName = name || ''
-    
-    // Use search location as the primary city
-    if (searchLocation) {
-      city = searchLocation
-    }
-    
-    // Try to extract more specific city from property name
-    const cityMatches = propertyName.match(/\b(Malibu|Los Angeles|Beverly Hills|Santa Monica|Venice|Hollywood|West Hollywood|Pasadena|Burbank|Glendale|Long Beach|Manhattan Beach|Hermosa Beach|Redondo Beach)\b/i)
-    if (cityMatches) {
-      city = cityMatches[0]
-    }
-    
-    // Fallback to coordinates if needed
-    const lat = listing.demandStayListing?.location?.coordinate?.latitude
-    const lng = listing.demandStayListing?.location?.coordinate?.longitude
-    if (city === 'Unknown' && lat && lng) {
-      city = await getCityFromCoordinates(lat, lng) || searchLocation || 'Unknown'
-    }
-
-    // Generate Airbnb image URL
-    const images = [`https://a0.muscache.com/im/pictures/miso/${listing.id}/original.jpg`]
-
-    return {
-      id: listing.id,
-      name,
-      url: listing.url,
-      images,
-      price: {
-        total: totalPrice,
-        rate: nightlyRate,
-        currency: 'USD'
-      },
-      rating,
-      reviewsCount,
-      location: {
-        city,
-        country: 'US'
-      },
-      host: {
-        name: isGuestFavorite ? 'Guest Favorite Host' : (isSuperhost ? 'Superhost' : 'Host'),
-        isSuperhost
-      },
-      amenities,
-      roomType: primaryLine || 'Property',
-      propertyType: primaryLine || 'Property',
-      platform: 'airbnb'
-    }
-  }))
-}
-
-// Helper functions
-async function getCityFromCoordinates(lat: number, lng: number): Promise<string | undefined> {
-  if (!lat || !lng) return undefined
-
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
-      {
-        headers: {
-          'User-Agent': 'ChatBnb/1.0 (https://chatbnb.vercel.app)'
-        }
-      }
-    )
-
-    if (response.ok) {
-      const data = await response.json()
-      const address = data.address
-      
-      const city = address?.city || 
-                   address?.town || 
-                   address?.village || 
-                   address?.municipality ||
-                   address?.county
-      
-      return city
-    }
-  } catch (error) {
-    console.log('Reverse geocoding failed:', error)
-  }
-
-  return undefined
-}
-
-function extractAmenitiesFromText(text: string): string[] {
-  const amenities: string[] = []
-  const lowerText = text.toLowerCase()
-  
-  // Common amenities to extract
-  const amenityPatterns = [
-    { pattern: /pool/i, amenity: 'Pool' },
-    { pattern: /hot\s*tub/i, amenity: 'Hot Tub' },
-    { pattern: /kitchen/i, amenity: 'Kitchen' },
-    { pattern: /parking/i, amenity: 'Parking' },
-    { pattern: /wifi|internet/i, amenity: 'WiFi' },
-    { pattern: /gym|fitness/i, amenity: 'Gym' },
-    { pattern: /laundry/i, amenity: 'Laundry' },
-    { pattern: /air\s*conditioning|a\/c/i, amenity: 'Air Conditioning' },
-    { pattern: /heating/i, amenity: 'Heating' },
-    { pattern: /balcony/i, amenity: 'Balcony' },
-    { pattern: /terrace/i, amenity: 'Terrace' },
-    { pattern: /garden/i, amenity: 'Garden' },
-    { pattern: /fireplace/i, amenity: 'Fireplace' },
-    { pattern: /washer|dryer/i, amenity: 'Washer & Dryer' },
-    { pattern: /pet\s*friendly/i, amenity: 'Pet Friendly' },
-    { pattern: /wheelchair|accessible/i, amenity: 'Wheelchair Accessible' },
-    { pattern: /workspace|office/i, amenity: 'Workspace' },
-    { pattern: /tv|television/i, amenity: 'TV' },
-    { pattern: /streaming|netflix/i, amenity: 'Streaming Services' },
-    { pattern: /waterfall/i, amenity: 'Waterfall' },
-    { pattern: /sauna/i, amenity: 'Sauna' },
-    { pattern: /massage/i, amenity: 'Massage Chair' },
-    { pattern: /bike/i, amenity: 'Bikes' },
-    { pattern: /trail/i, amenity: 'Trail Access' }
-  ]
-  
-  for (const { pattern, amenity } of amenityPatterns) {
-    if (pattern.test(text)) {
-      amenities.push(amenity)
-    }
-  }
-  
-  return [...new Set(amenities)] // Remove duplicates
-}
-
-// Calculate trust score based on rating and review count (same logic as review-analysis.ts)
-function calculateTrustScore(rating: number, reviewsCount: number): number {
-  if (!rating || !reviewsCount || reviewsCount === 0) return 0
-
-  // Base score from rating (0-60 points)
-  const ratingScore = Math.min(60, (rating / 5.0) * 60)
-
-  // Review count confidence boost (0-40 points)
-  let reviewCountScore = 0
-  if (reviewsCount >= 100) {
-    reviewCountScore = 40 // Very high confidence
-  } else if (reviewsCount >= 50) {
-    reviewCountScore = 35 // High confidence  
-  } else if (reviewsCount >= 25) {
-    reviewCountScore = 30 // Good confidence
-  } else if (reviewsCount >= 10) {
-    reviewCountScore = 20 // Moderate confidence
-  } else if (reviewsCount >= 5) {
-    reviewCountScore = 10 // Low confidence
-  } else {
-    reviewCountScore = 5 // Very low confidence
-  }
-
-  const totalScore = Math.round(ratingScore + reviewCountScore)
-  return Math.min(100, Math.max(0, totalScore))
-}
-
-// Note: Deduplication removed since we're now Airbnb-focused
-
-// HTTP API implementation for Airbnb (embedded to avoid deployment issues)
-async function callAirbnbHttpAPI(payload: any, platform: string) {
+// HTTP API implementation for Airbnb
+async function callAirbnbHttpAPI(payload: any) {
   console.log('🔍 Starting HTTP API-based Airbnb search...')
   
   const { location, adults = 1, children = 0, checkin, checkout, priceMin, priceMax } = payload
   
-  // Log date filtering if dates are provided
+  // Log filtering parameters
   if (checkin && checkout) {
     console.log(`📅 Filtering by dates: ${checkin} to ${checkout}`)
   }
-  
-  // Log price filtering if price range is provided
   if (priceMin || priceMax) {
     console.log(`💰 Filtering by price: $${priceMin || 0} - $${priceMax || 'unlimited'}`)
   }
@@ -511,15 +202,6 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     console.log('✅ Session initialized')
     
     // Step 2: Build search request parameters
-    const rawParams = [
-      { filterName: 'adults', filterValues: [adults.toString()] }
-    ]
-    
-    if (children > 0) {
-      rawParams.push({ filterName: 'children', filterValues: [children.toString()] })
-    }
-    
-    // Simplified search using the search endpoint instead of GraphQL
     const searchUrl = new URL('https://www.airbnb.com/api/v2/explore_tabs')
     searchUrl.searchParams.set('version', '1.3.9')
     searchUrl.searchParams.set('_format', 'for_explore_search_web')
@@ -580,20 +262,12 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     const searchData = await searchResponse.json()
     console.log('✅ Received search response')
     
-    // Log basic response info
-    console.log('🔍 Response keys:', Object.keys(searchData))
-    
     // Step 4: Transform results to our format
     const listings = transformAirbnbHttpResults(searchData)
     console.log(`🎉 HTTP API found ${listings.length} listings`)
     
-    // Log sample for monitoring
-    if (listings.length > 0) {
-      console.log('📊 Sample listing keys:', Object.keys(listings[0]))
-    }
-    
     return {
-      platform,
+      platform: 'airbnb',
       data: {
         success: true,
         platform: 'airbnb',
@@ -610,11 +284,16 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     
   } catch (error) {
     console.error('❌ Airbnb HTTP API failed:', error)
-    throw error // Re-throw to trigger MCP fallback
+    return {
+      platform: 'airbnb',
+      data: null,
+      status: 'error' as const,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
   }
 }
 
-function transformAirbnbHttpResults(data: any): any[] {
+function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
   try {
     // Try multiple possible response structures for explore_tabs API
     let listingCards: any[] = []
@@ -636,36 +315,10 @@ function transformAirbnbHttpResults(data: any): any[] {
       console.log(`✅ Found ${listingCards.length} listings in explore_tabs`)
     }
     
-    // Structure 3: GraphQL format (fallback)
-    if (!listingCards.length && data?.data?.dora?.exploreV3?.sections) {
-      for (const section of data.data.dora.exploreV3.sections) {
-        if (section.listingCards?.length > 0) {
-          listingCards = section.listingCards
-          console.log(`✅ Found ${listingCards.length} cards in section: ${section.sectionComponentType}`)
-          break
-        }
-      }
-    }
-    
-    // Structure 4: Direct results array
-    if (!listingCards.length && Array.isArray(data?.results)) {
-      listingCards = data.results
-      console.log(`✅ Found ${listingCards.length} cards in direct results`)
-    }
-    
     if (!listingCards.length) {
       console.warn('No listing cards found in any known response structure')
       console.log('🔍 Available top-level keys:', Object.keys(data))
       return []
-    }
-    
-    // Debug first listing completely for image issues
-    if (listingCards.length > 0) {
-      console.log(`🔍 First listing complete structure:`, JSON.stringify(listingCards[0], null, 2).substring(0, 3000))
-      console.log(`🔍 First listing keys:`, Object.keys(listingCards[0]))
-      if (listingCards[0].listing) {
-        console.log(`🔍 First listing.listing keys:`, Object.keys(listingCards[0].listing))
-      }
     }
     
     return listingCards.map((item: any, index: number) => {
@@ -674,29 +327,17 @@ function transformAirbnbHttpResults(data: any): any[] {
       
       // Log first listing for monitoring
       if (index === 0) {
-        console.log(`🔍 Processing first listing with ID: ${listing.id}`)
-        
-        // Detailed image field debugging
-        console.log(`🖼️ Image fields debug:`, {
-          pictures: !!listing.pictures,
-          pictures_length: listing.pictures?.length,
-          picture_urls: !!listing.picture_urls,
-          picture_urls_length: listing.picture_urls?.length,
-          contextual_pictures: !!listing.contextual_pictures,
-          contextual_pictures_length: listing.contextual_pictures?.length,
-          xl_picture_url: !!listing.xl_picture_url,
-          picture_url: !!listing.picture_url,
-          thumbnail_url: !!listing.thumbnail_url,
-          photos: !!listing.photos,
-          photos_length: listing.photos?.length,
-          images: !!listing.images,
-          images_length: listing.images?.length
+        console.log(`🔍 Raw listing fields:`, Object.keys(listing))
+        console.log(`🔍 First listing data:`, {
+          bedrooms: listing.bedrooms,
+          bathrooms: listing.bathrooms,
+          beds: listing.beds,
+          person_capacity: listing.person_capacity,
+          avg_rating_localized: listing.avg_rating_localized,
+          reviews_count: listing.reviews_count,
+          room_type_category: listing.room_type_category,
+          room_and_property_type: listing.room_and_property_type
         })
-        
-        // Show actual URLs if they exist
-        if (listing.pictures?.[0]) console.log(`🖼️ First pictures entry:`, listing.pictures[0])
-        if (listing.picture_urls?.[0]) console.log(`🖼️ First picture_url:`, listing.picture_urls[0])
-        if (listing.contextual_pictures?.[0]) console.log(`🖼️ First contextual_picture:`, listing.contextual_pictures[0])
       }
       
       // More robust ID extraction
@@ -716,69 +357,33 @@ function transformAirbnbHttpResults(data: any): any[] {
         priceValue = parseInt(listing.price.rate.amount_formatted.replace(/[^0-9]/g, '')) || 100
       }
       
-      // Extract images from the explore_tabs API response structure
+      // Extract images
       let images: string[] = []
-      
-      // For explore_tabs API, images are often in different locations
       if (listing.pictures && Array.isArray(listing.pictures) && listing.pictures.length > 0) {
         images = listing.pictures.map((pic: any) => pic.picture || pic).filter(Boolean)
-        if (index === 0) console.log(`✅ Using pictures array: ${images.length} images`)
-      } else if (listing.picture_urls && Array.isArray(listing.picture_urls) && listing.picture_urls.length > 0) {
+      } else if (listing.picture_urls && Array.isArray(listing.picture_urls)) {
         images = listing.picture_urls
-        if (index === 0) console.log(`✅ Using picture_urls: ${images.length} images`)
-      } else if (listing.contextual_pictures && Array.isArray(listing.contextual_pictures) && listing.contextual_pictures.length > 0) {
-        images = listing.contextual_pictures.map((pic: any) => pic.picture || pic.url).filter(Boolean)
-        if (index === 0) console.log(`✅ Using contextual_pictures: ${images.length} images`)
       } else if (listing.xl_picture_url) {
         images = [listing.xl_picture_url]
-        if (index === 0) console.log(`✅ Using xl_picture_url: ${images.length} image`)
       } else if (listing.picture_url) {
         images = [listing.picture_url]
-        if (index === 0) console.log(`✅ Using picture_url: ${images.length} image`)
-      } else if (listing.thumbnail_url) {
-        images = [listing.thumbnail_url]
-        if (index === 0) console.log(`✅ Using thumbnail_url: ${images.length} image`)
-      } else {
-        // Construct Airbnb image URLs using the listing ID and known patterns
-        if (listing.id) {
-          const baseId = listing.id.toString()
-          // Use the most common Airbnb image URL pattern
-          images = [
-            `https://a0.muscache.com/im/pictures/hosting/Hosting-${baseId}/original/`,
-            `https://a0.muscache.com/im/pictures/miso/Hosting-${baseId}/original/`,
-            `https://a0.muscache.com/im/pictures/${baseId}/original/`
-          ]
-          if (index === 0) console.log(`🔧 Constructed ${images.length} potential image URLs from ID: ${baseId}`)
-        } else {
-          if (index === 0) console.log(`❌ No images found and no ID to construct URL`)
-        }
+      } else if (listing.id) {
+        // Construct Airbnb image URLs using the listing ID
+        const baseId = listing.id.toString()
+        images = [
+          `https://a0.muscache.com/im/pictures/hosting/Hosting-${baseId}/original/`,
+          `https://a0.muscache.com/im/pictures/miso/Hosting-${baseId}/original/`,
+          `https://a0.muscache.com/im/pictures/${baseId}/original/`
+        ]
       }
 
       const rating = parseFloat(listing.avg_rating_localized) || listing.star_rating || listing.avgRating || 4.0
       const reviewsCount = listing.reviews_count || listing.reviewsCount || 0
       
-      // Calculate trust score immediately
+      // Calculate trust score
       const trustScore = calculateTrustScore(rating, reviewsCount)
       
-      // Debug logging for first listing
-      if (index === 0) {
-        console.log(`🔍 Raw listing fields:`, Object.keys(listing))
-        console.log(`🔍 Debug listing data:`, {
-          rating,
-          reviewsCount,
-          trustScore,
-          bedrooms: listing.bedrooms,
-          bathrooms: listing.bathrooms,
-          beds: listing.beds,
-          person_capacity: listing.person_capacity,
-          propertyType: listing.room_and_property_type || listing.space_type,
-          room_type_category: listing.room_type_category,
-          avg_rating_localized: listing.avg_rating_localized,
-          reviews_count: listing.reviews_count
-        })
-      }
-      
-      const transformedListing = {
+      const transformedListing: UnifiedProperty = {
         id: listingId?.toString() || `fallback_${index}`,
         name: listing.name || listing.public_address || `Property ${index + 1}`,
         url: `https://www.airbnb.com/rooms/${listingId}`,
@@ -808,30 +413,15 @@ function transformAirbnbHttpResults(data: any): any[] {
         bathrooms: listing.bathrooms || 0,
         beds: listing.beds || 0,
         maxGuests: listing.person_capacity || 1,
-        neighborhood: listing.public_address || listing.localized_city || listing.city,
-        isNewListing: listing.is_new_listing || false,
-        instantBook: listing.instant_book || false,
-        minNights: listing.min_nights || 1,
-        maxNights: listing.max_nights || 365,
-        latitude: listing.lat,
-        longitude: listing.lng,
-        hostThumbnail: listing.host_thumbnail_url || listing.host_thumbnail_url_small,
-        description: listing.overview || listing.home_details?.overview || '',
-        highlights: listing.detailed_p2_label_highlights || [],
-        badges: listing.formatted_badges || listing.badges || [],
-        
-        // Review insights
-        trustScore,
-        // Note: Full review analysis is computationally expensive, so we'll add it on-demand
-        // Users can click to get detailed review insights for specific properties
+        trustScore
       }
       
       if (index === 0) {
-        console.log(`✅ Sample: ${transformedListing.name} - $${transformedListing.price.rate} - ${transformedListing.images.length} images`)
+        console.log(`✅ Sample transformed: ${transformedListing.name} - $${transformedListing.price.rate} - ${transformedListing.bedrooms}br/${transformedListing.bathrooms}ba - Trust: ${transformedListing.trustScore}`)
       }
       
       return transformedListing
-    }) // Remove the filter to see all results for debugging
+    })
     
   } catch (error) {
     console.error('Error transforming Airbnb HTTP results:', error)
@@ -842,7 +432,7 @@ function transformAirbnbHttpResults(data: any): any[] {
 function extractHttpAmenities(listing: any): string[] {
   const amenities: string[] = []
   
-  // Extract from amenity_ids (the actual field name)
+  // Extract from amenity_ids
   if (listing.amenity_ids || listing.amenityIds) {
     const amenityIds = listing.amenity_ids || listing.amenityIds
     // Extended amenity mapping based on Airbnb's API
@@ -850,51 +440,16 @@ function extractHttpAmenities(listing: any): string[] {
       1: 'WiFi',
       4: 'Kitchen',
       8: 'Free parking',
-      9: 'Wireless Internet',
       10: 'Pool',
-      16: 'Breakfast',
-      21: 'Elevator',
       23: 'Hot tub',
       25: 'Gym',
       30: 'Heating',
       33: 'Air conditioning',
       35: 'Washer',
       36: 'Dryer',
-      37: 'Smoke alarm',
-      38: 'Carbon monoxide alarm',
-      39: 'First aid kit',
-      40: 'Safety card',
-      41: 'Fire extinguisher',
-      44: 'Hangers',
-      45: 'Hair dryer',
-      46: 'Iron',
       47: 'Laptop friendly workspace',
-      51: 'Private entrance',
       54: 'TV',
-      55: 'Cable TV',
-      57: 'Microwave',
-      58: 'Coffee maker',
-      59: 'Refrigerator',
-      60: 'Dishwasher',
-      61: 'Stove',
-      62: 'BBQ grill',
-      63: 'Garden or backyard',
-      64: 'Beach access',
-      65: 'Lake access',
-      71: 'Self check-in',
-      72: 'Lockbox',
-      73: 'Private pool',
-      74: 'Hot water',
-      77: 'Bed linens',
-      78: 'Extra pillows and blankets',
-      79: 'Ethernet connection',
-      85: 'Bathtub',
-      86: 'Room-darkening shades',
-      89: 'Body soap',
-      90: 'Toilet paper',
-      91: 'Towels included',
-      93: 'Long term stays allowed',
-      94: 'Host greets you'
+      71: 'Self check-in'
     }
     
     if (Array.isArray(amenityIds)) {
@@ -906,28 +461,10 @@ function extractHttpAmenities(listing: any): string[] {
     }
   }
   
-  // Extract from preview tags
-  if (listing.preview_tags && Array.isArray(listing.preview_tags)) {
-    listing.preview_tags.forEach((tag: any) => {
-      if (tag.name) {
-        amenities.push(tag.name)
-      }
-    })
-  }
-  
-  // Extract from detailed highlights
-  if (listing.detailed_p2_label_highlights && Array.isArray(listing.detailed_p2_label_highlights)) {
-    listing.detailed_p2_label_highlights.forEach((highlight: any) => {
-      if (highlight.label) {
-        amenities.push(highlight.label)
-      }
-    })
-  }
-  
   return [...new Set(amenities)] // Remove duplicates
 }
 
-// Calculate trust score based on rating and review count (same logic as review-analysis.ts)
+// Calculate trust score based on rating and review count
 function calculateTrustScore(rating: number, reviewsCount: number): number {
   if (!rating || !reviewsCount || reviewsCount === 0) return 0
 

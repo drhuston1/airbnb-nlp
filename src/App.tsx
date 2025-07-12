@@ -700,8 +700,8 @@ function App() {
         setCurrentPriceRange(null)
       }
       
-      // Set quick filters for the results panel
-      setQuickFilters(refinementSuggestions.slice(0, SEARCH_CONFIG.MAX_QUICK_FILTERS))
+      // Set quick filters for the results panel - include more options
+      setQuickFilters(refinementSuggestions.slice(0, 12)) // Show up to 12 quick filters
 
     } catch (error) {
       // Add error message with more details for debugging
@@ -1063,82 +1063,6 @@ function App() {
                 </Box>
                 )}
 
-                {/* Intelligent Refinement Suggestions */}
-                {message.type === 'assistant' && message.refinementSuggestions && message.refinementSuggestions.length > 0 && (
-                  <Box mt={6}>
-                    <HStack mb={4} align="center">
-                      <Icon as={Filter} w={4} h={4} color="blue.500" />
-                      <Text fontSize="sm" fontWeight="500" color="gray.700">
-                        Refine your search:
-                      </Text>
-                    </HStack>
-                    <Grid templateColumns="repeat(auto-fit, minmax(200px, 1fr))" gap={3}>
-                      {message.refinementSuggestions.map((suggestion, index) => {
-                        const getIcon = () => {
-                          switch (suggestion.type) {
-                            case 'price': return DollarSign
-                            case 'rating': return Star
-                            case 'amenity': return Wifi
-                            case 'host_type': return Award
-                            case 'property_type': return Home
-                            default: return Filter
-                          }
-                        }
-                        
-                        const getColor = () => {
-                          switch (suggestion.priority) {
-                            case 'high': return 'blue'
-                            case 'medium': return 'green'
-                            default: return 'gray'
-                          }
-                        }
-                        
-                        const color = getColor()
-                        
-                        return (
-                          <Button
-                            key={index}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRefinementQuery(suggestion.query)}
-                            borderColor={`${color}.300`}
-                            color={`${color}.700`}
-                            bg={`${color}.50`}
-                            _hover={{ 
-                              bg: `${color}.100`,
-                              borderColor: `${color}.400`,
-                              transform: 'translateY(-1px)',
-                              boxShadow: 'sm'
-                            }}
-                            borderRadius="lg"
-                            p={3}
-                            h="auto"
-                            flexDirection="column"
-                            alignItems="flex-start"
-                            whiteSpace="normal"
-                            textAlign="left"
-                            transition="all 0.2s"
-                          >
-                            <HStack w="full" justify="space-between" mb={1}>
-                              <HStack>
-                                <Icon as={getIcon()} w={3} h={3} />
-                                <Text fontSize="xs" fontWeight="600">
-                                  {suggestion.label}
-                                </Text>
-                              </HStack>
-                              <Text fontSize="xs" color={`${color}.600`} fontWeight="500">
-                                {suggestion.count}
-                              </Text>
-                            </HStack>
-                            <Text fontSize="xs" color="gray.600" lineHeight="1.3">
-                              {suggestion.description}
-                            </Text>
-                          </Button>
-                        )
-                      })}
-                    </Grid>
-                  </Box>
-                )}
                 
                 {/* Legacy Follow-up Suggestions (fallback) */}
                 {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && !message.refinementSuggestions && (
@@ -1338,13 +1262,19 @@ function App() {
                 </Button>
               </HStack>
               
-              {/* Quick Filter Chips */}
+              {/* Enhanced Quick Filters */}
               {quickFilters.length > 0 && (
                 <Box>
-                  <Text fontSize="xs" color="gray.500" mb={2} fontWeight="500">
-                    Quick filters:
-                  </Text>
-                  <Flex gap={2} flexWrap="wrap">
+                  <HStack mb={3} align="center">
+                    <Icon as={Filter} w={4} h={4} color="blue.500" />
+                    <Text fontSize="sm" fontWeight="600" color="gray.700">
+                      Quick filters
+                    </Text>
+                    <Text fontSize="xs" color="gray.500">
+                      ({quickFilters.length} available)
+                    </Text>
+                  </HStack>
+                  <Grid templateColumns="repeat(auto-fit, minmax(180px, 1fr))" gap={2}>
                     {quickFilters.map((filter, index) => {
                       const getIcon = () => {
                         switch (filter.type) {
@@ -1357,34 +1287,58 @@ function App() {
                         }
                       }
                       
+                      const getColor = () => {
+                        switch (filter.priority) {
+                          case 'high': return 'blue'
+                          case 'medium': return 'green'
+                          default: return 'purple'
+                        }
+                      }
+                      
+                      const color = getColor()
+                      
                       return (
                         <Button
                           key={index}
-                          size="xs"
+                          size="sm"
                           variant="outline"
                           onClick={() => handleRefinementQuery(filter.query)}
-                          borderColor="blue.300"
-                          color="blue.700"
-                          bg="blue.50"
+                          borderColor={`${color}.300`}
+                          color={`${color}.700`}
+                          bg={`${color}.50`}
                           _hover={{ 
-                            bg: "blue.100",
-                            borderColor: "blue.400"
+                            bg: `${color}.100`,
+                            borderColor: `${color}.400`,
+                            transform: 'translateY(-1px)',
+                            boxShadow: 'sm'
                           }}
-                          borderRadius="full"
-                          px={3}
-                          py={1}
+                          borderRadius="lg"
+                          p={3}
                           h="auto"
-                          fontSize="xs"
+                          flexDirection="column"
+                          alignItems="flex-start"
+                          whiteSpace="normal"
+                          textAlign="left"
+                          transition="all 0.2s"
                         >
-                          <Icon as={getIcon()} w={3} h={3} mr={1} />
-                          {filter.label}
-                          <Text as="span" ml={1} color="blue.600" fontWeight="600">
-                            ({filter.count})
+                          <HStack w="full" justify="space-between" mb={1}>
+                            <HStack>
+                              <Icon as={getIcon()} w={3} h={3} />
+                              <Text fontSize="xs" fontWeight="600">
+                                {filter.label}
+                              </Text>
+                            </HStack>
+                            <Text fontSize="xs" color={`${color}.600`} fontWeight="500">
+                              {filter.count}
+                            </Text>
+                          </HStack>
+                          <Text fontSize="xs" color="gray.600" lineHeight="1.3">
+                            {filter.description}
                           </Text>
                         </Button>
                       )
                     })}
-                  </Flex>
+                  </Grid>
                 </Box>
               )}
             </Box>
