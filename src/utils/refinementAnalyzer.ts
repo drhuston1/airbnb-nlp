@@ -1,30 +1,6 @@
 // Intelligent refinement analysis utilities
 import { SEARCH_CONFIG, FILTER_CONFIG } from '../config/constants'
-
-interface AirbnbListing {
-  id: string
-  name: string
-  url: string
-  images: string[]
-  price: {
-    total: number
-    rate: number
-    currency: string
-  }
-  rating: number
-  reviewsCount: number
-  location: {
-    city: string
-    country: string
-  }
-  host: {
-    name: string
-    isSuperhost: boolean
-  }
-  amenities: string[]
-  roomType: string
-  platform?: 'airbnb' | 'booking' | 'vrbo'
-}
+import type { AirbnbListing } from '../types'
 
 interface PriceInsights {
   min: number

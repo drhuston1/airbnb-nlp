@@ -12,7 +12,7 @@ import {
   Button,
   Flex
 } from '@chakra-ui/react'
-import { Star, User, ExternalLink, MapPin, Bed, Bath, Shield, AlertTriangle, ThumbsUp, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
+import { Star, User, ExternalLink, MapPin, Bed, Bath, Shield, AlertTriangle, ThumbsUp, ChevronDown, ChevronUp } from 'lucide-react'
 import type { AirbnbListing } from '../types'
 import { useState } from 'react'
 
@@ -244,7 +244,7 @@ export const ResultsPanel = ({
                   fontSize="sm"
                   p={2}
                   h="auto"
-                  isDisabled={loadingInsights}
+                  disabled={loadingInsights}
                 >
                   <HStack gap={1}>
                     {loadingInsights ? (
