@@ -615,47 +615,46 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
       rawParams.push({ filterName: 'children', filterValues: [children.toString()] })
     }
     
-    const searchPayload = {
-      operationName: 'StaysSearch',
-      locale: 'en',
-      currency: 'USD',
-      variables: {
-        staysSearchRequest: {
-          requestedPageType: 'STAYS_SEARCH',
-          metadataOnly: false,
-          source: 'structured_search_input_header',
-          searchType: 'pagination',
-          treatmentFlags: [
-            'stays_search_rehydration_treatment_desktop',
-            'stays_search_rehydration_treatment_moweb',
-            'flex_destinations_june_2021_ldp_web_treatment',
-            'stays_search_map_toggle_2021'
-          ],
-          rawParams: [
-            ...rawParams,
-            { filterName: 'query', filterValues: [location] },
-            { filterName: 'place_id', filterValues: [] }
-          ]
-        }
-      },
-      extensions: {
-        persistedQuery: {
-          version: 1,
-          sha256Hash: 'f2ee243b3b6b99c6b0d7ef7d5f6b8b2a3c8e2b7b5c6c5c5c5c5c5c5c5c5c5c5c'
-        }
-      }
-    }
+    // Simplified search using the search endpoint instead of GraphQL
+    const searchUrl = new URL('https://www.airbnb.com/api/v2/explore_tabs')
+    searchUrl.searchParams.set('version', '1.3.9')
+    searchUrl.searchParams.set('_format', 'for_explore_search_web')
+    searchUrl.searchParams.set('items_per_grid', '20')
+    searchUrl.searchParams.set('federated_search_session_id', Date.now().toString())
+    searchUrl.searchParams.set('tab_id', 'home_tab')
+    searchUrl.searchParams.set('refinement_paths[]', '/homes')
+    searchUrl.searchParams.set('query', location)
+    searchUrl.searchParams.set('place_id', '')
+    searchUrl.searchParams.set('checkin', '')
+    searchUrl.searchParams.set('checkout', '')
+    searchUrl.searchParams.set('adults', adults.toString())
+    searchUrl.searchParams.set('children', children.toString())
+    searchUrl.searchParams.set('infants', '0')
+    searchUrl.searchParams.set('guests', (adults + children).toString())
+    searchUrl.searchParams.set('min_bathrooms', '0')
+    searchUrl.searchParams.set('min_bedrooms', '0')
+    searchUrl.searchParams.set('min_beds', '0')
+    searchUrl.searchParams.set('min_num_pic_urls', '10')
+    searchUrl.searchParams.set('monthly_start_date', '')
+    searchUrl.searchParams.set('monthly_length', '')
+    searchUrl.searchParams.set('price_min', '0')
+    searchUrl.searchParams.set('price_max', '1000')
+    searchUrl.searchParams.set('room_types[]', 'Entire home/apt')
+    searchUrl.searchParams.set('top_tier_stays[]', 'true')
+    searchUrl.searchParams.set('satori_version', '1.2.0')
+    searchUrl.searchParams.set('_cb', Date.now().toString())
+    
+    console.log('🔗 Search URL:', searchUrl.toString())
     
     // Step 3: Make search API call
     console.log('🚀 Making search API request...')
-    const searchResponse = await fetch('https://www.airbnb.com/api/v3/StaysSearch', {
-      method: 'POST',
+    const searchResponse = await fetch(searchUrl.toString(), {
+      method: 'GET',
       headers: {
         ...AIRBNB_HEADERS,
         'Cookie': sessionCookies,
         'X-CSRF-Token': csrfToken
-      },
-      body: JSON.stringify(searchPayload)
+      }
     })
     
     if (!searchResponse.ok) {
@@ -711,11 +710,28 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
 
 function transformAirbnbHttpResults(data: any): any[] {
   try {
-    // Try multiple possible response structures
+    // Try multiple possible response structures for explore_tabs API
     let listingCards: any[] = []
     
-    // Structure 1: data.dora.exploreV3.sections[].listingCards
-    if (data?.data?.dora?.exploreV3?.sections) {
+    // Structure 1: explore_tabs API - sections[].listings
+    if (data?.explore_tabs?.[0]?.sections) {
+      for (const section of data.explore_tabs[0].sections) {
+        if (section.listings?.length > 0) {
+          listingCards = section.listings
+          console.log(`✅ Found ${listingCards.length} listings in section: ${section.section_type_uid}`)
+          break
+        }
+      }
+    }
+    
+    // Structure 2: Direct explore_tabs listings
+    if (!listingCards.length && data?.explore_tabs?.[0]?.listings) {
+      listingCards = data.explore_tabs[0].listings
+      console.log(`✅ Found ${listingCards.length} listings in explore_tabs`)
+    }
+    
+    // Structure 3: GraphQL format (fallback)
+    if (!listingCards.length && data?.data?.dora?.exploreV3?.sections) {
       for (const section of data.data.dora.exploreV3.sections) {
         if (section.listingCards?.length > 0) {
           listingCards = section.listingCards
@@ -725,56 +741,58 @@ function transformAirbnbHttpResults(data: any): any[] {
       }
     }
     
-    // Structure 2: data.data.presentation.staysSearch.results.searchResults
-    if (!listingCards.length && data?.data?.presentation?.staysSearch?.results?.searchResults) {
-      listingCards = data.data.presentation.staysSearch.results.searchResults
-      console.log(`✅ Found ${listingCards.length} cards in searchResults`)
-    }
-    
-    // Structure 3: data.data.staysSearch.results.homes
-    if (!listingCards.length && data?.data?.staysSearch?.results?.homes) {
-      listingCards = data.data.staysSearch.results.homes
-      console.log(`✅ Found ${listingCards.length} cards in homes`)
-    }
-    
     // Structure 4: Direct results array
-    if (!listingCards.length && Array.isArray(data?.data?.results)) {
-      listingCards = data.data.results
+    if (!listingCards.length && Array.isArray(data?.results)) {
+      listingCards = data.results
       console.log(`✅ Found ${listingCards.length} cards in direct results`)
     }
     
     if (!listingCards.length) {
       console.warn('No listing cards found in any known response structure')
+      console.log('🔍 Available top-level keys:', Object.keys(data))
       return []
     }
     
-    return listingCards.map((card: any) => {
-      const listing = card.listing || {}
-      const pricingQuote = card.pricingQuote || {}
+    return listingCards.map((item: any) => {
+      // Handle both explore_tabs and GraphQL formats
+      const listing = item.listing || item
+      const pricingQuote = item.pricingQuote || {}
+      
+      // Extract price info
+      let priceValue = 100
+      if (listing.pricing_quote?.rate?.amount) {
+        priceValue = listing.pricing_quote.rate.amount
+      } else if (pricingQuote.structuredStayDisplayPrice?.primaryLine?.price) {
+        priceValue = pricingQuote.structuredStayDisplayPrice.primaryLine.price
+      } else if (listing.price?.rate?.amount_formatted) {
+        priceValue = parseInt(listing.price.rate.amount_formatted.replace(/[^0-9]/g, '')) || 100
+      }
       
       return {
-        id: listing.id || '',
-        name: listing.name || 'Untitled Property',
+        id: listing.id?.toString() || '',
+        name: listing.name || listing.public_address || 'Untitled Property',
         url: `https://www.airbnb.com/rooms/${listing.id}`,
-        images: listing.contextualPictures?.map((pic: any) => pic.picture) || 
-                listing.pictureUrls || [],
+        images: listing.xl_picture_urls || 
+                listing.picture_urls || 
+                listing.contextualPictures?.map((pic: any) => pic.picture) || 
+                [],
         price: {
-          total: pricingQuote.structuredStayDisplayPrice?.primaryLine?.price || 100,
-          rate: pricingQuote.structuredStayDisplayPrice?.primaryLine?.price || 100,
+          total: priceValue,
+          rate: priceValue,
           currency: 'USD'
         },
-        rating: listing.avgRating || 4.0,
-        reviewsCount: listing.reviewsCount || 0,
+        rating: listing.star_rating || listing.avgRating || 4.0,
+        reviewsCount: listing.reviews_count || listing.reviewsCount || 0,
         location: {
-          city: listing.city || 'Unknown',
-          country: listing.country || 'Unknown'
+          city: listing.localized_city || listing.city || 'Unknown',
+          country: listing.localized_country || listing.country || 'Unknown'
         },
         host: {
-          name: listing.user?.firstName || 'Host',
-          isSuperhost: listing.user?.isSuperhost || false
+          name: listing.primary_host?.first_name || listing.user?.firstName || 'Host',
+          isSuperhost: listing.primary_host?.is_superhost || listing.user?.isSuperhost || false
         },
         amenities: extractHttpAmenities(listing),
-        roomType: listing.roomTypeCategory || 'Property',
+        roomType: listing.room_type_category || listing.roomTypeCategory || 'Property',
         platform: 'airbnb' as const
       }
     }).filter((listing: any) => listing.id) // Remove invalid entries
