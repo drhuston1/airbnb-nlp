@@ -96,7 +96,19 @@ interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
-  platform?: 'airbnb' | 'booking' | 'vrbo'
+  // Enhanced property details
+  bedrooms?: number
+  bathrooms?: number
+  beds?: number
+  maxGuests?: number
+  // Review insights
+  trustScore?: number // 0-100 score based on rating and review count
+  reviewInsights?: {
+    positiveHighlights: string[]
+    negativeInsights: string[]
+    commonConcerns: string[]
+    overallSentiment: 'positive' | 'mixed' | 'negative'
+  }
 }
 
 interface SearchResponse {
@@ -326,22 +338,15 @@ function App() {
       const data: SearchResponse = await response.json()
       const searchResults = data.listings || []
       
-      console.log('UNIFIED API RESPONSE - MULTI-PLATFORM RESULTS:', {
+      console.log('AIRBNB SEARCH RESULTS:', {
         totalListings: searchResults.length,
-        sources: data.sources,
-        platforms: [...new Set(searchResults.map(l => l.platform))],
         firstListing: searchResults[0] ? {
           name: searchResults[0].name,
-          platform: searchResults[0].platform,
           location: searchResults[0].location,
           rating: searchResults[0].rating,
-          price: searchResults[0].price.rate
-        } : 'No listings',
-        platformBreakdown: searchResults.reduce((acc, listing) => {
-          const platform = listing.platform || 'unknown'
-          acc[platform] = (acc[platform] || 0) + 1
-          return acc
-        }, {} as Record<string, number>)
+          price: searchResults[0].price.rate,
+          trustScore: searchResults[0].trustScore
+        } : 'No listings'
       })
       
       // Enhanced context tracking with refinement awareness

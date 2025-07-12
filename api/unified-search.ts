@@ -1,4 +1,4 @@
-// Unified search API that aggregates results from multiple platforms (Airbnb + Booking.com)
+// Airbnb search API with enhanced trust scoring and review insights
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 interface UnifiedSearchRequest {
@@ -9,7 +9,7 @@ interface UnifiedSearchRequest {
   adults?: number
   children?: number
   page?: number
-  platforms?: string[] // ['airbnb', 'booking', 'vrbo'] - which platforms to search
+  // Note: Now focused on Airbnb for the best search experience
 }
 
 interface UnifiedProperty {
@@ -34,7 +34,6 @@ interface UnifiedProperty {
   }
   amenities: string[]
   roomType: string
-  platform: 'airbnb' | 'booking' | 'vrbo' // Source platform
 }
 
 interface UnifiedSearchResponse {
@@ -63,11 +62,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       checkout, 
       adults = 2, 
       children = 0, 
-      page = 1,
-      platforms = ['airbnb', 'booking', 'vrbo'] // Now supports Airbnb, Booking.com, and VRBO via scraping
+      page = 1
     }: UnifiedSearchRequest = req.body
 
-    console.log('Unified search request:', { query, location, platforms, adults, children })
+    console.log('Airbnb search request:', { query, location, adults, children })
 
     if (!location) {
       return res.status(400).json({ error: 'Location is required for unified search' })
@@ -84,108 +82,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       page
     }
 
-    // Call multiple platforms in parallel
-    const searchPromises: Promise<{platform: string, data: any, status: 'success' | 'error', error?: string}>[] = []
+    // Search Airbnb using HTTP API with MCP fallback
+    console.log('🚀 Searching Airbnb using HTTP API...')
+    
+    const searchPromise = callPlatformAPI('/api/airbnb-api', searchPayload, 'airbnb')
+    
+    // Wait for search to complete (with timeout)
+    const result = await Promise.race([
+      searchPromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('API timeout')), 25000))
+    ])
 
-    if (platforms.includes('airbnb')) {
-      // Use HTTP API with MCP fallback (handled in callPlatformAPI)
-      console.log('🚀 Using HTTP API for Airbnb with MCP fallback')
-      searchPromises.push(
-        callPlatformAPI('/api/airbnb-api', searchPayload, 'airbnb')
-      )
-    }
+    console.log('Airbnb search completed:', { status: 'success' })
 
-    if (platforms.includes('booking')) {
-      console.log('🏨 Booking.com: HTTP API not yet implemented')
-    }
-
-    if (platforms.includes('vrbo')) {
-      console.log('🏖️ VRBO: HTTP API not yet implemented')
-    }
-
-    console.log(`Searching ${platforms.length} platforms in parallel...`)
-
-    // Wait for all searches to complete (with timeout)
-    const results = await Promise.allSettled(searchPromises.map(p => 
-      Promise.race([
-        p,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('API timeout')), 25000))
-      ])
-    ))
-
-    console.log('Platform search results:', results.map((r, i) => ({
-      platform: platforms[i],
-      status: r.status,
-      fulfilled: r.status === 'fulfilled'
-    })))
-
-    // Process results from each platform
+    // Process Airbnb results
     let allListings: UnifiedProperty[] = []
     const sourceStatus: UnifiedSearchResponse['sources'] = []
 
-    results.forEach((result, index) => {
-      const platform = platforms[index]
-      
-      if (result.status === 'fulfilled') {
-        const platformResult = result.value as any
-        if (platformResult.status === 'success' && (platformResult.data?.listings || platformResult.data?.results)) {
-          // Add platform identifier to each listing
-          const rawListings = platformResult.data.listings || platformResult.data.results
-          const platformListings = rawListings.map((listing: any) => ({
-            ...listing,
-            platform,
-            id: `${platform}_${listing.id}` // Ensure unique IDs across platforms
-          }))
-          
-          allListings = allListings.concat(platformListings)
-          sourceStatus.push({
-            platform,
-            count: platformListings.length,
-            status: 'success'
-          })
-        } else {
-          sourceStatus.push({
-            platform,
-            count: 0,
-            status: 'error',
-            error: platformResult.error || 'Unknown error'
-          })
-        }
+    try {
+      const airbnbResult = result as any
+      if (airbnbResult.status === 'success' && (airbnbResult.data?.listings || airbnbResult.data?.results)) {
+        const rawListings = airbnbResult.data.listings || airbnbResult.data.results
+        allListings = rawListings
+        
+        sourceStatus.push({
+          platform: 'airbnb',
+          count: rawListings.length,
+          status: 'success'
+        })
       } else {
         sourceStatus.push({
-          platform,
+          platform: 'airbnb', 
           count: 0,
           status: 'error',
-          error: result.reason?.message || 'Request failed'
+          error: airbnbResult.error || 'Unknown error'
         })
       }
-    })
+    } catch (error) {
+      sourceStatus.push({
+        platform: 'airbnb',
+        count: 0,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Request failed'
+      })
+    }
 
-    // Remove duplicates (same property on multiple platforms)
-    const deduplicatedListings = deduplicateProperties(allListings)
-
-    // Sort combined results by rating and price (stable/deterministic sorting)
-    const sortedListings = deduplicatedListings.sort((a, b) => {
-      // Prioritize higher ratings, then lower prices, then by ID for stable sorting
+    // Sort results by trust score first, then rating and price
+    const sortedListings = allListings.sort((a, b) => {
+      // Prioritize trust score, then higher ratings, then lower prices
+      if (a.trustScore !== undefined && b.trustScore !== undefined) {
+        if (Math.abs(a.trustScore - b.trustScore) > 5) {
+          return b.trustScore - a.trustScore
+        }
+      }
       if (Math.abs(a.rating - b.rating) > 0.1) {
         return b.rating - a.rating
       }
       if (Math.abs(a.price.rate - b.price.rate) > 0.01) {
         return a.price.rate - b.price.rate
       }
-      // Use ID as tiebreaker for deterministic results
       return a.id.localeCompare(b.id)
     })
 
     const response: UnifiedSearchResponse = {
       listings: sortedListings,
-      hasMore: sourceStatus.some(s => s.count > 0), // More results available if any platform returned results
+      hasMore: sourceStatus.some(s => s.count > 0),
       totalResults: sortedListings.length,
       page,
       sources: sourceStatus
     }
 
-    console.log(`Unified search complete: ${sortedListings.length} total properties from ${sourceStatus.filter(s => s.status === 'success').length} platforms`)
+    console.log(`Airbnb search complete: ${sortedListings.length} properties found`)
 
     return res.status(200).json(response)
 
@@ -471,28 +438,34 @@ function extractAmenitiesFromText(text: string): string[] {
   return [...new Set(amenities)] // Remove duplicates
 }
 
-// Remove duplicate properties that appear on multiple platforms
-function deduplicateProperties(listings: UnifiedProperty[]): UnifiedProperty[] {
-  const seen = new Map<string, UnifiedProperty>()
-  
-  for (const listing of listings) {
-    // Create a key based on property name and location for deduplication
-    const key = `${listing.name.toLowerCase().trim()}_${listing.location.city.toLowerCase()}`
-    
-    if (!seen.has(key)) {
-      seen.set(key, listing)
-    } else {
-      // If duplicate found, keep the one from the preferred platform or with better rating
-      const existing = seen.get(key)!
-      if (listing.rating > existing.rating || 
-          (listing.platform === 'airbnb' && existing.platform !== 'airbnb')) {
-        seen.set(key, listing)
-      }
-    }
+// Calculate trust score based on rating and review count (same logic as review-analysis.ts)
+function calculateTrustScore(rating: number, reviewsCount: number): number {
+  if (!rating || !reviewsCount || reviewsCount === 0) return 0
+
+  // Base score from rating (0-60 points)
+  const ratingScore = Math.min(60, (rating / 5.0) * 60)
+
+  // Review count confidence boost (0-40 points)
+  let reviewCountScore = 0
+  if (reviewsCount >= 100) {
+    reviewCountScore = 40 // Very high confidence
+  } else if (reviewsCount >= 50) {
+    reviewCountScore = 35 // High confidence  
+  } else if (reviewsCount >= 25) {
+    reviewCountScore = 30 // Good confidence
+  } else if (reviewsCount >= 10) {
+    reviewCountScore = 20 // Moderate confidence
+  } else if (reviewsCount >= 5) {
+    reviewCountScore = 10 // Low confidence
+  } else {
+    reviewCountScore = 5 // Very low confidence
   }
-  
-  return Array.from(seen.values())
+
+  const totalScore = Math.round(ratingScore + reviewCountScore)
+  return Math.min(100, Math.max(0, totalScore))
 }
+
+// Note: Deduplication removed since we're now Airbnb-focused
 
 // HTTP API implementation for Airbnb (embedded to avoid deployment issues)
 async function callAirbnbHttpAPI(payload: any, platform: string) {
@@ -774,6 +747,12 @@ function transformAirbnbHttpResults(data: any): any[] {
         }
       }
 
+      const rating = parseFloat(listing.avg_rating_localized) || listing.star_rating || listing.avgRating || 4.0
+      const reviewsCount = listing.reviews_count || listing.reviewsCount || 0
+      
+      // Calculate trust score immediately
+      const trustScore = calculateTrustScore(rating, reviewsCount)
+      
       const transformedListing = {
         id: listingId?.toString() || `fallback_${index}`,
         name: listing.name || listing.public_address || `Property ${index + 1}`,
@@ -784,8 +763,8 @@ function transformAirbnbHttpResults(data: any): any[] {
           rate: priceValue,
           currency: 'USD'
         },
-        rating: parseFloat(listing.avg_rating_localized) || listing.star_rating || listing.avgRating || 4.0,
-        reviewsCount: listing.reviews_count || listing.reviewsCount || 0,
+        rating,
+        reviewsCount,
         location: {
           city: listing.localized_city || listing.city || 'Unknown',
           country: listing.localized_country || listing.country || 'Unknown'
@@ -796,7 +775,6 @@ function transformAirbnbHttpResults(data: any): any[] {
         },
         amenities: extractHttpAmenities(listing),
         roomType: listing.room_type_category || listing.roomTypeCategory || 'Property',
-        platform: 'airbnb' as const,
         
         // Enhanced data for better cards
         bedrooms: listing.bedrooms || 0,
@@ -814,7 +792,12 @@ function transformAirbnbHttpResults(data: any): any[] {
         hostThumbnail: listing.host_thumbnail_url || listing.host_thumbnail_url_small,
         description: listing.overview || listing.home_details?.overview || '',
         highlights: listing.detailed_p2_label_highlights || [],
-        badges: listing.formatted_badges || listing.badges || []
+        badges: listing.formatted_badges || listing.badges || [],
+        
+        // Review insights
+        trustScore,
+        // Note: Full review analysis is computationally expensive, so we'll add it on-demand
+        // Users can click to get detailed review insights for specific properties
       }
       
       if (index === 0) {
@@ -916,4 +899,31 @@ function extractHttpAmenities(listing: any): string[] {
   }
   
   return [...new Set(amenities)] // Remove duplicates
+}
+
+// Calculate trust score based on rating and review count (same logic as review-analysis.ts)
+function calculateTrustScore(rating: number, reviewsCount: number): number {
+  if (!rating || !reviewsCount || reviewsCount === 0) return 0
+
+  // Base score from rating (0-60 points)
+  const ratingScore = Math.min(60, (rating / 5.0) * 60)
+
+  // Review count confidence boost (0-40 points)
+  let reviewCountScore = 0
+  if (reviewsCount >= 100) {
+    reviewCountScore = 40 // Very high confidence
+  } else if (reviewsCount >= 50) {
+    reviewCountScore = 35 // High confidence  
+  } else if (reviewsCount >= 25) {
+    reviewCountScore = 30 // Good confidence
+  } else if (reviewsCount >= 10) {
+    reviewCountScore = 20 // Moderate confidence
+  } else if (reviewsCount >= 5) {
+    reviewCountScore = 10 // Low confidence
+  } else {
+    reviewCountScore = 5 // Very low confidence
+  }
+
+  const totalScore = Math.round(ratingScore + reviewCountScore)
+  return Math.min(100, Math.max(0, totalScore))
 }

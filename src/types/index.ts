@@ -36,7 +36,19 @@ export interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
-  platform?: 'airbnb' | 'booking' | 'vrbo'
+  // Enhanced property details
+  bedrooms?: number
+  bathrooms?: number
+  beds?: number
+  maxGuests?: number
+  // Review insights
+  trustScore?: number // 0-100 score based on rating and review count
+  reviewInsights?: {
+    positiveHighlights: string[]
+    negativeInsights: string[]
+    commonConcerns: string[]
+    overallSentiment: 'positive' | 'mixed' | 'negative'
+  }
 }
 
 export interface SearchResponse {
