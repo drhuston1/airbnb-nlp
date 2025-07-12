@@ -765,7 +765,7 @@ function App() {
 
 
   return (
-    <Box h="100vh" bg="#F5F7FA" display="flex" flexDirection="row">
+    <Box h="100vh" bg="#E0F7F4" display="flex" flexDirection="row">
       {/* Main Sidebar */}
       <Box 
         w={showSidebar ? "300px" : "60px"} 
@@ -866,10 +866,10 @@ function App() {
                     <Box
                       key={item.id}
                       p={3}
-                      bg="#F5F7FA"
+                      bg="#FFE8D6"
                       borderRadius="md"
                       cursor="pointer"
-                      _hover={{ bg: "#E0F7F4" }}
+                      _hover={{ bg: "#FFDDCC" }}
                       onClick={() => {
                         setSearchQuery(item.query)
                         setShowSidebar(false)
@@ -896,7 +896,7 @@ function App() {
             </Box>
             
             {searchHistory.length > 0 && (
-              <Box p={3} borderTop="1px" borderColor="gray.200">
+              <Box p={3} borderTop="1px" borderColor="#E6D5CC">
                 <Button
                   size="sm"
                   variant="outline"
@@ -917,7 +917,7 @@ function App() {
       {/* Main Chat Content */}
       <Box flex="1" display="flex" flexDirection="column" minW="0">
         {/* Header with controls */}
-        <Box p={3} borderBottom="1px" borderColor="gray.200" bg="white">
+        <Box p={3} borderBottom="1px" borderColor="#E6D5CC" bg="white">
           <HStack justify="space-between" align="center">
             <HStack gap={3} align="center">
               {currentQuery && (
@@ -1127,7 +1127,7 @@ function App() {
 
         {/* Chat Input - Only show when there are messages */}
         {messages.length > 0 && (
-        <Box bg="white" px={4} py={4} borderTop="1px" borderColor="gray.200">
+        <Box bg="white" px={4} py={4} borderTop="1px" borderColor="#E6D5CC">
           <Box maxW="3xl" mx="auto">
             <HStack gap={3}>
               <Textarea
@@ -1184,7 +1184,7 @@ function App() {
         w={showResults ? "800px" : "0"} 
         bg="white" 
         borderLeft="1px" 
-        borderColor="gray.200"
+        borderColor="#E6D5CC"
         transition="width 0.3s ease"
         overflow="hidden"
         display="flex"
@@ -1192,7 +1192,7 @@ function App() {
       >
         {showResults && (
           <>
-            <Box p={4} borderBottom="1px" borderColor="gray.200">
+            <Box p={4} borderBottom="1px" borderColor="#E6D5CC">
               <HStack justify="space-between" align="center" mb={3}>
                 <VStack align="start" gap={1}>
                   <HStack gap={2}>
@@ -1369,12 +1369,12 @@ function App() {
                     <Box
                       key={listing.id}
                       border="1px"
-                      borderColor="gray.200"
+                      borderColor="#E6D5CC"
                       borderRadius="md"
                       overflow="hidden"
-                      bg="gray.50"
+                      bg="#FFEEE6"
                       _hover={{ 
-                        borderColor: 'gray.300',
+                        borderColor: '#E6D5CC',
                         bg: 'white'
                       }}
                       transition="all 0.2s"
@@ -1382,7 +1382,7 @@ function App() {
                       {/* Property Image */}
                       <Box 
                         h="120px" 
-                        bg="gray.100" 
+                        bg="#F0F8F7" 
                         position="relative"
                         overflow="hidden"
                         display="flex"
@@ -1425,8 +1425,8 @@ function App() {
                               display="none"
                               alignItems="center"
                               justifyContent="center"
-                              bg="gray.200"
-                              color="gray.500"
+                              bg="#E0F7F4"
+                              color="#8B9DC3"
                               position="absolute"
                               top={0}
                               left={0}
@@ -1466,8 +1466,8 @@ function App() {
                             display="flex"
                             alignItems="center"
                             justifyContent="center"
-                            bg="gray.200"
-                            color="gray.500"
+                            bg="#E0F7F4"
+                            color="#8B9DC3"
                           >
                             <VStack gap={1}>
                               <Icon as={Home} w={6} h={6} />
@@ -1593,7 +1593,7 @@ function App() {
             
             {/* Pagination in results panel */}
             {currentResults.length > 0 && (
-              <Box p={3} borderTop="1px" borderColor="gray.200">
+              <Box p={3} borderTop="1px" borderColor="#E6D5CC">
                 <Flex justify="space-between" align="center">
                   <Text fontSize="xs" color="gray.500">
                     Page {currentPage}

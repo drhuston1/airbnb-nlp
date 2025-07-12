@@ -402,12 +402,14 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
           if (typeof pic === 'string') return pic
           return null
         }).filter(Boolean)
-      } else if (listing.picture_urls && Array.isArray(listing.picture_urls)) {
+      } else if (listing.picture_url) {
+        // Single picture URL (most common in current API)
+        images = [listing.picture_url]
+      } else if (listing.picture_urls && Array.isArray(listing.picture_urls) && listing.picture_urls.length > 0) {
+        // Array of picture URLs
         images = listing.picture_urls.filter(Boolean)
       } else if (listing.xl_picture_url) {
         images = [listing.xl_picture_url]
-      } else if (listing.picture_url) {
-        images = [listing.picture_url]
       } else if (listing.images && Array.isArray(listing.images)) {
         // Sometimes images are directly in an 'images' field
         images = listing.images.filter(Boolean)
