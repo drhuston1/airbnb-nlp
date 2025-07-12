@@ -88,13 +88,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const searchPromises: Promise<{platform: string, data: any, status: 'success' | 'error', error?: string}>[] = []
 
     if (platforms.includes('airbnb')) {
-      // Temporarily disabled MCP - using scraper for testing
-      // searchPromises.push(
-      //   callPlatformAPI('/api/mcp-search', searchPayload, 'airbnb')
-      // )
-      
-      // Use HTTP API approach for Airbnb (faster, no browser dependencies)
-      console.log('🚀 Using HTTP API for Airbnb (no browser needed)')
+      // Use HTTP API with MCP fallback (handled in callPlatformAPI)
+      console.log('🚀 Using HTTP API for Airbnb with MCP fallback')
       searchPromises.push(
         callPlatformAPI('/api/airbnb-api', searchPayload, 'airbnb')
       )
@@ -211,7 +206,15 @@ async function callPlatformAPI(endpoint: string, payload: any, platform: string)
   try {
     console.log(`Calling ${platform} API directly with payload:`, payload)
     
-    if (endpoint === '/api/mcp-search') {
+    if (endpoint === '/api/airbnb-api') {
+      // Try HTTP API, fall back to MCP if it fails
+      try {
+        return await callAirbnbHttpAPI(payload, platform)
+      } catch (httpError) {
+        console.log(`❌ HTTP API failed for ${platform}, falling back to MCP:`, httpError)
+        return await callMCPSearchDirect(payload, platform)
+      }
+    } else if (endpoint === '/api/mcp-search') {
       // Call MCP search directly by reimplementing the core logic
       return await callMCPSearchDirect(payload, platform)
     } else if (endpoint === '/api/scraper') {
@@ -565,4 +568,203 @@ function deduplicateProperties(listings: UnifiedProperty[]): UnifiedProperty[] {
   }
   
   return Array.from(seen.values())
+}
+
+// HTTP API implementation for Airbnb (embedded to avoid deployment issues)
+async function callAirbnbHttpAPI(payload: any, platform: string) {
+  console.log('🔍 Starting HTTP API-based Airbnb search...')
+  
+  const { location, adults = 1, children = 0 } = payload
+  
+  // Headers that mimic Airbnb's web frontend
+  const AIRBNB_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Referer': 'https://www.airbnb.com/',
+    'Origin': 'https://www.airbnb.com',
+    'X-Airbnb-API-Key': 'd306zoyjsyarp7ifhu67rjxn52tv0t20', // Public API key from frontend
+    'X-Airbnb-Screen-Size': '1920x1080',
+    'X-Airbnb-Supports-Airlock-V2': 'true',
+    'Content-Type': 'application/json'
+  }
+
+  try {
+    // Step 1: Initialize session and get cookies
+    console.log('🍪 Initializing session...')
+    const sessionResponse = await fetch('https://www.airbnb.com/', {
+      headers: AIRBNB_HEADERS
+    })
+    
+    const sessionCookies = sessionResponse.headers.get('set-cookie') || ''
+    const sessionText = await sessionResponse.text()
+    
+    // Extract CSRF token from page content
+    const csrfMatch = sessionText.match(/"csrfToken":"([^"]+)"/)
+    const csrfToken = csrfMatch ? csrfMatch[1] : ''
+    
+    console.log('✅ Session initialized')
+    
+    // Step 2: Build search request parameters
+    const rawParams = [
+      { filterName: 'adults', filterValues: [adults.toString()] }
+    ]
+    
+    if (children > 0) {
+      rawParams.push({ filterName: 'children', filterValues: [children.toString()] })
+    }
+    
+    const searchPayload = {
+      operationName: 'StaysSearch',
+      locale: 'en',
+      currency: 'USD',
+      variables: {
+        staysSearchRequest: {
+          requestedPageType: 'STAYS_SEARCH',
+          metadataOnly: false,
+          source: 'structured_search_input_header',
+          searchType: 'filter_change',
+          treatmentFlags: [
+            'stays_search_rehydration_treatment_desktop',
+            'stays_search_rehydration_treatment_moweb'
+          ],
+          rawParams: [
+            ...rawParams,
+            { filterName: 'location', filterValues: [location] }
+          ]
+        }
+      }
+    }
+    
+    // Step 3: Make search API call
+    console.log('🚀 Making search API request...')
+    const searchResponse = await fetch('https://www.airbnb.com/api/v3/StaysSearch', {
+      method: 'POST',
+      headers: {
+        ...AIRBNB_HEADERS,
+        'Cookie': sessionCookies,
+        'X-CSRF-Token': csrfToken
+      },
+      body: JSON.stringify(searchPayload)
+    })
+    
+    if (!searchResponse.ok) {
+      throw new Error(`Airbnb API returned ${searchResponse.status}: ${searchResponse.statusText}`)
+    }
+    
+    const searchData = await searchResponse.json()
+    console.log('✅ Received search response')
+    
+    // Step 4: Transform results to our format
+    const listings = transformAirbnbHttpResults(searchData)
+    console.log(`🎉 HTTP API found ${listings.length} listings`)
+    
+    return {
+      platform,
+      data: {
+        success: true,
+        platform: 'airbnb',
+        query: location,
+        totalResults: listings.length,
+        results: listings,
+        metadata: {
+          searchType: 'http_api',
+          timestamp: new Date().toISOString()
+        }
+      },
+      status: 'success' as const
+    }
+    
+  } catch (error) {
+    console.error('❌ Airbnb HTTP API failed:', error)
+    throw error // Re-throw to trigger MCP fallback
+  }
+}
+
+function transformAirbnbHttpResults(data: any): any[] {
+  try {
+    // Navigate Airbnb's response structure
+    const sections = data?.data?.dora?.exploreV3?.sections || []
+    const staysSection = sections.find((section: any) => 
+      section.sectionComponentType === 'STAYS_GRID' || 
+      section.listingCards?.length > 0
+    )
+    
+    if (!staysSection?.listingCards) {
+      console.warn('No listing cards found in response')
+      return []
+    }
+    
+    return staysSection.listingCards.map((card: any) => {
+      const listing = card.listing || {}
+      const pricingQuote = card.pricingQuote || {}
+      
+      return {
+        id: listing.id || '',
+        name: listing.name || 'Untitled Property',
+        url: `https://www.airbnb.com/rooms/${listing.id}`,
+        images: listing.contextualPictures?.map((pic: any) => pic.picture) || 
+                listing.pictureUrls || [],
+        price: {
+          total: pricingQuote.structuredStayDisplayPrice?.primaryLine?.price || 100,
+          rate: pricingQuote.structuredStayDisplayPrice?.primaryLine?.price || 100,
+          currency: 'USD'
+        },
+        rating: listing.avgRating || 4.0,
+        reviewsCount: listing.reviewsCount || 0,
+        location: {
+          city: listing.city || 'Unknown',
+          country: listing.country || 'Unknown'
+        },
+        host: {
+          name: listing.user?.firstName || 'Host',
+          isSuperhost: listing.user?.isSuperhost || false
+        },
+        amenities: extractHttpAmenities(listing),
+        roomType: listing.roomTypeCategory || 'Property',
+        platform: 'airbnb' as const
+      }
+    }).filter((listing: any) => listing.id) // Remove invalid entries
+    
+  } catch (error) {
+    console.error('Error transforming Airbnb HTTP results:', error)
+    return []
+  }
+}
+
+function extractHttpAmenities(listing: any): string[] {
+  const amenities: string[] = []
+  
+  // Extract from various possible locations in the response
+  if (listing.amenityIds) {
+    // Map common amenity IDs to human readable names
+    const amenityMap: Record<number, string> = {
+      1: 'WiFi',
+      4: 'Kitchen',
+      8: 'Parking',
+      10: 'Pool',
+      30: 'Hot Tub',
+      33: 'Air Conditioning',
+      40: 'Laundry',
+      51: 'Gym'
+    }
+    
+    listing.amenityIds.forEach((id: number) => {
+      if (amenityMap[id]) {
+        amenities.push(amenityMap[id])
+      }
+    })
+  }
+  
+  // Extract from listing highlights
+  if (listing.highlights) {
+    listing.highlights.forEach((highlight: any) => {
+      if (highlight.message) {
+        amenities.push(highlight.message)
+      }
+    })
+  }
+  
+  return [...new Set(amenities)] // Remove duplicates
 }
