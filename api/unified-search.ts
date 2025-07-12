@@ -101,15 +101,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (platforms.includes('booking')) {
-      searchPromises.push(
-        callPlatformAPI('/api/scraper', searchPayload, 'booking')
-      )
+      console.log('🏨 Booking.com temporarily disabled - browser scraping removed')
+      // TODO: Implement Booking.com HTTP API approach
     }
 
     if (platforms.includes('vrbo')) {
-      searchPromises.push(
-        callPlatformAPI('/api/scraper', searchPayload, 'vrbo')
-      )
+      console.log('🏖️ VRBO temporarily disabled - browser scraping removed')
+      // TODO: Implement VRBO HTTP API approach
     }
 
     console.log(`Searching ${platforms.length} platforms in parallel...`)

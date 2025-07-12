@@ -1,13 +1,11 @@
 {
   "env": {
-    "MCP_SERVER_URL": "https://airbnb-mcp-production.up.railway.app",
-    "CHROMIUM_REMOTE_EXEC_PATH": "https://github.com/Sparticuz/chromium/releases/download/v133.0.0/chromium-v133.0.0-pack.tar.br"
+    "MCP_SERVER_URL": "https://airbnb-mcp-production.up.railway.app"
   },
   "functions": {
     "api/*.ts": {
       "maxDuration": 30,
-      "memory": 1024,
-      "includeFiles": "node_modules/{@sparticuz,puppeteer-core,follow-redirects,streamx,fast-fifo,tar-fs}/**"
+      "memory": 512
     }
   }
 }
