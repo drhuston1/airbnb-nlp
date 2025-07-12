@@ -342,9 +342,22 @@ function App() {
         searchPayload.priceMax = queryAnalysis.extractedCriteria.priceRange.max
       }
       
+      // Add extracted bedroom/bathroom criteria if available
+      if (queryAnalysis?.extractedCriteria?.bedrooms) {
+        searchPayload.minBedrooms = queryAnalysis.extractedCriteria.bedrooms
+      }
+      if (queryAnalysis?.extractedCriteria?.bathrooms) {
+        searchPayload.minBathrooms = queryAnalysis.extractedCriteria.bathrooms
+      }
+      
       console.log('ENHANCED SEARCH PAYLOAD WITH EXTRACTED CRITERIA:', searchPayload)
       console.log('EXTRACTED QUERY ANALYSIS:', queryAnalysis)
-      console.log('LOCATION SPECIFICALLY:', searchPayload.location)
+      console.log('BEDROOM/BATHROOM CRITERIA:', {
+        bedrooms: queryAnalysis?.extractedCriteria?.bedrooms,
+        bathrooms: queryAnalysis?.extractedCriteria?.bathrooms,
+        minBedrooms: searchPayload.minBedrooms,
+        minBathrooms: searchPayload.minBathrooms
+      })
 
       const response = await fetch('/api/unified-search', {
         method: 'POST',

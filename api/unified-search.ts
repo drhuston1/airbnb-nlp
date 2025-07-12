@@ -10,6 +10,8 @@ interface UnifiedSearchRequest {
   children?: number
   priceMin?: number
   priceMax?: number
+  minBedrooms?: number
+  minBathrooms?: number
   page?: number
 }
 
@@ -72,10 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       children = 0,
       priceMin,
       priceMax,
-      page = 1
+      page = 1,
+      minBedrooms,
+      minBathrooms
     }: UnifiedSearchRequest = req.body
 
-    console.log('Airbnb search request:', { query, location, adults, children, priceMin, priceMax })
+    console.log('Airbnb search request:', { query, location, adults, children, priceMin, priceMax, minBedrooms, minBathrooms })
 
     if (!location) {
       return res.status(400).json({ error: 'Location is required for search' })
@@ -93,6 +97,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       children,
       priceMin,
       priceMax,
+      minBedrooms,
+      minBathrooms,
       page
     })
 
@@ -161,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function callAirbnbHttpAPI(payload: any) {
   console.log('🔍 Starting HTTP API-based Airbnb search...')
   
-  const { location, adults = 1, children = 0, checkin, checkout, priceMin, priceMax } = payload
+  const { location, adults = 1, children = 0, checkin, checkout, priceMin, priceMax, minBedrooms, minBathrooms } = payload
   
   // Log filtering parameters
   if (checkin && checkout) {
@@ -169,6 +175,12 @@ async function callAirbnbHttpAPI(payload: any) {
   }
   if (priceMin || priceMax) {
     console.log(`💰 Filtering by price: $${priceMin || 0} - $${priceMax || 'unlimited'}`)
+  }
+  if (minBedrooms) {
+    console.log(`🛏️ Filtering by bedrooms: ${minBedrooms}+ bedrooms`)
+  }
+  if (minBathrooms) {
+    console.log(`🛁 Filtering by bathrooms: ${minBathrooms}+ bathrooms`)
   }
   
   // Headers that mimic Airbnb's web frontend
@@ -229,8 +241,8 @@ async function callAirbnbHttpAPI(payload: any) {
     searchUrl.searchParams.set('children', children.toString())
     searchUrl.searchParams.set('infants', '0')
     searchUrl.searchParams.set('guests', (adults + children).toString())
-    searchUrl.searchParams.set('min_bathrooms', '0')
-    searchUrl.searchParams.set('min_bedrooms', '0')
+    searchUrl.searchParams.set('min_bathrooms', (minBathrooms || 0).toString())
+    searchUrl.searchParams.set('min_bedrooms', (minBedrooms || 0).toString())
     searchUrl.searchParams.set('min_beds', '0')
     searchUrl.searchParams.set('min_num_pic_urls', '1')
     searchUrl.searchParams.set('monthly_start_date', '')
