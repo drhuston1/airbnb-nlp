@@ -767,96 +767,27 @@ function App() {
   return (
     <Box 
       h="100vh" 
-      bg="#E0F7F4" 
+      bg="white" 
       display="flex" 
       flexDirection="row"
       position="relative"
       overflow="hidden"
     >
-      {/* Subtle Background Decorative Elements */}
-      <Box
-        position="absolute"
-        top="10%"
-        left="15%"
-        width="80px"
-        height="80px"
-        borderRadius="50%"
-        bg="linear-gradient(135deg, #FF6B6B20, #FF8E5330)"
-        opacity={0.3}
-        zIndex={0}
-      />
-      <Box
-        position="absolute"
-        top="60%"
-        right="20%"
-        width="60px"
-        height="60px"
-        borderRadius="20px"
-        bg="linear-gradient(45deg, #4ECDC420, #E0F7F430)"
-        opacity={0.4}
-        zIndex={0}
-        transform="rotate(45deg)"
-      />
-      <Box
-        position="absolute"
-        bottom="20%"
-        left="5%"
-        width="40px"
-        height="120px"
-        borderRadius="20px"
-        bg="linear-gradient(180deg, #FFE8D620, #FFEEE630)"
-        opacity={0.3}
-        zIndex={0}
-        transform="rotate(-15deg)"
-      />
-      <Box
-        position="absolute"
-        top="30%"
-        right="5%"
-        width="50px"
-        height="50px"
-        bg="linear-gradient(90deg, #FF8E5320, #4ECDC420)"
-        opacity={0.25}
-        zIndex={0}
-        clipPath="polygon(50% 0%, 0% 100%, 100% 100%)"
-      />
-      <Box
-        position="absolute"
-        bottom="40%"
-        right="35%"
-        width="70px"
-        height="30px"
-        borderRadius="15px"
-        bg="linear-gradient(135deg, #E0F7F425, #FFE5E525)"
-        opacity={0.35}
-        zIndex={0}
-        transform="rotate(25deg)"
-      />
-      <Box
-        position="absolute"
-        top="5%"
-        right="40%"
-        width="35px"
-        height="35px"
-        borderRadius="50%"
-        bg="#FF6B6B15"
-        opacity={0.4}
-        zIndex={0}
-      />
+      {/* Clean background - no decorative elements */}
       {/* Main Sidebar */}
       <Box
         position="relative"
         zIndex={1} 
         w={showSidebar ? "300px" : "60px"} 
-        bg="#FFEEE6" 
-        borderRight="1px" 
-        borderColor="#E6D5CC"
+        bg="white" 
+        borderRight="2px" 
+        borderColor="#4ECDC4"
         transition="width 0.3s ease"
         display="flex"
         flexDirection="column"
       >
         {/* Sidebar Header */}
-        <Box p={3} borderBottom="1px" borderColor="#E6D5CC">
+        <Box p={3} borderBottom="2px" borderColor="#FF8E53">
           {showSidebar ? (
             <VStack align="stretch" gap={3}>
               <HStack justify="space-between" align="center">
@@ -945,10 +876,15 @@ function App() {
                     <Box
                       key={item.id}
                       p={3}
-                      bg="#FFE8D6"
+                      bg="white"
+                      border="1px"
+                      borderColor="#E0F7F4"
                       borderRadius="md"
                       cursor="pointer"
-                      _hover={{ bg: "#FFDDCC" }}
+                      _hover={{ 
+                        borderColor: "#4ECDC4",
+                        bg: "#F8FDFC"
+                      }}
                       onClick={() => {
                         setSearchQuery(item.query)
                         setShowSidebar(false)
@@ -975,15 +911,18 @@ function App() {
             </Box>
             
             {searchHistory.length > 0 && (
-              <Box p={3} borderTop="1px" borderColor="#E6D5CC">
+              <Box p={3} borderTop="2px" borderColor="#FF6B6B">
                 <Button
                   size="sm"
                   variant="outline"
                   w="full"
                   onClick={clearHistory}
-                  borderColor="#E6D5CC"
+                  borderColor="#FF8E53"
                   color="#CC6B2E"
-                  _hover={{ bg: "#FFE8D6" }}
+                  _hover={{ 
+                    bg: "#FFF5F0",
+                    borderColor: "#FF6B6B"
+                  }}
                 >
                   Clear History
                 </Button>
@@ -996,7 +935,7 @@ function App() {
       {/* Main Chat Content */}
       <Box flex="1" display="flex" flexDirection="column" minW="0" position="relative" zIndex={1}>
         {/* Header with controls */}
-        <Box p={3} borderBottom="1px" borderColor="#E6D5CC" bg="white">
+        <Box p={3} borderBottom="2px" borderColor="#4ECDC4" bg="white">
           <HStack justify="space-between" align="center">
             <HStack gap={3} align="center">
               {currentQuery && (
@@ -1011,9 +950,12 @@ function App() {
                 size="sm"
                 variant="outline"
                 onClick={() => setShowResults(!showResults)}
-                borderColor="#E6D5CC"
-                color="#CC6B2E"
-                _hover={{ bg: "#FFE8D6" }}
+                borderColor="#4ECDC4"
+                color="#2E7A73"
+                _hover={{ 
+                  bg: "#F0F8F7",
+                  borderColor: "#FF8E53"
+                }}
               >
                 <Icon as={Home} w={4} h={4} mr={2} />
                 {showResults ? 'Hide Results' : 'Show Results'} ({currentResults.length})
@@ -1206,7 +1148,7 @@ function App() {
 
         {/* Chat Input - Only show when there are messages */}
         {messages.length > 0 && (
-        <Box bg="white" px={4} py={4} borderTop="1px" borderColor="#E6D5CC">
+        <Box bg="white" px={4} py={4} borderTop="2px" borderColor="#4ECDC4">
           <Box maxW="3xl" mx="auto">
             <HStack gap={3}>
               <Textarea
@@ -1264,8 +1206,8 @@ function App() {
         zIndex={1} 
         w={showResults ? "800px" : "0"} 
         bg="white" 
-        borderLeft="1px" 
-        borderColor="#E6D5CC"
+        borderLeft="2px" 
+        borderColor="#4ECDC4"
         transition="width 0.3s ease"
         overflow="hidden"
         display="flex"
@@ -1273,7 +1215,7 @@ function App() {
       >
         {showResults && (
           <>
-            <Box p={3} borderBottom="1px" borderColor="#E6D5CC">
+            <Box p={3} borderBottom="2px" borderColor="#FF8E53">
               <HStack justify="space-between" align="center" mb={2}>
                 <VStack align="start" gap={1} spacing={1}>
                   <HStack gap={2}>
@@ -1332,7 +1274,10 @@ function App() {
                   variant="ghost"
                   onClick={() => setShowResults(false)}
                   color="#8B9DC3"
-                  _hover={{ bg: "#F5F7FA" }}
+                  _hover={{ 
+                    bg: "#F8FDFC",
+                    borderColor: "#4ECDC4"
+                  }}
                 >
                   <Icon as={X} w={3} h={3} />
                 </Button>
@@ -1362,9 +1307,9 @@ function App() {
                       
                       const getColor = () => {
                         switch (filter.priority) {
-                          case 'high': return { main: '#4ECDC4', light: '#E0F7F4', dark: '#2E7A73' }
-                          case 'medium': return { main: '#FF8E53', light: '#FFE8D6', dark: '#CC6B2E' }
-                          default: return { main: '#FF6B6B', light: '#FFE5E5', dark: '#CC5555' }
+                          case 'high': return { main: '#4ECDC4', bg: 'white', dark: '#2E7A73' }
+                          case 'medium': return { main: '#FF8E53', bg: 'white', dark: '#CC6B2E' }
+                          default: return { main: '#FF6B6B', bg: 'white', dark: '#CC5555' }
                         }
                       }
                       
@@ -1378,9 +1323,10 @@ function App() {
                           onClick={() => handleRefinementQuery(filter.query)}
                           borderColor={color.main}
                           color={color.dark}
-                          bg={color.light}
+                          bg={color.bg}
+                          border="2px"
                           _hover={{ 
-                            bg: color.light,
+                            bg: '#F8FDFC',
                             borderColor: color.dark,
                             transform: 'translateY(-1px)'
                           }}
@@ -1424,20 +1370,21 @@ function App() {
                     <Box
                       key={listing.id}
                       border="1px"
-                      borderColor="#E6D5CC"
+                      borderColor="gray.200"
                       borderRadius="md"
                       overflow="hidden"
-                      bg="#FFEEE6"
+                      bg="white"
                       _hover={{ 
-                        borderColor: '#E6D5CC',
-                        bg: 'white'
+                        borderColor: '#4ECDC4',
+                        bg: '#F8FDFC',
+                        boxShadow: '0 2px 8px rgba(78, 205, 196, 0.1)'
                       }}
                       transition="all 0.2s"
                     >
                       {/* Property Image */}
                       <Box 
                         h="120px" 
-                        bg="#F0F8F7" 
+                        bg="white" 
                         position="relative"
                         overflow="hidden"
                         display="flex"
@@ -1521,7 +1468,9 @@ function App() {
                             display="flex"
                             alignItems="center"
                             justifyContent="center"
-                            bg="#E0F7F4"
+                            bg="white"
+                            border="1px dashed"
+                            borderColor="#4ECDC4"
                             color="#8B9DC3"
                           >
                             <VStack gap={1}>
@@ -1565,9 +1514,11 @@ function App() {
                                   borderRadius="full"
                                   fontSize="xs"
                                   fontWeight="600"
-                                  bg={
-                                    listing.trustScore >= 80 ? '#E0F7F4' :
-                                    listing.trustScore >= 60 ? '#FFE8D6' : '#FFE5E5'
+                                  bg="white"
+                                  border="1px"
+                                  borderColor={
+                                    listing.trustScore >= 80 ? '#4ECDC4' :
+                                    listing.trustScore >= 60 ? '#FF8E53' : '#FF6B6B'
                                   }
                                   color={
                                     listing.trustScore >= 80 ? '#2E7A73' :
@@ -1648,7 +1599,7 @@ function App() {
             
             {/* Pagination in results panel */}
             {currentResults.length > 0 && (
-              <Box p={3} borderTop="1px" borderColor="#E6D5CC">
+              <Box p={3} borderTop="2px" borderColor="#FF6B6B">
                 <Flex justify="space-between" align="center">
                   <Text fontSize="xs" color="gray.500">
                     Page {currentPage}
@@ -1659,8 +1610,11 @@ function App() {
                       variant="outline"
                       onClick={handlePrevPage}
                       disabled={currentPage === 1 || loading}
-                      borderColor="#E6D5CC"
-                      _hover={{ bg: "#FFE8D6" }}
+                      borderColor="#4ECDC4"
+                      _hover={{ 
+                        bg: "#F0F8F7",
+                        borderColor: "#FF8E53"
+                      }}
                     >
                       ←
                     </Button>
@@ -1669,8 +1623,11 @@ function App() {
                       variant="outline"
                       onClick={handleNextPage}
                       disabled={!hasMore || loading}
-                      borderColor="#E6D5CC"
-                      _hover={{ bg: "#FFE8D6" }}
+                      borderColor="#4ECDC4"
+                      _hover={{ 
+                        bg: "#F0F8F7",
+                        borderColor: "#FF8E53"
+                      }}
                     >
                       →
                     </Button>
