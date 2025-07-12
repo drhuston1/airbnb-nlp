@@ -686,6 +686,12 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     const listings = transformAirbnbHttpResults(searchData)
     console.log(`🎉 HTTP API found ${listings.length} listings`)
     
+    // Debug: Log sample listing to understand structure
+    if (listings.length > 0) {
+      console.log('📊 Sample listing keys:', Object.keys(listings[0]))
+      console.log('📊 Sample listing:', JSON.stringify(listings[0], null, 2))
+    }
+    
     return {
       platform,
       data: {
@@ -753,25 +759,44 @@ function transformAirbnbHttpResults(data: any): any[] {
       return []
     }
     
-    return listingCards.map((item: any) => {
+    // Debug: Log raw listing structure
+    console.log(`🔍 Raw listing sample keys:`, Object.keys(listingCards[0]))
+    console.log(`🔍 Raw listing sample:`, JSON.stringify(listingCards[0], null, 2).substring(0, 1000) + '...')
+    
+    return listingCards.map((item: any, index: number) => {
       // Handle both explore_tabs and GraphQL formats
       const listing = item.listing || item
-      const pricingQuote = item.pricingQuote || {}
+      
+      // Debug individual listings
+      if (index === 0) {
+        console.log(`🔍 Processing listing ${index}:`)
+        console.log(`  - item keys:`, Object.keys(item))
+        console.log(`  - listing keys:`, Object.keys(listing))
+        console.log(`  - id candidates:`, {
+          'listing.id': listing.id,
+          'item.id': item.id,
+          'listing.listing_id': listing.listing_id,
+          'item.listing_id': item.listing_id
+        })
+      }
+      
+      // More robust ID extraction
+      const listingId = listing.id || item.id || listing.listing_id || item.listing_id || `temp_${index}`
       
       // Extract price info
       let priceValue = 100
       if (listing.pricing_quote?.rate?.amount) {
         priceValue = listing.pricing_quote.rate.amount
-      } else if (pricingQuote.structuredStayDisplayPrice?.primaryLine?.price) {
-        priceValue = pricingQuote.structuredStayDisplayPrice.primaryLine.price
+      } else if (listing.pricing_quote?.rate_formatted) {
+        priceValue = parseInt(listing.pricing_quote.rate_formatted.replace(/[^0-9]/g, '')) || 100
       } else if (listing.price?.rate?.amount_formatted) {
         priceValue = parseInt(listing.price.rate.amount_formatted.replace(/[^0-9]/g, '')) || 100
       }
       
-      return {
-        id: listing.id?.toString() || '',
-        name: listing.name || listing.public_address || 'Untitled Property',
-        url: `https://www.airbnb.com/rooms/${listing.id}`,
+      const transformedListing = {
+        id: listingId?.toString() || `fallback_${index}`,
+        name: listing.name || listing.public_address || `Property ${index + 1}`,
+        url: `https://www.airbnb.com/rooms/${listingId}`,
         images: listing.xl_picture_urls || 
                 listing.picture_urls || 
                 listing.contextualPictures?.map((pic: any) => pic.picture) || 
@@ -795,7 +820,13 @@ function transformAirbnbHttpResults(data: any): any[] {
         roomType: listing.room_type_category || listing.roomTypeCategory || 'Property',
         platform: 'airbnb' as const
       }
-    }).filter((listing: any) => listing.id) // Remove invalid entries
+      
+      if (index === 0) {
+        console.log(`✅ Transformed listing:`, transformedListing)
+      }
+      
+      return transformedListing
+    }) // Remove the filter to see all results for debugging
     
   } catch (error) {
     console.error('Error transforming Airbnb HTTP results:', error)
