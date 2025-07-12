@@ -1217,7 +1217,7 @@ function App() {
           <>
             <Box p={3} borderBottom="2px" borderColor="#FF8E53">
               <HStack justify="space-between" align="center" mb={2}>
-                <VStack align="start" gap={1} spacing={1}>
+                <VStack align="start" gap={1}>
                   <HStack gap={2}>
                     <Icon as={Home} w={3} h={3} color="gray.600" />
                     <Text fontSize="sm" fontWeight="500" color="gray.700">
