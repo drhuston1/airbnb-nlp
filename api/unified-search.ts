@@ -543,6 +543,18 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     const searchUrl = new URL('https://www.airbnb.com/api/v2/explore_tabs')
     searchUrl.searchParams.set('version', '1.3.9')
     searchUrl.searchParams.set('_format', 'for_explore_search_web')
+    searchUrl.searchParams.set('experiences_per_grid', '20')
+    searchUrl.searchParams.set('guidebooks_per_grid', '20')
+    searchUrl.searchParams.set('auto_ib', 'false')
+    searchUrl.searchParams.set('fetch_filters', 'true')
+    searchUrl.searchParams.set('has_zero_guest_treatment', 'false')
+    searchUrl.searchParams.set('is_guided_search', 'true')
+    searchUrl.searchParams.set('is_new_cards_experiment', 'true')
+    searchUrl.searchParams.set('luxury_pre_launch', 'false')
+    searchUrl.searchParams.set('query_understanding_enabled', 'true')
+    searchUrl.searchParams.set('show_groupings', 'true')
+    searchUrl.searchParams.set('supports_for_you_v3', 'true')
+    searchUrl.searchParams.set('timezone_offset', '0')
     searchUrl.searchParams.set('items_per_grid', '20')
     searchUrl.searchParams.set('federated_search_session_id', Date.now().toString())
     searchUrl.searchParams.set('tab_id', 'home_tab')
@@ -558,7 +570,7 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     searchUrl.searchParams.set('min_bathrooms', '0')
     searchUrl.searchParams.set('min_bedrooms', '0')
     searchUrl.searchParams.set('min_beds', '0')
-    searchUrl.searchParams.set('min_num_pic_urls', '10')
+    searchUrl.searchParams.set('min_num_pic_urls', '1')
     searchUrl.searchParams.set('monthly_start_date', '')
     searchUrl.searchParams.set('monthly_length', '')
     searchUrl.searchParams.set('price_min', '0')
@@ -667,8 +679,14 @@ function transformAirbnbHttpResults(data: any): any[] {
       return []
     }
     
-    // Log structure for monitoring
-    console.log(`🔍 Raw listing keys:`, Object.keys(listingCards[0]).slice(0, 10))
+    // Debug first listing completely for image issues
+    if (listingCards.length > 0) {
+      console.log(`🔍 First listing complete structure:`, JSON.stringify(listingCards[0], null, 2).substring(0, 3000))
+      console.log(`🔍 First listing keys:`, Object.keys(listingCards[0]))
+      if (listingCards[0].listing) {
+        console.log(`🔍 First listing.listing keys:`, Object.keys(listingCards[0].listing))
+      }
+    }
     
     return listingCards.map((item: any, index: number) => {
       // Handle both explore_tabs and GraphQL formats
@@ -677,6 +695,28 @@ function transformAirbnbHttpResults(data: any): any[] {
       // Log first listing for monitoring
       if (index === 0) {
         console.log(`🔍 Processing first listing with ID: ${listing.id}`)
+        
+        // Detailed image field debugging
+        console.log(`🖼️ Image fields debug:`, {
+          pictures: !!listing.pictures,
+          pictures_length: listing.pictures?.length,
+          picture_urls: !!listing.picture_urls,
+          picture_urls_length: listing.picture_urls?.length,
+          contextual_pictures: !!listing.contextual_pictures,
+          contextual_pictures_length: listing.contextual_pictures?.length,
+          xl_picture_url: !!listing.xl_picture_url,
+          picture_url: !!listing.picture_url,
+          thumbnail_url: !!listing.thumbnail_url,
+          photos: !!listing.photos,
+          photos_length: listing.photos?.length,
+          images: !!listing.images,
+          images_length: listing.images?.length
+        })
+        
+        // Show actual URLs if they exist
+        if (listing.pictures?.[0]) console.log(`🖼️ First pictures entry:`, listing.pictures[0])
+        if (listing.picture_urls?.[0]) console.log(`🖼️ First picture_url:`, listing.picture_urls[0])
+        if (listing.contextual_pictures?.[0]) console.log(`🖼️ First contextual_picture:`, listing.contextual_pictures[0])
       }
       
       // More robust ID extraction
@@ -696,14 +736,42 @@ function transformAirbnbHttpResults(data: any): any[] {
         priceValue = parseInt(listing.price.rate.amount_formatted.replace(/[^0-9]/g, '')) || 100
       }
       
-      // Better image extraction
+      // Extract images from the explore_tabs API response structure
       let images: string[] = []
-      if (listing.picture_urls && Array.isArray(listing.picture_urls)) {
+      
+      // For explore_tabs API, images are often in different locations
+      if (listing.pictures && Array.isArray(listing.pictures) && listing.pictures.length > 0) {
+        images = listing.pictures.map((pic: any) => pic.picture || pic).filter(Boolean)
+        if (index === 0) console.log(`✅ Using pictures array: ${images.length} images`)
+      } else if (listing.picture_urls && Array.isArray(listing.picture_urls) && listing.picture_urls.length > 0) {
         images = listing.picture_urls
-      } else if (listing.contextual_pictures && Array.isArray(listing.contextual_pictures)) {
-        images = listing.contextual_pictures.map((pic: any) => pic.picture).filter(Boolean)
+        if (index === 0) console.log(`✅ Using picture_urls: ${images.length} images`)
+      } else if (listing.contextual_pictures && Array.isArray(listing.contextual_pictures) && listing.contextual_pictures.length > 0) {
+        images = listing.contextual_pictures.map((pic: any) => pic.picture || pic.url).filter(Boolean)
+        if (index === 0) console.log(`✅ Using contextual_pictures: ${images.length} images`)
+      } else if (listing.xl_picture_url) {
+        images = [listing.xl_picture_url]
+        if (index === 0) console.log(`✅ Using xl_picture_url: ${images.length} image`)
       } else if (listing.picture_url) {
         images = [listing.picture_url]
+        if (index === 0) console.log(`✅ Using picture_url: ${images.length} image`)
+      } else if (listing.thumbnail_url) {
+        images = [listing.thumbnail_url]
+        if (index === 0) console.log(`✅ Using thumbnail_url: ${images.length} image`)
+      } else {
+        // Construct Airbnb image URLs using the listing ID and known patterns
+        if (listing.id) {
+          const baseId = listing.id.toString()
+          // Use the most common Airbnb image URL pattern
+          images = [
+            `https://a0.muscache.com/im/pictures/hosting/Hosting-${baseId}/original/`,
+            `https://a0.muscache.com/im/pictures/miso/Hosting-${baseId}/original/`,
+            `https://a0.muscache.com/im/pictures/${baseId}/original/`
+          ]
+          if (index === 0) console.log(`🔧 Constructed ${images.length} potential image URLs from ID: ${baseId}`)
+        } else {
+          if (index === 0) console.log(`❌ No images found and no ID to construct URL`)
+        }
       }
 
       const transformedListing = {
