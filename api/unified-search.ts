@@ -130,9 +130,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       if (result.status === 'fulfilled') {
         const platformResult = result.value as any
-        if (platformResult.status === 'success' && platformResult.data?.listings) {
+        if (platformResult.status === 'success' && (platformResult.data?.listings || platformResult.data?.results)) {
           // Add platform identifier to each listing
-          const platformListings = platformResult.data.listings.map((listing: any) => ({
+          const rawListings = platformResult.data.listings || platformResult.data.results
+          const platformListings = rawListings.map((listing: any) => ({
             ...listing,
             platform,
             id: `${platform}_${listing.id}` // Ensure unique IDs across platforms
@@ -783,38 +784,51 @@ function transformAirbnbHttpResults(data: any): any[] {
       // More robust ID extraction
       const listingId = listing.id || item.id || listing.listing_id || item.listing_id || `temp_${index}`
       
-      // Extract price info
+      // Extract price info from pricing_quote (sibling to listing)
+      const pricingQuote = item.pricing_quote || {}
       let priceValue = 100
-      if (listing.pricing_quote?.rate?.amount) {
+      
+      if (pricingQuote.rate?.amount) {
+        priceValue = pricingQuote.rate.amount
+      } else if (pricingQuote.rate_formatted) {
+        priceValue = parseInt(pricingQuote.rate_formatted.replace(/[^0-9]/g, '')) || 100
+      } else if (listing.pricing_quote?.rate?.amount) {
         priceValue = listing.pricing_quote.rate.amount
-      } else if (listing.pricing_quote?.rate_formatted) {
-        priceValue = parseInt(listing.pricing_quote.rate_formatted.replace(/[^0-9]/g, '')) || 100
       } else if (listing.price?.rate?.amount_formatted) {
         priceValue = parseInt(listing.price.rate.amount_formatted.replace(/[^0-9]/g, '')) || 100
+      }
+      
+      if (index === 0) {
+        console.log(`💰 Price extraction:`, {
+          'pricingQuote.rate.amount': pricingQuote.rate?.amount,
+          'pricingQuote.rate_formatted': pricingQuote.rate_formatted,
+          'final_price': priceValue
+        })
       }
       
       const transformedListing = {
         id: listingId?.toString() || `fallback_${index}`,
         name: listing.name || listing.public_address || `Property ${index + 1}`,
         url: `https://www.airbnb.com/rooms/${listingId}`,
-        images: listing.xl_picture_urls || 
-                listing.picture_urls || 
-                listing.contextualPictures?.map((pic: any) => pic.picture) || 
+        images: listing.picture_urls || 
+                listing.xl_picture_urls || 
+                listing.contextual_pictures?.map((pic: any) => pic.picture) || 
+                [listing.picture_url].filter(Boolean) ||
                 [],
         price: {
           total: priceValue,
           rate: priceValue,
           currency: 'USD'
         },
-        rating: listing.star_rating || listing.avgRating || 4.0,
+        rating: parseFloat(listing.avg_rating_localized) || listing.star_rating || listing.avgRating || 4.0,
         reviewsCount: listing.reviews_count || listing.reviewsCount || 0,
         location: {
           city: listing.localized_city || listing.city || 'Unknown',
           country: listing.localized_country || listing.country || 'Unknown'
         },
         host: {
-          name: listing.primary_host?.first_name || listing.user?.firstName || 'Host',
-          isSuperhost: listing.primary_host?.is_superhost || listing.user?.isSuperhost || false
+          name: listing.user?.first_name || listing.primary_host?.first_name || 'Host',
+          isSuperhost: listing.is_superhost || listing.user?.isSuperhost || listing.primary_host?.is_superhost || false
         },
         amenities: extractHttpAmenities(listing),
         roomType: listing.room_type_category || listing.roomTypeCategory || 'Property',
