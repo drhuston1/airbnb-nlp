@@ -84,17 +84,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       page
     }
 
-    // Search Airbnb using HTTP API with MCP fallback
+    // Search Airbnb using HTTP API only
     console.log('🚀 Searching Airbnb using HTTP API...')
     
-    const searchPromise = callPlatformAPI('/api/airbnb-api', searchPayload, 'airbnb')
-    
-    // Wait for search to complete (with timeout)
-    const result = await Promise.race([
-      searchPromise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('API timeout')), 25000))
-    ])
-
+    const result = await callAirbnbHttpAPI(searchPayload, 'airbnb')
     console.log('Airbnb search completed:', { status: 'success' })
 
     // Process Airbnb results
@@ -766,6 +759,24 @@ function transformAirbnbHttpResults(data: any): any[] {
       
       // Calculate trust score immediately
       const trustScore = calculateTrustScore(rating, reviewsCount)
+      
+      // Debug logging for first listing
+      if (index === 0) {
+        console.log(`🔍 Raw listing fields:`, Object.keys(listing))
+        console.log(`🔍 Debug listing data:`, {
+          rating,
+          reviewsCount,
+          trustScore,
+          bedrooms: listing.bedrooms,
+          bathrooms: listing.bathrooms,
+          beds: listing.beds,
+          person_capacity: listing.person_capacity,
+          propertyType: listing.room_and_property_type || listing.space_type,
+          room_type_category: listing.room_type_category,
+          avg_rating_localized: listing.avg_rating_localized,
+          reviews_count: listing.reviews_count
+        })
+      }
       
       const transformedListing = {
         id: listingId?.toString() || `fallback_${index}`,

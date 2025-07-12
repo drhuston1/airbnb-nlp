@@ -28,7 +28,10 @@ import {
   Wifi,
   Filter,
   Calendar,
-  Building
+  Building,
+  Bed,
+  Bath,
+  Shield
 } from 'lucide-react'
 
 // Import types
@@ -1484,37 +1487,9 @@ function App() {
                       
                       <Box p={3}>
                         <VStack align="start" gap={2}>
-                          <HStack justify="space-between" w="full" align="start">
-                            <Text fontWeight="600" color="gray.900" lineHeight="1.3" fontSize="sm" lineClamp={2} flex="1">
-                              {listing.name}
-                            </Text>
-                            {/* Platform Badge */}
-                            <Box
-                              px={2}
-                              py={1}
-                              borderRadius="full"
-                              fontSize="xs"
-                              fontWeight="600"
-                              textTransform="uppercase"
-                              letterSpacing="0.5px"
-                              bg={
-                                listing.platform === 'airbnb' ? 'red.100' :
-                                listing.platform === 'booking' ? 'blue.100' :
-                                listing.platform === 'vrbo' ? 'orange.100' : 'gray.100'
-                              }
-                              color={
-                                listing.platform === 'airbnb' ? 'red.700' :
-                                listing.platform === 'booking' ? 'blue.700' :
-                                listing.platform === 'vrbo' ? 'orange.700' : 'gray.700'
-                              }
-                              flexShrink={0}
-                              ml={2}
-                            >
-                              {listing.platform === 'airbnb' ? 'Airbnb' :
-                               listing.platform === 'booking' ? 'Booking' :
-                               listing.platform === 'vrbo' ? 'VRBO' : listing.platform}
-                            </Box>
-                          </HStack>
+                          <Text fontWeight="600" color="gray.900" lineHeight="1.3" fontSize="sm" lineClamp={2}>
+                            {listing.name}
+                          </Text>
                           
                           <HStack justify="space-between" w="full">
                             <HStack gap={1}>
@@ -1523,23 +1498,69 @@ function App() {
                                 {listing.location.city}
                               </Text>
                             </HStack>
+                            <HStack gap={2}>
+                              <HStack gap={1}>
+                                <Icon as={Star} color="yellow.400" w={3} h={3} />
+                                <Text fontSize="xs" color="gray.600">
+                                  {listing.rating} ({listing.reviewsCount})
+                                </Text>
+                              </HStack>
+                              
+                              {/* Trust Score Badge */}
+                              {listing.trustScore !== undefined && (
+                                <Box
+                                  px={2}
+                                  py={1}
+                                  borderRadius="full"
+                                  fontSize="xs"
+                                  fontWeight="600"
+                                  bg={
+                                    listing.trustScore >= 80 ? 'green.100' :
+                                    listing.trustScore >= 60 ? 'yellow.100' : 'red.100'
+                                  }
+                                  color={
+                                    listing.trustScore >= 80 ? 'green.700' :
+                                    listing.trustScore >= 60 ? 'yellow.700' : 'red.700'
+                                  }
+                                  title={`Trust Score: ${listing.trustScore}/100 based on rating and review count`}
+                                >
+                                  <HStack gap={1}>
+                                    <Icon as={Shield} w={3} h={3} />
+                                    <Text>{listing.trustScore}</Text>
+                                  </HStack>
+                                </Box>
+                              )}
+                            </HStack>
+                          </HStack>
+
+                          {/* Property details: bedrooms and bathrooms */}
+                          <HStack gap={4} color="gray.600">
+                            {listing.bedrooms !== undefined && listing.bedrooms > 0 && (
+                              <HStack gap={1}>
+                                <Icon as={Bed} w={3} h={3} />
+                                <Text fontSize="xs">
+                                  {listing.bedrooms} {listing.bedrooms === 1 ? 'bed' : 'beds'}
+                                </Text>
+                              </HStack>
+                            )}
+                            {listing.bathrooms !== undefined && listing.bathrooms > 0 && (
+                              <HStack gap={1}>
+                                <Icon as={Bath} w={3} h={3} />
+                                <Text fontSize="xs">
+                                  {listing.bathrooms} {listing.bathrooms === 1 ? 'bath' : 'baths'}
+                                </Text>
+                              </HStack>
+                            )}
                             <HStack gap={1}>
-                              <Icon as={Star} color="yellow.400" w={3} h={3} />
-                              <Text fontSize="xs" color="gray.600">
-                                {listing.rating}
+                              <Icon as={Building} w={3} h={3} color="gray.400" />
+                              <Text fontSize="xs" color="gray.500">
+                                {listing.propertyType || listing.roomType}
                               </Text>
                             </HStack>
                           </HStack>
 
-
                           <HStack justify="space-between" w="full" align="center">
                             <VStack align="start" gap={0}>
-                              <HStack gap={1}>
-                                <Icon as={Building} w={3} h={3} color="gray.400" />
-                                <Text fontSize="xs" color="gray.500">
-                                  {listing.propertyType || listing.roomType}
-                                </Text>
-                              </HStack>
                               <Text fontWeight="600" color="gray.900" fontSize="sm">
                                 ${listing.price.rate}/night
                               </Text>
