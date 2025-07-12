@@ -10,12 +10,9 @@ import {
   Spinner,
   Center,
   Button,
-  Flex,
-  Tooltip,
-  Collapse,
-  useDisclosure
+  Flex
 } from '@chakra-ui/react'
-import { Star, User, ExternalLink, MapPin, Bed, Bath, Shield, AlertTriangle, ThumbsUp, ChevronDown, ChevronUp } from 'lucide-react'
+import { Star, User, ExternalLink, MapPin, Bed, Bath, Shield, AlertTriangle, ThumbsUp, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import type { AirbnbListing } from '../types'
 import { useState } from 'react'
 
@@ -80,9 +77,11 @@ export const ResultsPanel = ({
       
       <SimpleGrid columns={{ base: 1, lg: 2, xl: 3 }} gap={6}>
         {listings.map((listing) => {
-          const { isOpen: isReviewOpen, onToggle: onReviewToggle } = useDisclosure()
+          const [isReviewOpen, setIsReviewOpen] = useState(false)
           const [reviewInsights, setReviewInsights] = useState(listing.reviewInsights)
           const [loadingInsights, setLoadingInsights] = useState(false)
+          
+          const onReviewToggle = () => setIsReviewOpen(!isReviewOpen)
           
           const loadReviewInsights = async () => {
             if (reviewInsights || loadingInsights) return
@@ -157,24 +156,20 @@ export const ResultsPanel = ({
                   
                   {/* Trust Score Badge */}
                   {listing.trustScore !== undefined && (
-                    <Tooltip 
-                      label={`Trust Score: ${listing.trustScore}/100 based on rating consistency and review count`}
-                      placement="top"
+                    <Badge 
+                      colorScheme={
+                        listing.trustScore >= 80 ? "green" : 
+                        listing.trustScore >= 60 ? "yellow" : "red"
+                      }
+                      size="sm"
+                      variant="subtle"
+                      title={`Trust Score: ${listing.trustScore}/100 based on rating consistency and review count`}
                     >
-                      <Badge 
-                        colorScheme={
-                          listing.trustScore >= 80 ? "green" : 
-                          listing.trustScore >= 60 ? "yellow" : "red"
-                        }
-                        size="sm"
-                        variant="subtle"
-                      >
-                        <HStack gap={1}>
-                          <Icon as={Shield} w={3} h={3} />
-                          <Text>{listing.trustScore}</Text>
-                        </HStack>
-                      </Badge>
-                    </Tooltip>
+                      <HStack gap={1}>
+                        <Icon as={Shield} w={3} h={3} />
+                        <Text>{listing.trustScore}</Text>
+                      </HStack>
+                    </Badge>
                   )}
                 </HStack>
                 
@@ -185,9 +180,32 @@ export const ResultsPanel = ({
                 )}
               </HStack>
               
-              <HStack gap={1} color="gray.600">
-                <Icon as={User} w={4} h={4} />
-                <Text fontSize="sm">{listing.roomType}</Text>
+              <HStack justify="space-between" align="center">
+                <HStack gap={1} color="gray.600">
+                  <Icon as={User} w={4} h={4} />
+                  <Text fontSize="sm">{listing.roomType}</Text>
+                </HStack>
+                
+                {/* Location with Google Maps link */}
+                <HStack gap={1} color="gray.500">
+                  <Icon as={MapPin} w={3} h={3} />
+                  <Text fontSize="xs">{listing.location.city}</Text>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    p={1}
+                    minW="auto"
+                    h="auto"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const query = encodeURIComponent(`${listing.location.city}, ${listing.location.country}`)
+                      window.open(`https://maps.google.com/maps?q=${query}`, '_blank')
+                    }}
+                    _hover={{ bg: 'blue.50' }}
+                  >
+                    <Icon as={ExternalLink} w={3} h={3} color="blue.500" />
+                  </Button>
+                </HStack>
               </HStack>
               
               {/* Property details: bedrooms and bathrooms */}
@@ -222,23 +240,23 @@ export const ResultsPanel = ({
                     }
                     onReviewToggle()
                   }}
-                  leftIcon={
-                    loadingInsights ? (
-                      <Spinner size="sm" w={4} h={4} />
-                    ) : (
-                      <Icon as={isReviewOpen ? ChevronUp : ChevronDown} w={4} h={4} />
-                    )
-                  }
                   color="gray.600"
                   fontSize="sm"
                   p={2}
                   h="auto"
                   isDisabled={loadingInsights}
                 >
-                  {loadingInsights ? 'Loading...' : 'Review Insights'}
+                  <HStack gap={1}>
+                    {loadingInsights ? (
+                      <Spinner size="sm" w={4} h={4} />
+                    ) : (
+                      <Icon as={isReviewOpen ? ChevronUp : ChevronDown} w={4} h={4} />
+                    )}
+                    <Text>{loadingInsights ? 'Loading...' : 'Review Insights'}</Text>
+                  </HStack>
                 </Button>
                   
-                  <Collapse in={isReviewOpen} animateOpacity>
+                  {isReviewOpen && (
                     <VStack align="stretch" gap={2} mt={2} p={3} bg="gray.50" borderRadius="md">
                       {reviewInsights ? (
                         <>
@@ -296,7 +314,7 @@ export const ResultsPanel = ({
                         </Text>
                       )}
                     </VStack>
-                  </Collapse>
+                  )}
                 </Box>
               
               <Flex justify="space-between" align="center">

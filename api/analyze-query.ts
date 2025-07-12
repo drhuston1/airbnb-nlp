@@ -155,7 +155,7 @@ Analyze and return a JSON object with this exact structure:
       "total": number or null
     },
     "dates": {
-      "checkin": "YYYY-MM-DD or null",
+      "checkin": "YYYY-MM-DD or null (convert natural language like 'early september' to specific dates)",
       "checkout": "YYYY-MM-DD or null",
       "flexible": boolean
     }
@@ -258,6 +258,44 @@ Previous: none
   "confidence": 0.95
 }
 
+Query: "looking for a house on cape cod. early september. 4 bedrooms"
+Previous: none
+→ {
+  "location": "Cape Cod",
+  "isRefinement": false,
+  "refinementType": null,
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": null, "budget": null },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": [],
+    "propertyType": "house",
+    "bedrooms": 4,
+    "bathrooms": null,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": "2024-09-01", "checkout": "2024-09-10", "flexible": true }
+  },
+  "intent": "new_search",
+  "confidence": 0.9
+}
+
+Query: "next weekend"
+Previous: "Austin"
+→ {
+  "location": "SAME",
+  "isRefinement": true,
+  "refinementType": "general",
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": null, "budget": null },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": [],
+    "propertyType": null,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": "2024-01-20", "checkout": "2024-01-22", "flexible": false }
+  },
+  "intent": "refine_criteria",
+  "confidence": 0.85
+}
+
 Query: "luxury house with pool"
 Previous: none
 → {
@@ -275,6 +313,64 @@ Previous: none
   "intent": "new_search",
   "confidence": 0.8
 }
+
+Query: "under $300 per night"
+Previous: "Miami"
+→ {
+  "location": "SAME",
+  "isRefinement": true,
+  "refinementType": "price",
+  "extractedCriteria": {
+    "priceRange": { "min": null, "max": 300, "budget": null },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": [],
+    "propertyType": null,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": null, "checkout": null, "flexible": false }
+  },
+  "intent": "refine_criteria",
+  "confidence": 0.95
+}
+
+Query: "budget friendly options around $100-150"
+Previous: "Austin"
+→ {
+  "location": "SAME",
+  "isRefinement": true,
+  "refinementType": "price",
+  "extractedCriteria": {
+    "priceRange": { "min": 100, "max": 150, "budget": "budget" },
+    "rating": { "min": null, "excellent": false, "superhost": false },
+    "amenities": [],
+    "propertyType": null,
+    "guests": { "adults": null, "children": null, "total": null },
+    "dates": { "checkin": null, "checkout": null, "flexible": false }
+  },
+  "intent": "refine_criteria",
+  "confidence": 0.9
+}
+
+Date Parsing Guidelines:
+- "early september" → first 10 days of September (e.g., "2024-09-01" to "2024-09-10")
+- "late september" → last 10 days of September (e.g., "2024-09-21" to "2024-09-30") 
+- "mid september" → middle of September (e.g., "2024-09-10" to "2024-09-20")
+- "september" without qualifier → first weekend of September
+- "next weekend" → calculate next Saturday-Sunday
+- "this weekend" → current Saturday-Sunday
+- "christmas week" → December 20-27
+- Assume current year (2024) unless specified otherwise
+- Default stay length: 3-7 days for most queries, 2 days for weekends
+
+Price Parsing Guidelines:
+- "under $200" → max: 200
+- "$100-300" or "$100 to $300" → min: 100, max: 300
+- "around $250" → min: 200, max: 300 (±20% range)
+- "budget" or "cheap" → budget: "budget", max: 150
+- "luxury" or "high-end" → budget: "luxury", min: 300
+- "mid-range" → budget: "mid-range", min: 100, max: 300
+- "over $500" → min: 500
+- "$200+" → min: 200
+- Extract price per night, not total cost
 
 Return ONLY the JSON object, no other text:`
 

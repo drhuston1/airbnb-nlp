@@ -34,6 +34,8 @@ interface UnifiedProperty {
   }
   amenities: string[]
   roomType: string
+  propertyType?: string
+  platform?: string
 }
 
 interface UnifiedSearchResponse {
@@ -359,7 +361,9 @@ async function transformMCPResults(searchResults: any[], payload?: any) {
         isSuperhost
       },
       amenities,
-      roomType: primaryLine || 'Property'
+      roomType: primaryLine || 'Property',
+      propertyType: primaryLine || 'Property',
+      platform: 'airbnb'
     }
   }))
 }
@@ -471,7 +475,17 @@ function calculateTrustScore(rating: number, reviewsCount: number): number {
 async function callAirbnbHttpAPI(payload: any, platform: string) {
   console.log('🔍 Starting HTTP API-based Airbnb search...')
   
-  const { location, adults = 1, children = 0 } = payload
+  const { location, adults = 1, children = 0, checkin, checkout, priceMin, priceMax } = payload
+  
+  // Log date filtering if dates are provided
+  if (checkin && checkout) {
+    console.log(`📅 Filtering by dates: ${checkin} to ${checkout}`)
+  }
+  
+  // Log price filtering if price range is provided
+  if (priceMin || priceMax) {
+    console.log(`💰 Filtering by price: $${priceMin || 0} - $${priceMax || 'unlimited'}`)
+  }
   
   // Headers that mimic Airbnb's web frontend
   const AIRBNB_HEADERS = {
@@ -534,8 +548,8 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     searchUrl.searchParams.set('refinement_paths[]', '/homes')
     searchUrl.searchParams.set('query', location)
     searchUrl.searchParams.set('place_id', '')
-    searchUrl.searchParams.set('checkin', '')
-    searchUrl.searchParams.set('checkout', '')
+    searchUrl.searchParams.set('checkin', checkin || '')
+    searchUrl.searchParams.set('checkout', checkout || '')
     searchUrl.searchParams.set('adults', adults.toString())
     searchUrl.searchParams.set('children', children.toString())
     searchUrl.searchParams.set('infants', '0')
@@ -546,8 +560,8 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     searchUrl.searchParams.set('min_num_pic_urls', '1')
     searchUrl.searchParams.set('monthly_start_date', '')
     searchUrl.searchParams.set('monthly_length', '')
-    searchUrl.searchParams.set('price_min', '0')
-    searchUrl.searchParams.set('price_max', '1000')
+    searchUrl.searchParams.set('price_min', (priceMin || 0).toString())
+    searchUrl.searchParams.set('price_max', (priceMax || 1000).toString())
     searchUrl.searchParams.set('room_types[]', 'Entire home/apt')
     searchUrl.searchParams.set('top_tier_stays[]', 'true')
     searchUrl.searchParams.set('satori_version', '1.2.0')
@@ -775,13 +789,14 @@ function transformAirbnbHttpResults(data: any): any[] {
         },
         amenities: extractHttpAmenities(listing),
         roomType: listing.room_type_category || listing.roomTypeCategory || 'Property',
+        propertyType: listing.room_and_property_type || listing.space_type || 'Property',
+        platform: 'airbnb',
         
         // Enhanced data for better cards
         bedrooms: listing.bedrooms || 0,
         bathrooms: listing.bathrooms || 0,
         beds: listing.beds || 0,
         maxGuests: listing.person_capacity || 1,
-        propertyType: listing.room_and_property_type || listing.space_type || 'Property',
         neighborhood: listing.public_address || listing.localized_city || listing.city,
         isNewListing: listing.is_new_listing || false,
         instantBook: listing.instant_book || false,

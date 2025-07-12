@@ -36,6 +36,8 @@ export interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
+  propertyType?: string
+  platform?: string
   // Enhanced property details
   bedrooms?: number
   bathrooms?: number
@@ -58,6 +60,11 @@ export interface SearchResponse {
   page: number
   searchUrl?: string
   source?: string
+  dates?: {
+    checkin?: string
+    checkout?: string
+    flexible?: boolean
+  }
 }
 
 export interface ChatMessage {

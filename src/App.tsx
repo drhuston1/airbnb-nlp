@@ -26,7 +26,9 @@ import {
   DollarSign,
   Award,
   Wifi,
-  Filter
+  Filter,
+  Calendar,
+  Building
 } from 'lucide-react'
 
 // Import types
@@ -96,6 +98,8 @@ interface AirbnbListing {
   }
   amenities: string[]
   roomType: string
+  propertyType?: string
+  platform?: string
   // Enhanced property details
   bedrooms?: number
   bathrooms?: number
@@ -118,6 +122,11 @@ interface SearchResponse {
   page: number
   searchUrl?: string
   source?: string
+  dates?: {
+    checkin?: string
+    checkout?: string
+    flexible?: boolean
+  }
   sources?: {
     platform: string
     count: number
@@ -156,6 +165,8 @@ function App() {
   const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
   const [, setLastQueryAnalysis] = useState<any>(null)
   const [quickFilters, setQuickFilters] = useState<RefinementSuggestion[]>([])
+  const [currentDates, setCurrentDates] = useState<{checkin?: string, checkout?: string, flexible?: boolean} | null>(null)
+  const [currentPriceRange, setCurrentPriceRange] = useState<{min?: number, max?: number, budget?: string} | null>(null)
   
   
   // Refs
@@ -224,6 +235,8 @@ function App() {
     setSearchContext(null)
     setLastQueryAnalysis(null)
     setQuickFilters([])
+    setCurrentDates(null)
+    setCurrentPriceRange(null)
   }
 
 
@@ -316,6 +329,14 @@ function App() {
       }
       if (queryAnalysis?.extractedCriteria?.dates?.checkout) {
         searchPayload.checkout = queryAnalysis.extractedCriteria.dates.checkout
+      }
+      
+      // Add extracted price range if available
+      if (queryAnalysis?.extractedCriteria?.priceRange?.min) {
+        searchPayload.priceMin = queryAnalysis.extractedCriteria.priceRange.min
+      }
+      if (queryAnalysis?.extractedCriteria?.priceRange?.max) {
+        searchPayload.priceMax = queryAnalysis.extractedCriteria.priceRange.max
       }
       
       console.log('ENHANCED SEARCH PAYLOAD WITH EXTRACTED CRITERIA:', searchPayload)
@@ -430,17 +451,33 @@ function App() {
           )
         }
         
-        // Filter by price range (strict - user specified budget)
-        if (criteria.priceRange?.min || criteria.priceRange?.max) {
+        // Filter by price range and budget categories
+        if (criteria.priceRange?.min || criteria.priceRange?.max || criteria.priceRange?.budget) {
           filteredResults = applyFilterWithFallback(
             filteredResults,
             listing => {
               const price = listing.price.rate
+              
+              // Handle budget categories
+              if (criteria.priceRange?.budget) {
+                switch (criteria.priceRange.budget) {
+                  case 'budget':
+                    return price <= 150
+                  case 'mid-range':
+                    return price >= 100 && price <= 300
+                  case 'luxury':
+                    return price >= 300 || listing.host.isSuperhost || listing.rating >= 4.8
+                  default:
+                    break
+                }
+              }
+              
+              // Handle explicit price range
               const minOk = !criteria.priceRange?.min || price >= criteria.priceRange.min
               const maxOk = !criteria.priceRange?.max || price <= criteria.priceRange.max
               return minOk && maxOk
             },
-            `Filtered by price range`,
+            `Filtered by price ${criteria.priceRange.budget ? `(${criteria.priceRange.budget})` : 'range'}`,
             true // Allow empty for price filtering
           )
         }
@@ -634,6 +671,31 @@ function App() {
       setCurrentResults(filteredResults)
       setShowResults(true)
       addToHistory(query, filteredResults.length)
+      
+      // Store current dates if they were used for filtering
+      if (queryAnalysis?.extractedCriteria?.dates?.checkin && queryAnalysis?.extractedCriteria?.dates?.checkout) {
+        setCurrentDates({
+          checkin: queryAnalysis.extractedCriteria.dates.checkin,
+          checkout: queryAnalysis.extractedCriteria.dates.checkout,
+          flexible: queryAnalysis.extractedCriteria.dates.flexible || false
+        })
+      } else {
+        setCurrentDates(null)
+      }
+      
+      // Store current price range if it was used for filtering
+      if (queryAnalysis?.extractedCriteria?.priceRange && 
+          (queryAnalysis.extractedCriteria.priceRange.min || 
+           queryAnalysis.extractedCriteria.priceRange.max || 
+           queryAnalysis.extractedCriteria.priceRange.budget)) {
+        setCurrentPriceRange({
+          min: queryAnalysis.extractedCriteria.priceRange.min,
+          max: queryAnalysis.extractedCriteria.priceRange.max,
+          budget: queryAnalysis.extractedCriteria.priceRange.budget
+        })
+      } else {
+        setCurrentPriceRange(null)
+      }
       
       // Set quick filters for the results panel
       setQuickFilters(refinementSuggestions.slice(0, SEARCH_CONFIG.MAX_QUICK_FILTERS))
@@ -1234,6 +1296,35 @@ function App() {
                       ))}
                     </HStack>
                   )}
+                  
+                  {/* Date Filter Indicator */}
+                  {currentDates && currentDates.checkin && currentDates.checkout && (
+                    <HStack gap={2} mt={2}>
+                      <Icon as={Calendar} w={3} h={3} color="blue.500" />
+                      <Text fontSize="xs" color="blue.600" fontWeight="500">
+                        {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {currentDates.flexible && (
+                          <Text as="span" color="blue.500" ml={1}>(flexible)</Text>
+                        )}
+                      </Text>
+                    </HStack>
+                  )}
+                  
+                  {/* Price Filter Indicator */}
+                  {currentPriceRange && (currentPriceRange.min || currentPriceRange.max || currentPriceRange.budget) && (
+                    <HStack gap={2} mt={2}>
+                      <Icon as={DollarSign} w={3} h={3} color="green.500" />
+                      <Text fontSize="xs" color="green.600" fontWeight="500">
+                        {currentPriceRange.budget ? (
+                          <Text as="span" textTransform="capitalize">{currentPriceRange.budget} range</Text>
+                        ) : (
+                          <>
+                            {currentPriceRange.min ? `$${currentPriceRange.min}` : '$0'} - {currentPriceRange.max ? `$${currentPriceRange.max}` : 'unlimited'} per night
+                          </>
+                        )}
+                      </Text>
+                    </HStack>
+                  )}
                 </VStack>
                 <Button
                   size="xs"
@@ -1443,9 +1534,12 @@ function App() {
 
                           <HStack justify="space-between" w="full" align="center">
                             <VStack align="start" gap={0}>
-                              <Text fontSize="xs" color="gray.500">
-                                {listing.roomType}
-                              </Text>
+                              <HStack gap={1}>
+                                <Icon as={Building} w={3} h={3} color="gray.400" />
+                                <Text fontSize="xs" color="gray.500">
+                                  {listing.propertyType || listing.roomType}
+                                </Text>
+                              </HStack>
                               <Text fontWeight="600" color="gray.900" fontSize="sm">
                                 ${listing.price.rate}/night
                               </Text>
