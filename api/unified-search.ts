@@ -624,15 +624,24 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
           requestedPageType: 'STAYS_SEARCH',
           metadataOnly: false,
           source: 'structured_search_input_header',
-          searchType: 'filter_change',
+          searchType: 'pagination',
           treatmentFlags: [
             'stays_search_rehydration_treatment_desktop',
-            'stays_search_rehydration_treatment_moweb'
+            'stays_search_rehydration_treatment_moweb',
+            'flex_destinations_june_2021_ldp_web_treatment',
+            'stays_search_map_toggle_2021'
           ],
           rawParams: [
             ...rawParams,
-            { filterName: 'location', filterValues: [location] }
+            { filterName: 'query', filterValues: [location] },
+            { filterName: 'place_id', filterValues: [] }
           ]
+        }
+      },
+      extensions: {
+        persistedQuery: {
+          version: 1,
+          sha256Hash: 'f2ee243b3b6b99c6b0d7ef7d5f6b8b2a3c8e2b7b5c6c5c5c5c5c5c5c5c5c5c5c'
         }
       }
     }
@@ -655,6 +664,24 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     
     const searchData = await searchResponse.json()
     console.log('✅ Received search response')
+    
+    // Debug: Log response structure
+    console.log('🔍 Response keys:', Object.keys(searchData))
+    if (searchData.data) {
+      console.log('🔍 Data keys:', Object.keys(searchData.data))
+      if (searchData.data.dora) {
+        console.log('🔍 Dora keys:', Object.keys(searchData.data.dora))
+        if (searchData.data.dora.exploreV3) {
+          console.log('🔍 ExploreV3 keys:', Object.keys(searchData.data.dora.exploreV3))
+          if (searchData.data.dora.exploreV3.sections) {
+            console.log(`🔍 Found ${searchData.data.dora.exploreV3.sections.length} sections`)
+            searchData.data.dora.exploreV3.sections.forEach((section: any, i: number) => {
+              console.log(`🔍 Section ${i}: ${section.sectionComponentType}, cards: ${section.listingCards?.length || 0}`)
+            })
+          }
+        }
+      }
+    }
     
     // Step 4: Transform results to our format
     const listings = transformAirbnbHttpResults(searchData)
@@ -684,19 +711,44 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
 
 function transformAirbnbHttpResults(data: any): any[] {
   try {
-    // Navigate Airbnb's response structure
-    const sections = data?.data?.dora?.exploreV3?.sections || []
-    const staysSection = sections.find((section: any) => 
-      section.sectionComponentType === 'STAYS_GRID' || 
-      section.listingCards?.length > 0
-    )
+    // Try multiple possible response structures
+    let listingCards: any[] = []
     
-    if (!staysSection?.listingCards) {
-      console.warn('No listing cards found in response')
+    // Structure 1: data.dora.exploreV3.sections[].listingCards
+    if (data?.data?.dora?.exploreV3?.sections) {
+      for (const section of data.data.dora.exploreV3.sections) {
+        if (section.listingCards?.length > 0) {
+          listingCards = section.listingCards
+          console.log(`✅ Found ${listingCards.length} cards in section: ${section.sectionComponentType}`)
+          break
+        }
+      }
+    }
+    
+    // Structure 2: data.data.presentation.staysSearch.results.searchResults
+    if (!listingCards.length && data?.data?.presentation?.staysSearch?.results?.searchResults) {
+      listingCards = data.data.presentation.staysSearch.results.searchResults
+      console.log(`✅ Found ${listingCards.length} cards in searchResults`)
+    }
+    
+    // Structure 3: data.data.staysSearch.results.homes
+    if (!listingCards.length && data?.data?.staysSearch?.results?.homes) {
+      listingCards = data.data.staysSearch.results.homes
+      console.log(`✅ Found ${listingCards.length} cards in homes`)
+    }
+    
+    // Structure 4: Direct results array
+    if (!listingCards.length && Array.isArray(data?.data?.results)) {
+      listingCards = data.data.results
+      console.log(`✅ Found ${listingCards.length} cards in direct results`)
+    }
+    
+    if (!listingCards.length) {
+      console.warn('No listing cards found in any known response structure')
       return []
     }
     
-    return staysSection.listingCards.map((card: any) => {
+    return listingCards.map((card: any) => {
       const listing = card.listing || {}
       const pricingQuote = card.pricingQuote || {}
       
