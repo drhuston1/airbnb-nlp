@@ -765,9 +765,88 @@ function App() {
 
 
   return (
-    <Box h="100vh" bg="#E0F7F4" display="flex" flexDirection="row">
+    <Box 
+      h="100vh" 
+      bg="#E0F7F4" 
+      display="flex" 
+      flexDirection="row"
+      position="relative"
+      overflow="hidden"
+    >
+      {/* Subtle Background Decorative Elements */}
+      <Box
+        position="absolute"
+        top="10%"
+        left="15%"
+        width="80px"
+        height="80px"
+        borderRadius="50%"
+        bg="linear-gradient(135deg, #FF6B6B20, #FF8E5330)"
+        opacity={0.3}
+        zIndex={0}
+      />
+      <Box
+        position="absolute"
+        top="60%"
+        right="20%"
+        width="60px"
+        height="60px"
+        borderRadius="20px"
+        bg="linear-gradient(45deg, #4ECDC420, #E0F7F430)"
+        opacity={0.4}
+        zIndex={0}
+        transform="rotate(45deg)"
+      />
+      <Box
+        position="absolute"
+        bottom="20%"
+        left="5%"
+        width="40px"
+        height="120px"
+        borderRadius="20px"
+        bg="linear-gradient(180deg, #FFE8D620, #FFEEE630)"
+        opacity={0.3}
+        zIndex={0}
+        transform="rotate(-15deg)"
+      />
+      <Box
+        position="absolute"
+        top="30%"
+        right="5%"
+        width="50px"
+        height="50px"
+        bg="linear-gradient(90deg, #FF8E5320, #4ECDC420)"
+        opacity={0.25}
+        zIndex={0}
+        clipPath="polygon(50% 0%, 0% 100%, 100% 100%)"
+      />
+      <Box
+        position="absolute"
+        bottom="40%"
+        right="35%"
+        width="70px"
+        height="30px"
+        borderRadius="15px"
+        bg="linear-gradient(135deg, #E0F7F425, #FFE5E525)"
+        opacity={0.35}
+        zIndex={0}
+        transform="rotate(25deg)"
+      />
+      <Box
+        position="absolute"
+        top="5%"
+        right="40%"
+        width="35px"
+        height="35px"
+        borderRadius="50%"
+        bg="#FF6B6B15"
+        opacity={0.4}
+        zIndex={0}
+      />
       {/* Main Sidebar */}
-      <Box 
+      <Box
+        position="relative"
+        zIndex={1} 
         w={showSidebar ? "300px" : "60px"} 
         bg="#FFEEE6" 
         borderRight="1px" 
@@ -915,7 +994,7 @@ function App() {
       </Box>
 
       {/* Main Chat Content */}
-      <Box flex="1" display="flex" flexDirection="column" minW="0">
+      <Box flex="1" display="flex" flexDirection="column" minW="0" position="relative" zIndex={1}>
         {/* Header with controls */}
         <Box p={3} borderBottom="1px" borderColor="#E6D5CC" bg="white">
           <HStack justify="space-between" align="center">
@@ -927,7 +1006,7 @@ function App() {
               )}
             </HStack>
             
-            {showResults && (
+            {currentResults.length > 0 && (
               <Button
                 size="sm"
                 variant="outline"
@@ -1180,7 +1259,9 @@ function App() {
       </Box>
 
       {/* Results Panel */}
-      <Box 
+      <Box
+        position="relative"
+        zIndex={1} 
         w={showResults ? "800px" : "0"} 
         bg="white" 
         borderLeft="1px" 
@@ -1192,79 +1273,59 @@ function App() {
       >
         {showResults && (
           <>
-            <Box p={4} borderBottom="1px" borderColor="#E6D5CC">
-              <HStack justify="space-between" align="center" mb={3}>
-                <VStack align="start" gap={1}>
+            <Box p={3} borderBottom="1px" borderColor="#E6D5CC">
+              <HStack justify="space-between" align="center" mb={2}>
+                <VStack align="start" gap={1} spacing={1}>
                   <HStack gap={2}>
-                    <Icon as={Home} w={4} h={4} color="gray.600" />
+                    <Icon as={Home} w={3} h={3} color="gray.600" />
                     <Text fontSize="sm" fontWeight="500" color="gray.700">
                       Properties ({currentResults.length})
                     </Text>
                   </HStack>
-                  {/* Platform Summary */}
-                  {currentResults.length > 0 && (
-                    <HStack gap={2} flexWrap="wrap">
-                      {Object.entries(
-                        currentResults.reduce((acc, listing) => {
-                          const platform = listing.platform || 'unknown'
-                          acc[platform] = (acc[platform] || 0) + 1
-                          return acc
-                        }, {} as Record<string, number>)
-                      ).map(([platform, count]) => (
-                        <Box
-                          key={platform}
-                          px={2}
-                          py={1}
-                          borderRadius="full"
-                          fontSize="xs"
-                          fontWeight="500"
-                          bg={
-                            platform === 'airbnb' ? '#FFE5E5' :
-                            platform === 'booking' ? '#E0F7F4' :
-                            platform === 'vrbo' ? '#FFE8D6' : '#F5F7FA'
-                          }
-                          color={
-                            platform === 'airbnb' ? '#CC5555' :
-                            platform === 'booking' ? '#2E7A73' :
-                            platform === 'vrbo' ? '#CC6B2E' : '#8B9DC3'
-                          }
-                        >
-                          {count} from {platform === 'airbnb' ? 'Airbnb' : 
-                                        platform === 'booking' ? 'Booking.com' :
-                                        platform === 'vrbo' ? 'VRBO' : platform}
-                        </Box>
-                      ))}
-                    </HStack>
-                  )}
-                  
-                  {/* Date Filter Indicator */}
-                  {currentDates && currentDates.checkin && currentDates.checkout && (
-                    <HStack gap={2} mt={2}>
-                      <Icon as={Calendar} w={3} h={3} color="#4ECDC4" />
-                      <Text fontSize="xs" color="#2E7A73" fontWeight="500">
-                        {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        {currentDates.flexible && (
-                          <Text as="span" color="#4ECDC4" ml={1}>(flexible)</Text>
-                        )}
+                  {/* Compact info row */}
+                  <HStack gap={3} flexWrap="wrap" fontSize="xs" color="gray.600">
+                    {/* Platform count */}
+                    {currentResults.length > 0 && (
+                      <Text>
+                        {Object.entries(
+                          currentResults.reduce((acc, listing) => {
+                            const platform = listing.platform || 'unknown'
+                            acc[platform] = (acc[platform] || 0) + 1
+                            return acc
+                          }, {} as Record<string, number>)
+                        ).map(([platform, count]) => 
+                          `${count} ${platform === 'airbnb' ? 'Airbnb' : platform}`
+                        ).join(', ')}
                       </Text>
-                    </HStack>
-                  )}
-                  
-                  {/* Price Filter Indicator */}
-                  {currentPriceRange && (currentPriceRange.min || currentPriceRange.max || currentPriceRange.budget) && (
-                    <HStack gap={2} mt={2}>
-                      <Icon as={DollarSign} w={3} h={3} color="#FF8E53" />
-                      <Text fontSize="xs" color="#CC6B2E" fontWeight="500">
-                        {currentPriceRange.budget ? (
-                          <Text as="span" textTransform="capitalize">{currentPriceRange.budget} range</Text>
-                        ) : (
-                          <>
-                            {currentPriceRange.min ? `$${currentPriceRange.min}` : '$0'} - {currentPriceRange.max ? `$${currentPriceRange.max}` : 'unlimited'} per night
-                          </>
-                        )}
-                      </Text>
-                    </HStack>
-                  )}
+                    )}
+                    
+                    {/* Date Filter Indicator */}
+                    {currentDates && currentDates.checkin && currentDates.checkout && (
+                      <HStack gap={1}>
+                        <Icon as={Calendar} w={3} h={3} color="#4ECDC4" />
+                        <Text color="#2E7A73">
+                          {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {currentDates.flexible && ' (flexible)'}
+                        </Text>
+                      </HStack>
+                    )}
+                    
+                    {/* Price Filter Indicator */}
+                    {currentPriceRange && (currentPriceRange.min || currentPriceRange.max || currentPriceRange.budget) && (
+                      <HStack gap={1}>
+                        <Icon as={DollarSign} w={3} h={3} color="#FF8E53" />
+                        <Text color="#CC6B2E">
+                          {currentPriceRange.budget ? (
+                            <Text as="span" textTransform="capitalize">{currentPriceRange.budget} range</Text>
+                          ) : (
+                            <>
+                              {currentPriceRange.min ? `$${currentPriceRange.min}` : '$0'} - {currentPriceRange.max ? `$${currentPriceRange.max}` : 'unlimited'}/night
+                            </>
+                          )}
+                        </Text>
+                      </HStack>
+                    )}
+                  </HStack>
                 </VStack>
                 <Button
                   size="xs"
@@ -1277,19 +1338,16 @@ function App() {
                 </Button>
               </HStack>
               
-              {/* Enhanced Quick Filters */}
+              {/* Compact Quick Filters */}
               {quickFilters.length > 0 && (
                 <Box>
-                  <HStack mb={3} align="center">
-                    <Icon as={Filter} w={4} h={4} color="#4ECDC4" />
-                    <Text fontSize="sm" fontWeight="600" color="gray.700">
-                      Quick filters
-                    </Text>
-                    <Text fontSize="xs" color="gray.500">
-                      ({quickFilters.length} available)
+                  <HStack mb={2} align="center">
+                    <Icon as={Filter} w={3} h={3} color="#4ECDC4" />
+                    <Text fontSize="sm" fontWeight="500" color="gray.700">
+                      Quick filters ({quickFilters.length})
                     </Text>
                   </HStack>
-                  <Grid templateColumns="repeat(auto-fit, minmax(180px, 1fr))" gap={2}>
+                  <Grid templateColumns="repeat(auto-fit, minmax(140px, 1fr))" gap={2}>
                     {quickFilters.map((filter, index) => {
                       const getIcon = () => {
                         switch (filter.type) {
@@ -1315,7 +1373,7 @@ function App() {
                       return (
                         <Button
                           key={index}
-                          size="sm"
+                          size="xs"
                           variant="outline"
                           onClick={() => handleRefinementQuery(filter.query)}
                           borderColor={color.main}
@@ -1324,22 +1382,22 @@ function App() {
                           _hover={{ 
                             bg: color.light,
                             borderColor: color.dark,
-                            transform: 'translateY(-1px)',
-                            boxShadow: 'sm'
+                            transform: 'translateY(-1px)'
                           }}
-                          borderRadius="lg"
-                          p={3}
+                          borderRadius="md"
+                          px={2}
+                          py={1}
                           h="auto"
-                          flexDirection="column"
-                          alignItems="flex-start"
                           whiteSpace="normal"
                           textAlign="left"
                           transition="all 0.2s"
+                          flexDirection="column"
+                          alignItems="flex-start"
                         >
-                          <HStack w="full" justify="space-between" mb={1}>
-                            <HStack>
-                              <Icon as={getIcon()} w={3} h={3} />
-                              <Text fontSize="xs" fontWeight="600">
+                          <HStack w="full" justify="space-between">
+                            <HStack gap={1}>
+                              <Icon as={getIcon()} w={2} h={2} />
+                              <Text fontSize="xs" fontWeight="500" lineHeight="1.2">
                                 {filter.label}
                               </Text>
                             </HStack>
@@ -1347,9 +1405,6 @@ function App() {
                               {filter.count}
                             </Text>
                           </HStack>
-                          <Text fontSize="xs" color="gray.600" lineHeight="1.3">
-                            {filter.description}
-                          </Text>
                         </Button>
                       )
                     })}
