@@ -96,13 +96,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (platforms.includes('booking')) {
-      console.log('🏨 Booking.com temporarily disabled - browser scraping removed')
-      // TODO: Implement Booking.com HTTP API approach
+      console.log('🏨 Booking.com: HTTP API not yet implemented')
     }
 
     if (platforms.includes('vrbo')) {
-      console.log('🏖️ VRBO temporarily disabled - browser scraping removed')
-      // TODO: Implement VRBO HTTP API approach
+      console.log('🏖️ VRBO: HTTP API not yet implemented')
     }
 
     console.log(`Searching ${platforms.length} platforms in parallel...`)
@@ -295,90 +293,15 @@ async function callMCPSearchDirect(payload: any, platform: string) {
         status: 'success' as const
       }
     } catch (mcpError) {
-      console.error('MCP server failed, falling back to scraper:', mcpError)
-      
-      // Fallback to web scraper
-      return await callScraperFallback(payload, platform)
+      console.error('MCP server failed:', mcpError)
+      throw mcpError
     }
 
   } catch (error) {
-    console.error('Both MCP and scraper failed:', error)
+    console.error('MCP search failed:', error)
     throw error
   }
 }
-
-// Scraper fallback implementation
-async function callScraperFallback(payload: any, platform: string) {
-  try {
-    console.log('Using web scraper fallback for platform:', platform)
-    
-    const scraperPayload = {
-      platform: platform as 'airbnb' | 'booking' | 'vrbo',
-      location: payload.location,
-      checkin: payload.checkin,
-      checkout: payload.checkout,
-      adults: payload.adults || 2,
-      children: payload.children || 0,
-      page: payload.page || 1
-    }
-
-    // Call our scraper API directly
-    const scraperResult = await callScraperDirect(scraperPayload)
-    
-    return {
-      platform,
-      data: {
-        listings: scraperResult.listings,
-        searchUrl: scraperResult.searchUrl,
-        totalResults: scraperResult.totalResults,
-        page: scraperResult.page,
-        hasMore: scraperResult.hasMore,
-        source: `Web Scraper (${platform})`
-      },
-      status: 'success' as const
-    }
-    
-  } catch (error) {
-    console.error('Scraper fallback failed:', error)
-    throw error
-  }
-}
-
-// Direct scraper call (reimplemented to avoid circular imports)
-async function callScraperDirect(scraperPayload: any) {
-  // Import scraper functions dynamically to avoid Vercel build issues
-  const scraper = await import('./scraper')
-  
-  // Create a mock request/response for the scraper handler
-  const mockReq = {
-    method: 'POST',
-    body: scraperPayload
-  } as any
-
-  let result: any
-  const mockRes = {
-    status: (code: number) => ({
-      json: (data: any) => {
-        result = { statusCode: code, data }
-        return result
-      }
-    }),
-    json: (data: any) => {
-      result = { statusCode: 200, data }
-      return result
-    }
-  } as any
-
-  await scraper.default(mockReq, mockRes)
-  
-  if (result.statusCode !== 200) {
-    throw new Error(result.data.error || 'Scraper failed')
-  }
-  
-  return result.data
-}
-
-// VRBO integration removed - requires Expedia Partner Network credentials
 
 // Transform MCP results helper function
 async function transformMCPResults(searchResults: any[], payload?: any) {
@@ -665,32 +588,16 @@ async function callAirbnbHttpAPI(payload: any, platform: string) {
     const searchData = await searchResponse.json()
     console.log('✅ Received search response')
     
-    // Debug: Log response structure
+    // Log basic response info
     console.log('🔍 Response keys:', Object.keys(searchData))
-    if (searchData.data) {
-      console.log('🔍 Data keys:', Object.keys(searchData.data))
-      if (searchData.data.dora) {
-        console.log('🔍 Dora keys:', Object.keys(searchData.data.dora))
-        if (searchData.data.dora.exploreV3) {
-          console.log('🔍 ExploreV3 keys:', Object.keys(searchData.data.dora.exploreV3))
-          if (searchData.data.dora.exploreV3.sections) {
-            console.log(`🔍 Found ${searchData.data.dora.exploreV3.sections.length} sections`)
-            searchData.data.dora.exploreV3.sections.forEach((section: any, i: number) => {
-              console.log(`🔍 Section ${i}: ${section.sectionComponentType}, cards: ${section.listingCards?.length || 0}`)
-            })
-          }
-        }
-      }
-    }
     
     // Step 4: Transform results to our format
     const listings = transformAirbnbHttpResults(searchData)
     console.log(`🎉 HTTP API found ${listings.length} listings`)
     
-    // Debug: Log sample listing to understand structure
+    // Log sample for monitoring
     if (listings.length > 0) {
       console.log('📊 Sample listing keys:', Object.keys(listings[0]))
-      console.log('📊 Sample listing:', JSON.stringify(listings[0], null, 2))
     }
     
     return {
@@ -760,25 +667,16 @@ function transformAirbnbHttpResults(data: any): any[] {
       return []
     }
     
-    // Debug: Log raw listing structure
-    console.log(`🔍 Raw listing sample keys:`, Object.keys(listingCards[0]))
-    console.log(`🔍 Raw listing sample:`, JSON.stringify(listingCards[0], null, 2).substring(0, 1000) + '...')
+    // Log structure for monitoring
+    console.log(`🔍 Raw listing keys:`, Object.keys(listingCards[0]).slice(0, 10))
     
     return listingCards.map((item: any, index: number) => {
       // Handle both explore_tabs and GraphQL formats
       const listing = item.listing || item
       
-      // Debug individual listings
+      // Log first listing for monitoring
       if (index === 0) {
-        console.log(`🔍 Processing listing ${index}:`)
-        console.log(`  - item keys:`, Object.keys(item))
-        console.log(`  - listing keys:`, Object.keys(listing))
-        console.log(`  - id candidates:`, {
-          'listing.id': listing.id,
-          'item.id': item.id,
-          'listing.listing_id': listing.listing_id,
-          'item.listing_id': item.listing_id
-        })
+        console.log(`🔍 Processing first listing with ID: ${listing.id}`)
       }
       
       // More robust ID extraction
@@ -798,23 +696,21 @@ function transformAirbnbHttpResults(data: any): any[] {
         priceValue = parseInt(listing.price.rate.amount_formatted.replace(/[^0-9]/g, '')) || 100
       }
       
-      if (index === 0) {
-        console.log(`💰 Price extraction:`, {
-          'pricingQuote.rate.amount': pricingQuote.rate?.amount,
-          'pricingQuote.rate_formatted': pricingQuote.rate_formatted,
-          'final_price': priceValue
-        })
+      // Better image extraction
+      let images: string[] = []
+      if (listing.picture_urls && Array.isArray(listing.picture_urls)) {
+        images = listing.picture_urls
+      } else if (listing.contextual_pictures && Array.isArray(listing.contextual_pictures)) {
+        images = listing.contextual_pictures.map((pic: any) => pic.picture).filter(Boolean)
+      } else if (listing.picture_url) {
+        images = [listing.picture_url]
       }
-      
+
       const transformedListing = {
         id: listingId?.toString() || `fallback_${index}`,
         name: listing.name || listing.public_address || `Property ${index + 1}`,
         url: `https://www.airbnb.com/rooms/${listingId}`,
-        images: listing.picture_urls || 
-                listing.xl_picture_urls || 
-                listing.contextual_pictures?.map((pic: any) => pic.picture) || 
-                [listing.picture_url].filter(Boolean) ||
-                [],
+        images,
         price: {
           total: priceValue,
           rate: priceValue,
@@ -832,11 +728,29 @@ function transformAirbnbHttpResults(data: any): any[] {
         },
         amenities: extractHttpAmenities(listing),
         roomType: listing.room_type_category || listing.roomTypeCategory || 'Property',
-        platform: 'airbnb' as const
+        platform: 'airbnb' as const,
+        
+        // Enhanced data for better cards
+        bedrooms: listing.bedrooms || 0,
+        bathrooms: listing.bathrooms || 0,
+        beds: listing.beds || 0,
+        maxGuests: listing.person_capacity || 1,
+        propertyType: listing.room_and_property_type || listing.space_type || 'Property',
+        neighborhood: listing.public_address || listing.localized_city || listing.city,
+        isNewListing: listing.is_new_listing || false,
+        instantBook: listing.instant_book || false,
+        minNights: listing.min_nights || 1,
+        maxNights: listing.max_nights || 365,
+        latitude: listing.lat,
+        longitude: listing.lng,
+        hostThumbnail: listing.host_thumbnail_url || listing.host_thumbnail_url_small,
+        description: listing.overview || listing.home_details?.overview || '',
+        highlights: listing.detailed_p2_label_highlights || [],
+        badges: listing.formatted_badges || listing.badges || []
       }
       
       if (index === 0) {
-        console.log(`✅ Transformed listing:`, transformedListing)
+        console.log(`✅ Sample: ${transformedListing.name} - $${transformedListing.price.rate} - ${transformedListing.images.length} images`)
       }
       
       return transformedListing
@@ -851,32 +765,84 @@ function transformAirbnbHttpResults(data: any): any[] {
 function extractHttpAmenities(listing: any): string[] {
   const amenities: string[] = []
   
-  // Extract from various possible locations in the response
-  if (listing.amenityIds) {
-    // Map common amenity IDs to human readable names
+  // Extract from amenity_ids (the actual field name)
+  if (listing.amenity_ids || listing.amenityIds) {
+    const amenityIds = listing.amenity_ids || listing.amenityIds
+    // Extended amenity mapping based on Airbnb's API
     const amenityMap: Record<number, string> = {
       1: 'WiFi',
       4: 'Kitchen',
-      8: 'Parking',
+      8: 'Free parking',
+      9: 'Wireless Internet',
       10: 'Pool',
-      30: 'Hot Tub',
-      33: 'Air Conditioning',
-      40: 'Laundry',
-      51: 'Gym'
+      16: 'Breakfast',
+      21: 'Elevator',
+      23: 'Hot tub',
+      25: 'Gym',
+      30: 'Heating',
+      33: 'Air conditioning',
+      35: 'Washer',
+      36: 'Dryer',
+      37: 'Smoke alarm',
+      38: 'Carbon monoxide alarm',
+      39: 'First aid kit',
+      40: 'Safety card',
+      41: 'Fire extinguisher',
+      44: 'Hangers',
+      45: 'Hair dryer',
+      46: 'Iron',
+      47: 'Laptop friendly workspace',
+      51: 'Private entrance',
+      54: 'TV',
+      55: 'Cable TV',
+      57: 'Microwave',
+      58: 'Coffee maker',
+      59: 'Refrigerator',
+      60: 'Dishwasher',
+      61: 'Stove',
+      62: 'BBQ grill',
+      63: 'Garden or backyard',
+      64: 'Beach access',
+      65: 'Lake access',
+      71: 'Self check-in',
+      72: 'Lockbox',
+      73: 'Private pool',
+      74: 'Hot water',
+      77: 'Bed linens',
+      78: 'Extra pillows and blankets',
+      79: 'Ethernet connection',
+      85: 'Bathtub',
+      86: 'Room-darkening shades',
+      89: 'Body soap',
+      90: 'Toilet paper',
+      91: 'Towels included',
+      93: 'Long term stays allowed',
+      94: 'Host greets you'
     }
     
-    listing.amenityIds.forEach((id: number) => {
-      if (amenityMap[id]) {
-        amenities.push(amenityMap[id])
+    if (Array.isArray(amenityIds)) {
+      amenityIds.forEach((id: number) => {
+        if (amenityMap[id]) {
+          amenities.push(amenityMap[id])
+        }
+      })
+    }
+  }
+  
+  // Extract from preview tags
+  if (listing.preview_tags && Array.isArray(listing.preview_tags)) {
+    listing.preview_tags.forEach((tag: any) => {
+      if (tag.name) {
+        amenities.push(tag.name)
       }
     })
   }
   
-  // Extract from listing highlights
-  if (listing.highlights) {
-    listing.highlights.forEach((highlight: any) => {
-      if (highlight.message) {
-        amenities.push(highlight.message)
+  // Extract from detailed highlights
+  if (listing.detailed_p2_label_highlights && Array.isArray(listing.detailed_p2_label_highlights)) {
+    listing.detailed_p2_label_highlights.forEach((highlight: any) => {
+      if (highlight.label) {
+        amenities.push(highlight.label)
       }
     })
   }
