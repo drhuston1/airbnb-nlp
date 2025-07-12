@@ -369,24 +369,63 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
         priceValue = parseInt(listing.price.rate.amount_formatted.replace(/[^0-9]/g, '')) || 100
       }
       
-      // Extract images
+      // Extract images with enhanced debugging
       let images: string[] = []
-      if (listing.pictures && Array.isArray(listing.pictures) && listing.pictures.length > 0) {
-        images = listing.pictures.map((pic: any) => pic.picture || pic).filter(Boolean)
+      
+      // Log available image-related fields for debugging
+      if (index === 0) {
+        console.log('🖼️ Image fields available:', {
+          pictures: listing.pictures ? `Array(${listing.pictures.length})` : 'none',
+          picture_urls: listing.picture_urls ? `Array(${listing.picture_urls.length})` : 'none',
+          xl_picture_url: listing.xl_picture_url || 'none',
+          picture_url: listing.picture_url || 'none',
+          photos: listing.photos ? `Array(${listing.photos.length})` : 'none',
+          images: listing.images ? `Array(${listing.images.length})` : 'none'
+        })
+      }
+      
+      // Try multiple image extraction strategies
+      if (listing.photos && Array.isArray(listing.photos) && listing.photos.length > 0) {
+        // New API structure - photos array
+        images = listing.photos.map((photo: any) => {
+          if (photo.picture) return photo.picture
+          if (photo.url) return photo.url
+          if (photo.src) return photo.src
+          if (typeof photo === 'string') return photo
+          return null
+        }).filter(Boolean)
+      } else if (listing.pictures && Array.isArray(listing.pictures) && listing.pictures.length > 0) {
+        // Legacy structure - pictures array
+        images = listing.pictures.map((pic: any) => {
+          if (pic.picture) return pic.picture
+          if (pic.url) return pic.url
+          if (typeof pic === 'string') return pic
+          return null
+        }).filter(Boolean)
       } else if (listing.picture_urls && Array.isArray(listing.picture_urls)) {
-        images = listing.picture_urls
+        images = listing.picture_urls.filter(Boolean)
       } else if (listing.xl_picture_url) {
         images = [listing.xl_picture_url]
       } else if (listing.picture_url) {
         images = [listing.picture_url]
+      } else if (listing.images && Array.isArray(listing.images)) {
+        // Sometimes images are directly in an 'images' field
+        images = listing.images.filter(Boolean)
       } else if (listing.id) {
-        // Construct Airbnb image URLs using the listing ID
+        // Last resort: try to construct Airbnb image URLs
         const baseId = listing.id.toString()
+        console.log(`⚠️ No images found for listing ${baseId}, attempting URL construction`)
         images = [
           `https://a0.muscache.com/im/pictures/hosting/Hosting-${baseId}/original/`,
           `https://a0.muscache.com/im/pictures/miso/Hosting-${baseId}/original/`,
           `https://a0.muscache.com/im/pictures/${baseId}/original/`
         ]
+      }
+      
+      if (index === 0 && images.length > 0) {
+        console.log(`✅ Extracted ${images.length} images, first: ${images[0]}`)
+      } else if (index === 0) {
+        console.log('❌ No images extracted for first listing')
       }
 
       const rating = parseFloat(listing.avg_rating_localized) || listing.star_rating || listing.avgRating || 4.0

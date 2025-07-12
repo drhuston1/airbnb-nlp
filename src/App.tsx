@@ -765,19 +765,19 @@ function App() {
 
 
   return (
-    <Box h="100vh" bg="green.25" display="flex" flexDirection="row">
+    <Box h="100vh" bg="#F5F7FA" display="flex" flexDirection="row">
       {/* Main Sidebar */}
       <Box 
         w={showSidebar ? "300px" : "60px"} 
-        bg="white" 
+        bg="#FFEEE6" 
         borderRight="1px" 
-        borderColor="gray.200"
+        borderColor="#E6D5CC"
         transition="width 0.3s ease"
         display="flex"
         flexDirection="column"
       >
         {/* Sidebar Header */}
-        <Box p={3} borderBottom="1px" borderColor="gray.200">
+        <Box p={3} borderBottom="1px" borderColor="#E6D5CC">
           {showSidebar ? (
             <VStack align="stretch" gap={3}>
               <HStack justify="space-between" align="center">
@@ -786,8 +786,8 @@ function App() {
                     size="sm"
                     variant="ghost"
                     onClick={() => setShowSidebar(!showSidebar)}
-                    color="gray.600"
-                    _hover={{ bg: "gray.50" }}
+                    color="#CC6B2E"
+                    _hover={{ bg: "#FFE8D6" }}
                     px={2}
                   >
                     <Icon as={Menu} w={4} h={4} />
@@ -809,8 +809,8 @@ function App() {
                 size="sm"
                 variant="ghost"
                 onClick={startNewChat}
-                color="gray.600"
-                _hover={{ bg: "gray.50" }}
+                color="#CC6B2E"
+                _hover={{ bg: "#FFE8D6" }}
                 px={3}
                 w="full"
                 justifyContent="flex-start"
@@ -825,8 +825,8 @@ function App() {
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowSidebar(!showSidebar)}
-                color="gray.600"
-                _hover={{ bg: "gray.50" }}
+                color="#CC6B2E"
+                _hover={{ bg: "#FFE8D6" }}
                 px={2}
                 w="full"
               >
@@ -837,8 +837,8 @@ function App() {
                 size="sm"
                 variant="ghost"
                 onClick={startNewChat}
-                color="gray.600"
-                _hover={{ bg: "gray.50" }}
+                color="#CC6B2E"
+                _hover={{ bg: "#FFE8D6" }}
                 px={2}
                 w="full"
               >
@@ -866,10 +866,10 @@ function App() {
                     <Box
                       key={item.id}
                       p={3}
-                      bg="gray.50"
+                      bg="#F5F7FA"
                       borderRadius="md"
                       cursor="pointer"
-                      _hover={{ bg: "gray.100" }}
+                      _hover={{ bg: "#E0F7F4" }}
                       onClick={() => {
                         setSearchQuery(item.query)
                         setShowSidebar(false)
@@ -902,9 +902,9 @@ function App() {
                   variant="outline"
                   w="full"
                   onClick={clearHistory}
-                  borderColor="gray.300"
-                  color="gray.600"
-                  _hover={{ bg: "gray.50" }}
+                  borderColor="#E6D5CC"
+                  color="#CC6B2E"
+                  _hover={{ bg: "#FFE8D6" }}
                 >
                   Clear History
                 </Button>
@@ -932,9 +932,9 @@ function App() {
                 size="sm"
                 variant="outline"
                 onClick={() => setShowResults(!showResults)}
-                borderColor="gray.300"
-                color="gray.600"
-                _hover={{ bg: "gray.50" }}
+                borderColor="#E6D5CC"
+                color="#CC6B2E"
+                _hover={{ bg: "#FFE8D6" }}
               >
                 <Icon as={Home} w={4} h={4} mr={2} />
                 {showResults ? 'Hide Results' : 'Show Results'} ({currentResults.length})
@@ -985,10 +985,10 @@ function App() {
                   border="2px"
                   borderColor="gray.400"
                   _focus={{
-                    borderColor: "green.500",
-                    boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
+                    borderColor: "#4ECDC4",
+                    boxShadow: "0 0 0 3px rgba(78, 205, 196, 0.1)"
                   }}
-                  _hover={{ borderColor: "gray.500" }}
+                  _hover={{ borderColor: "#FF8E53" }}
                   borderRadius="xl"
                   py={4}
                   px={4}
@@ -998,9 +998,9 @@ function App() {
                   onClick={() => handleSearch()}
                   disabled={!searchQuery.trim() || loading}
                   size="md"
-                  bg="green.600"
+                  bg="#4ECDC4"
                   color="white"
-                  _hover={{ bg: "green.700" }}
+                  _hover={{ bg: "#3FB8B3" }}
                   _disabled={{ 
                     bg: "gray.300",
                     color: "gray.500"
@@ -1059,7 +1059,7 @@ function App() {
               {message.type === 'user' ? (
                 <Flex justify="flex-end">
                   <Box
-                    bg="green.500"
+                    bg="#FF6B6B"
                     px={4}
                     py={3}
                     borderRadius="xl"
@@ -1088,13 +1088,13 @@ function App() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleRefinementQuery(followUp)}
-                          borderColor="green.400"
-                          color="green.800"
-                          bg="green.50"
+                          borderColor="#4ECDC4"
+                          color="#2E7A73"
+                          bg="#E0F7F4"
                           _hover={{ 
-                            bg: "green.100",
-                            borderColor: "green.500",
-                            color: "green.900"
+                            bg: "#C0F0EC",
+                            borderColor: "#3FB8B3",
+                            color: "#1F5C57"
                           }}
                           borderRadius="full"
                           px={3}
@@ -1114,7 +1114,7 @@ function App() {
           {loading && (
             <Box mb={8}>
               <HStack>
-                <Spinner size="sm" color="green.500" />
+                <Spinner size="sm" color="#4ECDC4" />
                 <Text fontSize="md" color="gray.600">Searching for properties...</Text>
               </HStack>
             </Box>
@@ -1147,10 +1147,10 @@ function App() {
                 border="2px"
                 borderColor="gray.400"
                 _focus={{
-                  borderColor: "green.500",
-                  boxShadow: "0 0 0 3px rgba(72, 187, 120, 0.1)"
+                  borderColor: "#4ECDC4",
+                  boxShadow: "0 0 0 3px rgba(78, 205, 196, 0.1)"
                 }}
-                _hover={{ borderColor: "gray.500" }}
+                _hover={{ borderColor: "#FF8E53" }}
                 borderRadius="xl"
                 py={3}
                 px={4}
@@ -1160,9 +1160,9 @@ function App() {
                 onClick={() => handleSearch()}
                 disabled={!searchQuery.trim() || loading}
                 size="md"
-                bg="green.600"
+                bg="#4ECDC4"
                 color="white"
-                _hover={{ bg: "green.700" }}
+                _hover={{ bg: "#3FB8B3" }}
                 _disabled={{ 
                   bg: "gray.300",
                   color: "gray.500"
@@ -1219,14 +1219,14 @@ function App() {
                           fontSize="xs"
                           fontWeight="500"
                           bg={
-                            platform === 'airbnb' ? 'red.50' :
-                            platform === 'booking' ? 'blue.50' :
-                            platform === 'vrbo' ? 'orange.50' : 'gray.50'
+                            platform === 'airbnb' ? '#FFE5E5' :
+                            platform === 'booking' ? '#E0F7F4' :
+                            platform === 'vrbo' ? '#FFE8D6' : '#F5F7FA'
                           }
                           color={
-                            platform === 'airbnb' ? 'red.600' :
-                            platform === 'booking' ? 'blue.600' :
-                            platform === 'vrbo' ? 'orange.600' : 'gray.600'
+                            platform === 'airbnb' ? '#CC5555' :
+                            platform === 'booking' ? '#2E7A73' :
+                            platform === 'vrbo' ? '#CC6B2E' : '#8B9DC3'
                           }
                         >
                           {count} from {platform === 'airbnb' ? 'Airbnb' : 
@@ -1240,11 +1240,11 @@ function App() {
                   {/* Date Filter Indicator */}
                   {currentDates && currentDates.checkin && currentDates.checkout && (
                     <HStack gap={2} mt={2}>
-                      <Icon as={Calendar} w={3} h={3} color="blue.500" />
-                      <Text fontSize="xs" color="blue.600" fontWeight="500">
+                      <Icon as={Calendar} w={3} h={3} color="#4ECDC4" />
+                      <Text fontSize="xs" color="#2E7A73" fontWeight="500">
                         {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         {currentDates.flexible && (
-                          <Text as="span" color="blue.500" ml={1}>(flexible)</Text>
+                          <Text as="span" color="#4ECDC4" ml={1}>(flexible)</Text>
                         )}
                       </Text>
                     </HStack>
@@ -1253,8 +1253,8 @@ function App() {
                   {/* Price Filter Indicator */}
                   {currentPriceRange && (currentPriceRange.min || currentPriceRange.max || currentPriceRange.budget) && (
                     <HStack gap={2} mt={2}>
-                      <Icon as={DollarSign} w={3} h={3} color="green.500" />
-                      <Text fontSize="xs" color="green.600" fontWeight="500">
+                      <Icon as={DollarSign} w={3} h={3} color="#FF8E53" />
+                      <Text fontSize="xs" color="#CC6B2E" fontWeight="500">
                         {currentPriceRange.budget ? (
                           <Text as="span" textTransform="capitalize">{currentPriceRange.budget} range</Text>
                         ) : (
@@ -1270,6 +1270,8 @@ function App() {
                   size="xs"
                   variant="ghost"
                   onClick={() => setShowResults(false)}
+                  color="#8B9DC3"
+                  _hover={{ bg: "#F5F7FA" }}
                 >
                   <Icon as={X} w={3} h={3} />
                 </Button>
@@ -1279,7 +1281,7 @@ function App() {
               {quickFilters.length > 0 && (
                 <Box>
                   <HStack mb={3} align="center">
-                    <Icon as={Filter} w={4} h={4} color="blue.500" />
+                    <Icon as={Filter} w={4} h={4} color="#4ECDC4" />
                     <Text fontSize="sm" fontWeight="600" color="gray.700">
                       Quick filters
                     </Text>
@@ -1302,9 +1304,9 @@ function App() {
                       
                       const getColor = () => {
                         switch (filter.priority) {
-                          case 'high': return 'blue'
-                          case 'medium': return 'green'
-                          default: return 'purple'
+                          case 'high': return { main: '#4ECDC4', light: '#E0F7F4', dark: '#2E7A73' }
+                          case 'medium': return { main: '#FF8E53', light: '#FFE8D6', dark: '#CC6B2E' }
+                          default: return { main: '#FF6B6B', light: '#FFE5E5', dark: '#CC5555' }
                         }
                       }
                       
@@ -1316,12 +1318,12 @@ function App() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleRefinementQuery(filter.query)}
-                          borderColor={`${color}.300`}
-                          color={`${color}.700`}
-                          bg={`${color}.50`}
+                          borderColor={color.main}
+                          color={color.dark}
+                          bg={color.light}
                           _hover={{ 
-                            bg: `${color}.100`,
-                            borderColor: `${color}.400`,
+                            bg: color.light,
+                            borderColor: color.dark,
                             transform: 'translateY(-1px)',
                             boxShadow: 'sm'
                           }}
@@ -1341,7 +1343,7 @@ function App() {
                                 {filter.label}
                               </Text>
                             </HStack>
-                            <Text fontSize="xs" color={`${color}.600`} fontWeight="500">
+                            <Text fontSize="xs" color={color.main} fontWeight="500">
                               {filter.count}
                             </Text>
                           </HStack>
@@ -1398,8 +1400,12 @@ function App() {
                                 objectFit: 'cover',
                                 objectPosition: 'center'
                               }}
+                              onLoad={() => {
+                                console.log(`✅ Image loaded successfully: ${listing.images[0]}`)
+                              }}
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement
+                                console.error(`❌ Image failed to load: ${target.src}`)
                                 target.style.display = 'none'
                                 // Show placeholder when image fails
                                 const parent = target.parentElement
@@ -1411,6 +1417,29 @@ function App() {
                                 }
                               }}
                             />
+                            {/* Fallback placeholder (hidden by default) */}
+                            <Box
+                              className="image-placeholder"
+                              w="full"
+                              h="full"
+                              display="none"
+                              alignItems="center"
+                              justifyContent="center"
+                              bg="gray.200"
+                              color="gray.500"
+                              position="absolute"
+                              top={0}
+                              left={0}
+                            >
+                              <VStack gap={1}>
+                                <Icon as={Home} w={6} h={6} />
+                                <Text fontSize="xs" fontWeight="500">
+                                  {listing.platform === 'airbnb' ? 'Airbnb' :
+                                   listing.platform === 'booking' ? 'Booking' :
+                                   listing.platform === 'vrbo' ? 'VRBO' : 'Property'}
+                                </Text>
+                              </VStack>
+                            </Box>
                             {/* Image overlay with additional info */}
                             {listing.images.length > 1 && (
                               <Box
@@ -1482,12 +1511,12 @@ function App() {
                                   fontSize="xs"
                                   fontWeight="600"
                                   bg={
-                                    listing.trustScore >= 80 ? 'green.100' :
-                                    listing.trustScore >= 60 ? 'yellow.100' : 'red.100'
+                                    listing.trustScore >= 80 ? '#E0F7F4' :
+                                    listing.trustScore >= 60 ? '#FFE8D6' : '#FFE5E5'
                                   }
                                   color={
-                                    listing.trustScore >= 80 ? 'green.700' :
-                                    listing.trustScore >= 60 ? 'yellow.700' : 'red.700'
+                                    listing.trustScore >= 80 ? '#2E7A73' :
+                                    listing.trustScore >= 60 ? '#CC6B2E' : '#CC5555'
                                   }
                                   title={`Trust Score: ${listing.trustScore}/100 based on rating and review count`}
                                 >
@@ -1544,8 +1573,9 @@ function App() {
                                 <Button
                                   size="xs"
                                   variant="outline"
-                                  borderColor="gray.300"
-                                  _hover={{ bg: "gray.50" }}
+                                  borderColor="#4ECDC4"
+                                  color="#2E7A73"
+                                  _hover={{ bg: "#E0F7F4" }}
                                 >
                                   View
                                   <Icon as={ExternalLink} ml={1} w={2} h={2} />
@@ -1574,8 +1604,8 @@ function App() {
                       variant="outline"
                       onClick={handlePrevPage}
                       disabled={currentPage === 1 || loading}
-                      borderColor="gray.300"
-                      _hover={{ bg: "gray.50" }}
+                      borderColor="#E6D5CC"
+                      _hover={{ bg: "#FFE8D6" }}
                     >
                       ←
                     </Button>
@@ -1584,8 +1614,8 @@ function App() {
                       variant="outline"
                       onClick={handleNextPage}
                       disabled={!hasMore || loading}
-                      borderColor="gray.300"
-                      _hover={{ bg: "gray.50" }}
+                      borderColor="#E6D5CC"
+                      _hover={{ bg: "#FFE8D6" }}
                     >
                       →
                     </Button>
