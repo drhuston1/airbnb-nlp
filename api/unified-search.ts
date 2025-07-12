@@ -93,10 +93,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       //   callPlatformAPI('/api/mcp-search', searchPayload, 'airbnb')
       // )
       
-      // Force use of scraper for Airbnb to test image functionality
-      console.log('🔧 TESTING MODE: Using scraper for Airbnb instead of MCP server')
+      // Use HTTP API approach for Airbnb (faster, no browser dependencies)
+      console.log('🚀 Using HTTP API for Airbnb (no browser needed)')
       searchPromises.push(
-        callPlatformAPI('/api/scraper', searchPayload, 'airbnb')
+        callPlatformAPI('/api/airbnb-api', searchPayload, 'airbnb')
       )
     }
 
