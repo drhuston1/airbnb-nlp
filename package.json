@@ -24,7 +24,8 @@
     "puppeteer-core": "^10.4.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "streamx": "^2.22.1"
+    "streamx": "^2.22.1",
+    "tar-fs": "^3.0.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
