@@ -1132,34 +1132,34 @@ function App() {
           <Flex flex="1" align="center" justify="center" direction="column" px={8} py={12}>
             
             {/* Clean, Centered Header */}
-            <VStack gap={6} textAlign="center" mb={12} maxW="2xl">
+            <VStack gap={8} textAlign="center" mb={8} maxW="2xl">
               <Box>
-                <HStack justify="center" gap={2} mb={2}>
-                  <Icon as={Home} w={6} h={6} color="#4ECDC4" />
-                  <Text fontSize="2xl" color="gray.800" fontWeight="700">
+                <HStack justify="center" gap={2} mb={1}>
+                  <Icon as={Home} w={5} h={5} color="#4ECDC4" />
+                  <Text fontSize="lg" color="gray.800" fontWeight="600">
                     ChatBnb
                   </Text>
                 </HStack>
-                <Text fontSize="sm" color="#FF8E53" fontWeight="500" letterSpacing="wide">
+                <Text fontSize="xs" color="#FF8E53" fontWeight="400" letterSpacing="wide">
                   AI-Powered Vacation Search
                 </Text>
               </Box>
               
-              <VStack gap={3}>
-                <Text fontSize="xl" color="gray.800" fontWeight="600" lineHeight="1.3">
-                  Find perfect Airbnb rentals with natural language
+              <VStack gap={4}>
+                <Text fontSize="3xl" color="gray.900" fontWeight="700" lineHeight="1.2">
+                  Find your perfect stay in seconds
                 </Text>
-                <Text fontSize="md" color="gray.600" lineHeight="1.5" maxW="lg">
-                  Just describe what you want - location, dates, budget, amenities. No complex filters needed.
+                <Text fontSize="lg" color="gray.600" lineHeight="1.6" maxW="xl">
+                  Tell us exactly what you want. Our AI understands complex requests and finds properties that match your vision.
                 </Text>
               </VStack>
             </VStack>
 
             {/* Prominent Search Box */}
-            <VStack gap={4} w="full" maxW="2xl" mb={10}>
+            <VStack gap={4} w="full" maxW="4xl" mb={8}>
               <HStack gap={3} w="full">
                 <Textarea
-                  placeholder="Beach house in Malibu for 4 guests, pool, under $300/night, July 15-22..."
+                  placeholder="Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => {
@@ -1169,19 +1169,19 @@ function App() {
                     }
                   }}
                   resize="none"
-                  minH="60px"
+                  minH="64px"
                   bg="white"
                   border="2px solid"
                   borderColor="#4ECDC4"
                   _focus={{
                     borderColor: "#FF8E53",
-                    boxShadow: "0 0 0 3px rgba(78, 205, 196, 0.1)"
+                    boxShadow: "0 0 0 4px rgba(78, 205, 196, 0.15)"
                   }}
-                  _hover={{ borderColor: "#4ECDC4" }}
+                  _hover={{ borderColor: "#3FB8B3" }}
                   borderRadius="xl"
-                  px={4}
-                  py={3}
-                  fontSize="md"
+                  px={6}
+                  py={4}
+                  fontSize="lg"
                   fontWeight="400"
                   flex="1"
                 />
@@ -1196,49 +1196,56 @@ function App() {
                     color: "gray.500"
                   }}
                   borderRadius="xl"
-                  px={8}
-                  h="60px"
-                  fontWeight="600"
-                  fontSize="md"
+                  px={10}
+                  h="64px"
+                  fontWeight="700"
+                  fontSize="lg"
+                  minW="160px"
                 >
-                  Search
+                  Find My Stay
                 </Button>
               </HStack>
             </VStack>
 
-            {/* Simple Example Grid */}
-            <Box w="full" maxW="3xl">
-              <Text fontSize="sm" color="gray.500" textAlign="center" mb={4}>
-                Popular searches:
+            {/* Enhanced Example Grid */}
+            <Box w="full" maxW="5xl">
+              <Text fontSize="md" color="gray.600" textAlign="center" mb={6} fontWeight="500">
+                Try these detailed searches:
               </Text>
-              <Grid templateColumns="repeat(auto-fit, minmax(240px, 1fr))" gap={3}>
+              <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                 {[
-                  "Luxury villa in Malibu with pool",
-                  "Dog-friendly cabin near Yellowstone", 
-                  "Downtown loft with parking",
-                  "Family cottage near Disney World",
-                  "Romantic getaway in Napa Valley",
-                  "Group house in Austin"
+                  "Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend",
+                  "Luxury beachfront villa in Malibu, private pool, chef's kitchen, 6 bedrooms, superhost only", 
+                  "Historic downtown loft in Charleston, walking distance to restaurants, parking included, under $150/night",
+                  "Family ski cabin in Aspen, fireplace, game room, 4 bedrooms, close to slopes, Christmas week",
+                  "Romantic wine country retreat in Napa, hot tub, vineyard views, couples only, excellent reviews",
+                  "Austin group house for SXSW, sleeps 12, outdoor space, walking to venues, pet-friendly"
                 ].map((example) => (
                   <Button
                     key={example}
                     variant="outline"
-                    size="sm"
+                    size="md"
                     onClick={() => setSearchQuery(example)}
-                    borderColor="gray.200"
+                    borderColor="gray.300"
                     color="gray.700"
                     bg="white"
                     _hover={{ 
                       borderColor: "#4ECDC4",
-                      color: "#2E7A73"
+                      color: "#2E7A73",
+                      bg: "#F8FDFC",
+                      transform: "translateY(-1px)"
                     }}
                     borderRadius="lg"
-                    px={4}
-                    py={3}
+                    px={5}
+                    py={4}
                     h="auto"
                     whiteSpace="normal"
                     fontSize="sm"
                     fontWeight="400"
+                    textAlign="left"
+                    lineHeight="1.4"
+                    transition="all 0.2s"
+                    minH="80px"
                   >
                     {example}
                   </Button>
