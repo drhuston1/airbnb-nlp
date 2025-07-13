@@ -1129,130 +1129,224 @@ function App() {
           flexDirection="column"
         >
         {messages.length === 0 ? (
-          <Flex flex="1" align="center" justify="center" direction="column" px={8} py={12}>
-            
-            {/* Clean, Centered Header */}
-            <VStack gap={8} textAlign="center" mb={8} maxW="2xl">
-              <Box>
-                <HStack justify="center" gap={2} mb={1}>
-                  <Icon as={Home} w={5} h={5} color="#4ECDC4" />
-                  <Text fontSize="lg" color="gray.800" fontWeight="600">
-                    ChatBnb
-                  </Text>
-                </HStack>
-                <Text fontSize="xs" color="#FF8E53" fontWeight="400" letterSpacing="wide">
-                  AI-Powered Vacation Search
-                </Text>
-              </Box>
+          <Box flex="1" position="relative">
+            {/* Hero Section */}
+            <Box 
+              position="relative"
+              bg="linear-gradient(135deg, #F8FDFC 0%, #E0F7F4 50%, #F0F8F7 100%)"
+              borderBottom="3px solid"
+              borderColor="#4ECDC4"
+              py={16}
+              px={8}
+            >
+              {/* Decorative Elements */}
+              <Box
+                position="absolute"
+                top="20%"
+                left="10%"
+                width="120px"
+                height="120px"
+                borderRadius="50%"
+                bg="rgba(255, 142, 83, 0.1)"
+                opacity={0.6}
+              />
+              <Box
+                position="absolute"
+                top="10%"
+                right="15%"
+                width="80px"
+                height="80px"
+                bg="rgba(78, 205, 196, 0.15)"
+                borderRadius="20px"
+                transform="rotate(45deg)"
+                opacity={0.7}
+              />
+              <Box
+                position="absolute"
+                bottom="20%"
+                right="25%"
+                width="60px"
+                height="60px"
+                borderRadius="50%"
+                bg="rgba(255, 107, 107, 0.1)"
+                opacity={0.5}
+              />
               
-              <VStack gap={4}>
-                <Text fontSize="3xl" color="gray.900" fontWeight="700" lineHeight="1.2">
-                  Find your perfect stay in seconds
-                </Text>
-                <Text fontSize="lg" color="gray.600" lineHeight="1.6" maxW="xl">
-                  Tell us exactly what you want. Our AI understands complex requests and finds properties that match your vision.
-                </Text>
-              </VStack>
-            </VStack>
-
-            {/* Prominent Search Box */}
-            <VStack gap={4} w="full" maxW="4xl" mb={8}>
-              <HStack gap={3} w="full">
-                <Textarea
-                  placeholder="Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSearch()
-                    }
-                  }}
-                  resize="none"
-                  minH="64px"
-                  bg="white"
-                  border="2px solid"
-                  borderColor="#4ECDC4"
-                  _focus={{
-                    borderColor: "#FF8E53",
-                    boxShadow: "0 0 0 4px rgba(78, 205, 196, 0.15)"
-                  }}
-                  _hover={{ borderColor: "#3FB8B3" }}
-                  borderRadius="xl"
-                  px={6}
-                  py={4}
-                  fontSize="lg"
-                  fontWeight="400"
-                  flex="1"
-                />
-                <Button
-                  onClick={() => handleSearch()}
-                  disabled={!searchQuery.trim() || loading}
-                  bg="#4ECDC4"
-                  color="white"
-                  _hover={{ bg: "#3FB8B3" }}
-                  _disabled={{ 
-                    bg: "gray.300",
-                    color: "gray.500"
-                  }}
-                  borderRadius="xl"
-                  px={10}
-                  h="64px"
-                  fontWeight="700"
-                  fontSize="lg"
-                  minW="160px"
-                >
-                  Find My Stay
-                </Button>
-              </HStack>
-            </VStack>
-
-            {/* Enhanced Example Grid */}
-            <Box w="full" maxW="5xl">
-              <Text fontSize="md" color="gray.600" textAlign="center" mb={6} fontWeight="500">
-                Try these detailed searches:
-              </Text>
-              <Grid templateColumns="repeat(2, 1fr)" gap={4}>
-                {[
-                  "Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend",
-                  "Luxury beachfront villa in Malibu, private pool, chef's kitchen, 6 bedrooms, superhost only", 
-                  "Historic downtown loft in Charleston, walking distance to restaurants, parking included, under $150/night",
-                  "Family ski cabin in Aspen, fireplace, game room, 4 bedrooms, close to slopes, Christmas week",
-                  "Romantic wine country retreat in Napa, hot tub, vineyard views, couples only, excellent reviews",
-                  "Austin group house for SXSW, sleeps 12, outdoor space, walking to venues, pet-friendly"
-                ].map((example) => (
-                  <Button
-                    key={example}
-                    variant="outline"
-                    size="md"
-                    onClick={() => setSearchQuery(example)}
-                    borderColor="gray.300"
-                    color="gray.700"
-                    bg="white"
-                    _hover={{ 
-                      borderColor: "#4ECDC4",
-                      color: "#2E7A73",
-                      bg: "#F8FDFC",
-                      transform: "translateY(-1px)"
-                    }}
-                    borderRadius="lg"
-                    px={5}
-                    py={4}
-                    h="auto"
-                    whiteSpace="normal"
-                    fontSize="sm"
-                    fontWeight="400"
-                    textAlign="left"
-                    lineHeight="1.4"
-                    transition="all 0.2s"
-                    minH="80px"
-                  >
-                    {example}
-                  </Button>
-                ))}
-              </Grid>
+              <Flex justify="center" align="center" direction="column" maxW="6xl" mx="auto" position="relative" zIndex={1}>
+                {/* Brand Header */}
+                <VStack gap={2} mb={8}>
+                  <HStack gap={3} align="center">
+                    <Box
+                      bg="white"
+                      p={3}
+                      borderRadius="xl"
+                      boxShadow="0 4px 20px rgba(78, 205, 196, 0.2)"
+                      border="2px solid"
+                      borderColor="#4ECDC4"
+                    >
+                      <Icon as={Home} w={8} h={8} color="#4ECDC4" />
+                    </Box>
+                    <VStack align="start" gap={0}>
+                      <Text fontSize="3xl" color="gray.900" fontWeight="800" letterSpacing="-0.5px">
+                        ChatBnb
+                      </Text>
+                      <Text fontSize="sm" color="#FF8E53" fontWeight="600" letterSpacing="wide" textTransform="uppercase">
+                        AI-Powered Travel
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </VStack>
+                
+                {/* Hero Content */}
+                <VStack gap={6} textAlign="center" maxW="4xl">
+                  <VStack gap={4}>
+                    <Text fontSize={{ base: "4xl", md: "5xl", lg: "6xl" }} color="gray.900" fontWeight="900" lineHeight="0.9" letterSpacing="-2px">
+                      Find your perfect
+                      <Text as="span" color="#4ECDC4"> stay </Text>
+                      in seconds
+                    </Text>
+                    <Text fontSize="xl" color="gray.700" lineHeight="1.7" maxW="3xl" fontWeight="500">
+                      Skip the endless scrolling. Just describe your dream vacation in natural language, 
+                      and our AI will instantly find properties that match your exact vision.
+                    </Text>
+                  </VStack>
+                  
+                  {/* Trust Indicators */}
+                  <HStack gap={8} color="gray.600" fontSize="sm" fontWeight="600">
+                    <HStack gap={2}>
+                      <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
+                      <Text>Real Airbnb listings</Text>
+                    </HStack>
+                    <HStack gap={2}>
+                      <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
+                      <Text>Instant results</Text>
+                    </HStack>
+                    <HStack gap={2}>
+                      <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
+                      <Text>Smart filtering</Text>
+                    </HStack>
+                  </HStack>
+                </VStack>
+              </Flex>
             </Box>
-          </Flex>
+            
+            {/* Search Section */}
+            <Box py={12} px={8}>
+              <Flex justify="center" align="center" direction="column" maxW="6xl" mx="auto">
+
+                {/* Search Box */}
+                <VStack gap={6} w="full" maxW="5xl" mb={12}>
+                  <Text fontSize="2xl" color="gray.800" fontWeight="700" textAlign="center">
+                    What's your ideal vacation?
+                  </Text>
+                  <HStack gap={4} w="full">
+                    <Textarea
+                      placeholder="Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSearch()
+                        }
+                      }}
+                      resize="none"
+                      minH="70px"
+                      bg="white"
+                      border="3px solid"
+                      borderColor="#4ECDC4"
+                      _focus={{
+                        borderColor: "#FF8E53",
+                        boxShadow: "0 0 0 4px rgba(78, 205, 196, 0.15)"
+                      }}
+                      _hover={{ borderColor: "#3FB8B3" }}
+                      borderRadius="2xl"
+                      px={6}
+                      py={5}
+                      fontSize="lg"
+                      fontWeight="400"
+                      flex="1"
+                      boxShadow="0 4px 20px rgba(0, 0, 0, 0.05)"
+                    />
+                    <Button
+                      onClick={() => handleSearch()}
+                      disabled={!searchQuery.trim() || loading}
+                      bg="linear-gradient(135deg, #4ECDC4 0%, #3FB8B3 100%)"
+                      color="white"
+                      _hover={{ 
+                        bg: "linear-gradient(135deg, #3FB8B3 0%, #2E9B94 100%)",
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 8px 25px rgba(78, 205, 196, 0.3)"
+                      }}
+                      _disabled={{ 
+                        bg: "gray.300",
+                        color: "gray.500"
+                      }}
+                      borderRadius="2xl"
+                      px={12}
+                      h="70px"
+                      fontWeight="800"
+                      fontSize="lg"
+                      minW="180px"
+                      boxShadow="0 4px 20px rgba(78, 205, 196, 0.2)"
+                      transition="all 0.3s"
+                    >
+                      Find My Stay
+                    </Button>
+                  </HStack>
+                </VStack>
+
+                {/* Enhanced Example Grid */}
+                <Box w="full" maxW="6xl">
+                  <Text fontSize="xl" color="gray.700" textAlign="center" mb={8} fontWeight="600">
+                    Or try one of these detailed examples:
+                  </Text>
+                  <Grid templateColumns="repeat(2, 1fr)" gap={5}>
+                    {[
+                      "Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend",
+                      "Luxury beachfront villa in Malibu, private pool, chef's kitchen, 6 bedrooms, superhost only", 
+                      "Historic downtown loft in Charleston, walking distance to restaurants, parking included, under $150/night",
+                      "Family ski cabin in Aspen, fireplace, game room, 4 bedrooms, close to slopes, Christmas week",
+                      "Romantic wine country retreat in Napa, hot tub, vineyard views, couples only, excellent reviews",
+                      "Austin group house for SXSW, sleeps 12, outdoor space, walking to venues, pet-friendly"
+                    ].map((example) => (
+                      <Button
+                        key={example}
+                        variant="outline"
+                        size="lg"
+                        onClick={() => setSearchQuery(example)}
+                        borderColor="gray.300"
+                        color="gray.700"
+                        bg="white"
+                        _hover={{ 
+                          borderColor: "#4ECDC4",
+                          color: "#2E7A73",
+                          bg: "#F8FDFC",
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 8px 25px rgba(78, 205, 196, 0.15)"
+                        }}
+                        borderRadius="xl"
+                        px={6}
+                        py={5}
+                        h="auto"
+                        whiteSpace="normal"
+                        fontSize="md"
+                        fontWeight="500"
+                        textAlign="left"
+                        lineHeight="1.5"
+                        transition="all 0.3s"
+                        minH="90px"
+                        boxShadow="0 2px 10px rgba(0, 0, 0, 0.05)"
+                        border="2px solid"
+                      >
+                        {example}
+                      </Button>
+                    ))}
+                  </Grid>
+                </Box>
+              </Flex>
+            </Box>
+          </Box>
         ) : (
           <Box maxW="3xl" mx="auto" px={4} py={6} w="full">
             {/* Chat Messages */}
