@@ -264,6 +264,79 @@ function App() {
     setCurrentPriceRange(null)
   }
 
+  // Handle travel questions with the travel assistant
+  const handleTravelQuestion = async (query: string) => {
+    try {
+      // Build conversation history for context
+      const conversationHistory = messages
+        .filter(msg => msg.messageType === 'conversation')
+        .slice(-6) // Last 6 conversation messages for context
+        .map(msg => ({
+          type: msg.type,
+          content: msg.content
+        }))
+
+      const response = await fetch('/api/travel-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          conversationHistory
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Travel assistant failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // Create follow-up suggestions that blend conversation and search
+      const followUps: string[] = []
+      
+      // Add travel assistant suggestions
+      if (data.followUpQuestions) {
+        followUps.push(...data.followUpQuestions)
+      }
+      
+      // Add search suggestions if location was identified
+      if (data.suggestions) {
+        followUps.push(...data.suggestions)
+      }
+
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: data.response,
+        messageType: 'conversation',
+        travelContext: {
+          topic: data.topic,
+          location: data.location,
+          suggestions: data.suggestions
+        },
+        followUps: followUps.slice(0, 4), // Limit to 4 follow-ups
+        timestamp: new Date()
+      }
+
+      setMessages(prev => [...prev, assistantMessage])
+      setTimeout(scrollToBottom, 100)
+
+    } catch (error) {
+      console.error('Travel assistant error:', error)
+      
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: 'I apologize, but I\'m having trouble accessing my travel knowledge right now. Could you try rephrasing your question?',
+        messageType: 'conversation',
+        timestamp: new Date()
+      }
+      
+      setMessages(prev => [...prev, errorMessage])
+      setTimeout(scrollToBottom, 100)
+    }
+  }
+
 
 
   const handleSearch = async (page = 1, directQuery?: string) => {
@@ -286,6 +359,35 @@ function App() {
     // Only clear search query if not using directQuery (refinement)
     if (!directQuery) {
       setSearchQuery('')
+    }
+
+    // First, classify the query to determine intent
+    try {
+      const classificationResponse = await fetch('/api/classify-query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          context: {
+            hasSearchResults: currentResults.length > 0,
+            previousLocation: searchContext?.location
+          }
+        })
+      })
+
+      if (classificationResponse.ok) {
+        const classification = await classificationResponse.json()
+        console.log('Query classification:', classification)
+
+        // If it's a travel question, handle with travel assistant
+        if (classification.suggestedAction === 'travel_assistant') {
+          await handleTravelQuestion(query)
+          setLoading(false)
+          return
+        }
+      }
+    } catch (error) {
+      console.error('Classification failed, proceeding with search:', error)
     }
 
     // Use enhanced query analysis to understand intent and extract location
@@ -739,6 +841,7 @@ function App() {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: responseContent,
+        messageType: 'search',
         followUps: followUpSuggestions,
         refinementSuggestions: refinementSuggestions,
         timestamp: new Date()
@@ -1246,8 +1349,8 @@ function App() {
                       in seconds
                     </Text>
                     <Text fontSize="xl" color="gray.700" lineHeight="1.7" maxW="3xl" fontWeight="500">
-                      Skip the endless scrolling. Just describe your dream vacation in your own words, 
-                      and our AI will instantly find properties that match your exact vision.
+                      Skip the endless scrolling. Ask travel questions like "what's the best town in Cape Cod?" 
+                      or describe your dream vacation, and our AI will help you plan and find the perfect stay.
                     </Text>
                   </VStack>
                   
@@ -1315,15 +1418,15 @@ function App() {
                   <HStack gap={8} color="gray.600" fontSize="sm" fontWeight="600">
                     <HStack gap={2}>
                       <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
+                      <Text>Travel planning</Text>
+                    </HStack>
+                    <HStack gap={2}>
+                      <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
                       <Text>Real Airbnb listings</Text>
                     </HStack>
                     <HStack gap={2}>
                       <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
                       <Text>Instant results</Text>
-                    </HStack>
-                    <HStack gap={2}>
-                      <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
-                      <Text>Smart filtering</Text>
                     </HStack>
                   </HStack>
                 </VStack>
@@ -1341,11 +1444,13 @@ function App() {
                   </Text>
                   <Grid templateColumns="repeat(2, 1fr)" gap={5}>
                     {[
+                      "What's the best town to stay in Cape Cod for families?",
                       "Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend",
                       "Luxury beachfront villa in Malibu, private pool, chef's kitchen, 6 bedrooms, superhost only", 
+                      "Where should I stay in Austin for the best nightlife and restaurants?",
                       "Historic downtown loft in Charleston, walking distance to restaurants, parking included, under $150/night",
                       "Family ski cabin in Aspen, fireplace, game room, 4 bedrooms, close to slopes, Christmas week",
-                      "Romantic wine country retreat in Napa, hot tub, vineyard views, couples only, excellent reviews",
+                      "What are the best neighborhoods in Paris for first-time visitors?",
                       "Austin group house for SXSW, sleeps 12, outdoor space, walking to venues, pet-friendly"
                     ].map((example) => (
                       <Button
@@ -1404,6 +1509,23 @@ function App() {
                 </Flex>
               ) : (
                 <Box>
+                  {/* Add visual indicator for conversation vs search messages */}
+                  {message.messageType === 'conversation' && (
+                    <HStack gap={2} mb={2}>
+                      <Box w={2} h={2} bg="#FF8E53" borderRadius="full" />
+                      <Text fontSize="xs" color="#CC6B2E" fontWeight="600" textTransform="uppercase">
+                        Travel Assistant
+                      </Text>
+                    </HStack>
+                  )}
+                  {message.messageType === 'search' && (
+                    <HStack gap={2} mb={2}>
+                      <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
+                      <Text fontSize="xs" color="#2E7A73" fontWeight="600" textTransform="uppercase">
+                        Property Search
+                      </Text>
+                    </HStack>
+                  )}
                   <Text fontSize="md" color="gray.800" mb={4} lineHeight="1.6">
                     {message.content}
                   </Text>
@@ -1413,18 +1535,37 @@ function App() {
                 
                 {/* Follow-up Questions */}
                 {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && (
-                  <Box mt={4} p={3} bg="#F8FDFC" borderRadius="md" borderLeft="3px solid" borderColor="#4ECDC4">
-                    <Text fontSize="sm" color="gray.600" mb={2} fontWeight="500">To help narrow down your search:</Text>
-                    <VStack align="start" gap={1}>
+                  <Box mt={4} p={3} bg="#F8FDFC" borderRadius="md" borderLeft="3px solid" 
+                       borderColor={message.messageType === 'conversation' ? "#FF8E53" : "#4ECDC4"}>
+                    <Text fontSize="sm" color="gray.600" mb={2} fontWeight="500">
+                      {message.messageType === 'conversation' 
+                        ? 'You might also want to know:' 
+                        : 'To help narrow down your search:'}
+                    </Text>
+                    <VStack align="start" gap={2}>
                       {message.followUps.map((followUp, index) => (
-                        <Text
+                        <Button
                           key={index}
-                          fontSize="sm"
-                          color="gray.700"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSearch(1, followUp)}
+                          justifyContent="flex-start"
+                          h="auto"
+                          p={2}
+                          color={message.messageType === 'conversation' ? "#CC6B2E" : "#2E7A73"}
+                          _hover={{ 
+                            bg: message.messageType === 'conversation' ? "#FFE8D6" : "#E0F7F4",
+                            borderColor: message.messageType === 'conversation' ? "#FF8E53" : "#4ECDC4"
+                          }}
+                          whiteSpace="normal"
+                          textAlign="left"
                           lineHeight="1.4"
+                          borderRadius="md"
+                          border="1px solid"
+                          borderColor="transparent"
                         >
-                          • {followUp}
-                        </Text>
+                          {followUp}
+                        </Button>
                       ))}
                     </VStack>
                   </Box>

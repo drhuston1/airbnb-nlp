@@ -83,6 +83,12 @@ export interface ChatMessage {
   followUps?: string[]
   refinementSuggestions?: RefinementSuggestion[]
   timestamp: Date
+  messageType?: 'search' | 'conversation' // Distinguish between search results and general chat
+  travelContext?: {
+    topic: string
+    location?: string
+    suggestions?: string[]
+  }
 }
 
 export interface SearchHistory {
