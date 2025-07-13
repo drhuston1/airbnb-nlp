@@ -35,7 +35,8 @@ import {
   Calendar,
   Edit3,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from 'lucide-react'
 
 // Import types
@@ -171,6 +172,8 @@ import type { AirbnbListing, SearchResponse, ChatMessage, SearchHistory, Locatio
 
 // Import location disambiguation component
 import { LocationDisambiguation } from './components/LocationDisambiguation'
+// Import listing analysis modal
+import { ListingAnalysisModal } from './components/ListingAnalysisModal'
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -192,6 +195,8 @@ function App() {
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({})
   const [locationValidation, setLocationValidation] = useState<LocationValidation | null>(null)
   const [showLocationDisambiguation, setShowLocationDisambiguation] = useState(false)
+  const [selectedListingForAnalysis, setSelectedListingForAnalysis] = useState<AirbnbListing | null>(null)
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   
   
   // Refs
@@ -982,6 +987,17 @@ function App() {
     const currentIndex = getCurrentImageIndex(listingId)
     const prevIndex = currentIndex === 0 ? totalImages - 1 : currentIndex - 1
     setCurrentImageIndex(listingId, prevIndex)
+  }
+
+  // Handle listing analysis
+  const handleAnalysisClick = (listing: AirbnbListing) => {
+    setSelectedListingForAnalysis(listing)
+    setShowAnalysisModal(true)
+  }
+
+  const handleAnalysisClose = () => {
+    setShowAnalysisModal(false)
+    setSelectedListingForAnalysis(null)
   }
 
   // Handle location disambiguation
@@ -2318,18 +2334,31 @@ function App() {
                                   <Text fontSize="xs" color="gray.500">Host</Text>
                                 </HStack>
                               )}
-                              <Link href={listing.url} target="_blank" rel="noopener noreferrer">
+                              <HStack gap={1}>
                                 <Button
                                   size="xs"
                                   variant="outline"
-                                  borderColor="#4ECDC4"
-                                  color="#2E7A73"
-                                  _hover={{ bg: "#E0F7F4" }}
+                                  borderColor="#FF8E53"
+                                  color="#CC6B2E"
+                                  _hover={{ bg: "#FFF5F0" }}
+                                  onClick={() => handleAnalysisClick(listing)}
+                                  title="AI Analysis"
                                 >
-                                  View
-                                  <Icon as={ExternalLink} ml={1} w={2} h={2} />
+                                  <Icon as={BarChart3} w={3} h={3} />
                                 </Button>
-                              </Link>
+                                <Link href={listing.url} target="_blank" rel="noopener noreferrer">
+                                  <Button
+                                    size="xs"
+                                    variant="outline"
+                                    borderColor="#4ECDC4"
+                                    color="#2E7A73"
+                                    _hover={{ bg: "#E0F7F4" }}
+                                  >
+                                    View
+                                    <Icon as={ExternalLink} ml={1} w={2} h={2} />
+                                  </Button>
+                                </Link>
+                              </HStack>
                             </VStack>
                           </HStack>
                         </VStack>
@@ -2388,6 +2417,17 @@ function App() {
           originalQuery={searchQuery}
           onLocationSelected={handleLocationSelected}
           onDismiss={handleLocationDisambiguationDismiss}
+        />
+      )}
+
+      {/* Listing Analysis Modal */}
+      {showAnalysisModal && selectedListingForAnalysis && (
+        <ListingAnalysisModal
+          isOpen={showAnalysisModal}
+          onClose={handleAnalysisClose}
+          listing={selectedListingForAnalysis}
+          searchQuery={currentQuery}
+          alternatives={currentResults.filter(l => l.id !== selectedListingForAnalysis.id).slice(0, 5)}
         />
       )}
     </Box>
