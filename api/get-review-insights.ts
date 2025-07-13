@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 interface ReviewInsightsRequest {
   listingId: string
-  listingUrl: string
+  listingUrl?: string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -14,9 +14,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { listingId, listingUrl }: ReviewInsightsRequest = req.body
 
-    if (!listingId || !listingUrl) {
-      return res.status(400).json({ error: 'Missing required fields: listingId, listingUrl' })
+    if (!listingId) {
+      return res.status(400).json({ error: 'Missing required field: listingId' })
     }
+
+    // Generate Airbnb URL if not provided
+    const finalListingUrl = listingUrl || `https://www.airbnb.com/rooms/${listingId}`
 
     console.log(`🔍 Getting review insights for listing ${listingId}...`)
 
@@ -28,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         listingId,
-        listingUrl,
+        listingUrl: finalListingUrl,
         rating: 4.5, // Will be extracted from the page
         reviewsCount: 0 // Will be extracted from the page
       })
@@ -49,6 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       success: true,
       listingId,
+      reviews: analysisResult.reviews || [], // Return actual review text for analysis
       reviewInsights: analysisResult.insights.reviewSummary,
       trustScore: analysisResult.insights.trustScore,
       metadata: analysisResult.insights.metadata

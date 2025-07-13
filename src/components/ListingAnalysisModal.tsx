@@ -45,12 +45,16 @@ interface ListingAnalysis {
       score: number;
       credibility: 'high' | 'medium' | 'low';
       summary: string;
-      commonPraise?: string[];
-      frequentComplaints?: string[];
-      hostCommunication?: string;
-      cleanlinessScore?: number;
-      accuracyScore?: number;
-      valueScore?: number;
+      reviewThemes?: Array<{
+        category: string;
+        sentiment: 'positive' | 'negative' | 'mixed';
+        frequency: number;
+        summary: string;
+        keyPhrases: string[];
+      }>;
+      positiveHighlights?: string[];
+      commonConcerns?: string[];
+      hostResponsePattern?: string;
       guestInsights?: string;
     };
   };
@@ -78,12 +82,19 @@ export function ListingAnalysisModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState('overview');
+  const [selectedTheme, setSelectedTheme] = useState<{
+    category: string;
+    sentiment: 'positive' | 'negative' | 'mixed';
+    frequency: number;
+    summary: string;
+    keyPhrases: string[];
+  } | null>(null);
 
   useEffect(() => {
     if (isOpen && !analysis) {
       fetchAnalysis();
     }
-  }, [isOpen]);
+  }, [isOpen, analysis]);
 
   const fetchAnalysis = async () => {
     setLoading(true);
@@ -383,78 +394,170 @@ export function ListingAnalysisModal({
 
                 {currentTab === 'reviews' && (
                   <VStack gap={4} align="stretch">
-                    <HStack justify="space-between">
-                      {renderScoreCircle(analysis.insights.reviewAnalysis.score, 'Review Score')}
-                      <Badge 
-                        colorScheme={analysis.insights.reviewAnalysis.credibility === 'high' ? 'green' : 
-                                    analysis.insights.reviewAnalysis.credibility === 'medium' ? 'yellow' : 'red'}
-                        fontSize="md"
-                        px={3}
-                        py={1}
-                      >
-                        {analysis.insights.reviewAnalysis.credibility.toUpperCase()} CREDIBILITY
-                      </Badge>
-                    </HStack>
-                    
-                    <Text>{analysis.insights.reviewAnalysis.summary}</Text>
-                    
-                    <Box p={3} bg="yellow.50" borderRadius="md">
-                      <HStack>
-                        <Icon as={Star} color="yellow.500" />
-                        <Text fontSize="sm">
-                          <strong>{listing.rating}/5</strong> from <strong>{listing.reviewsCount}</strong> reviews
-                        </Text>
-                      </HStack>
-                    </Box>
+                    {/* Header with basic info */}
+                    <VStack gap={2} align="stretch">
+                      <Text fontSize="lg" fontWeight="bold">Guests say</Text>
+                      <Text fontSize="sm" color="gray.600">{analysis.insights.reviewAnalysis.summary}</Text>
+                      
+                      <Box p={3} bg="yellow.50" borderRadius="md">
+                        <HStack>
+                          <Icon as={Star} color="yellow.500" />
+                          <Text fontSize="sm">
+                            <strong>{listing.rating}/5</strong> from <strong>{listing.reviewsCount}</strong> reviews
+                          </Text>
+                        </HStack>
+                      </Box>
+                    </VStack>
 
-                    {/* Enhanced review analysis */}
-                    {analysis.insights.reviewAnalysis.cleanlinessScore && (
-                      <Grid templateColumns="repeat(3, 1fr)" gap={4}>
-                        {renderScoreCircle(analysis.insights.reviewAnalysis.cleanlinessScore, 'Cleanliness')}
-                        {analysis.insights.reviewAnalysis.accuracyScore && renderScoreCircle(analysis.insights.reviewAnalysis.accuracyScore, 'Accuracy')}
-                        {analysis.insights.reviewAnalysis.valueScore && renderScoreCircle(analysis.insights.reviewAnalysis.valueScore, 'Value')}
-                      </Grid>
+                    {/* Amazon-style review themes */}
+                    {analysis.insights.reviewAnalysis.reviewThemes && analysis.insights.reviewAnalysis.reviewThemes.length > 0 && (
+                      <VStack gap={3} align="stretch">
+                        <Text fontSize="md" fontWeight="600" color="gray.700">Select to learn more</Text>
+                        
+                        <Grid templateColumns="repeat(auto-fit, minmax(200px, 1fr))" gap={2}>
+                          {analysis.insights.reviewAnalysis.reviewThemes.map((theme, i) => (
+                            <Button
+                              key={i}
+                              variant="outline"
+                              size="sm"
+                              h="auto"
+                              p={3}
+                              justifyContent="flex-start"
+                              borderColor={theme.sentiment === 'positive' ? 'green.300' : 
+                                          theme.sentiment === 'negative' ? 'red.300' : 'orange.300'}
+                              _hover={{
+                                bg: theme.sentiment === 'positive' ? 'green.50' : 
+                                    theme.sentiment === 'negative' ? 'red.50' : 'orange.50'
+                              }}
+                              onClick={() => setSelectedTheme(selectedTheme?.category === theme.category ? null : theme)}
+                            >
+                              <HStack w="full" justify="space-between">
+                                <HStack>
+                                  <Icon 
+                                    as={theme.sentiment === 'positive' ? CheckCircle : 
+                                        theme.sentiment === 'negative' ? AlertTriangle : Star}
+                                    color={theme.sentiment === 'positive' ? 'green.500' : 
+                                           theme.sentiment === 'negative' ? 'red.500' : 'orange.500'}
+                                    w={4} 
+                                    h={4} 
+                                  />
+                                  <Text fontSize="sm" fontWeight="medium">{theme.category}</Text>
+                                </HStack>
+                                <Badge 
+                                  size="sm" 
+                                  colorScheme={theme.sentiment === 'positive' ? 'green' : 
+                                              theme.sentiment === 'negative' ? 'red' : 'orange'}
+                                >
+                                  {theme.frequency}%
+                                </Badge>
+                              </HStack>
+                            </Button>
+                          ))}
+                        </Grid>
+
+                        {/* Expanded theme details */}
+                        {selectedTheme && (
+                          <Box 
+                            p={4} 
+                            bg={selectedTheme.sentiment === 'positive' ? 'green.50' : 
+                                selectedTheme.sentiment === 'negative' ? 'red.50' : 'orange.50'}
+                            borderRadius="md"
+                            border="1px"
+                            borderColor={selectedTheme.sentiment === 'positive' ? 'green.200' : 
+                                        selectedTheme.sentiment === 'negative' ? 'red.200' : 'orange.200'}
+                          >
+                            <VStack align="start" gap={3}>
+                              <HStack>
+                                <Icon 
+                                  as={selectedTheme.sentiment === 'positive' ? CheckCircle : 
+                                      selectedTheme.sentiment === 'negative' ? AlertTriangle : Star}
+                                  color={selectedTheme.sentiment === 'positive' ? 'green.600' : 
+                                         selectedTheme.sentiment === 'negative' ? 'red.600' : 'orange.600'}
+                                  w={5} 
+                                  h={5} 
+                                />
+                                <Text fontSize="lg" fontWeight="bold">
+                                  {selectedTheme.category}
+                                </Text>
+                                <Badge 
+                                  colorScheme={selectedTheme.sentiment === 'positive' ? 'green' : 
+                                              selectedTheme.sentiment === 'negative' ? 'red' : 'orange'}
+                                >
+                                  {selectedTheme.frequency}% of reviews mention this
+                                </Badge>
+                              </HStack>
+                              
+                              <Text fontSize="sm" color="gray.700">
+                                {selectedTheme.summary}
+                              </Text>
+                              
+                              {selectedTheme.keyPhrases && selectedTheme.keyPhrases.length > 0 && (
+                                <Box>
+                                  <Text fontSize="sm" fontWeight="medium" mb={1}>
+                                    Common phrases guests use:
+                                  </Text>
+                                  <HStack wrap="wrap" gap={1}>
+                                    {selectedTheme.keyPhrases.map((phrase: string, i: number) => (
+                                      <Badge 
+                                        key={i} 
+                                        size="sm" 
+                                        variant="outline"
+                                        colorScheme="gray"
+                                      >
+                                        "{phrase}"
+                                      </Badge>
+                                    ))}
+                                  </HStack>
+                                </Box>
+                              )}
+                            </VStack>
+                          </Box>
+                        )}
+                      </VStack>
                     )}
 
-                    {analysis.insights.reviewAnalysis.commonPraise && analysis.insights.reviewAnalysis.commonPraise.length > 0 && (
+                    {/* Highlights and concerns */}
+                    {analysis.insights.reviewAnalysis.positiveHighlights && analysis.insights.reviewAnalysis.positiveHighlights.length > 0 && (
                       <Box>
-                        <Text fontWeight="bold" mb={2}>✅ What Guests Love</Text>
+                        <Text fontWeight="bold" mb={2} color="green.700">✅ What guests consistently love</Text>
                         <VStack align="start" gap={1}>
-                          {analysis.insights.reviewAnalysis.commonPraise.map((praise, i) => (
+                          {analysis.insights.reviewAnalysis.positiveHighlights.map((highlight, i) => (
                             <HStack key={i}>
                               <Icon as={CheckCircle} color="green.500" w={4} h={4} />
-                              <Text fontSize="sm">{praise}</Text>
+                              <Text fontSize="sm">{highlight}</Text>
                             </HStack>
                           ))}
                         </VStack>
                       </Box>
                     )}
 
-                    {analysis.insights.reviewAnalysis.frequentComplaints && analysis.insights.reviewAnalysis.frequentComplaints.length > 0 && (
+                    {analysis.insights.reviewAnalysis.commonConcerns && analysis.insights.reviewAnalysis.commonConcerns.length > 0 && (
                       <Box>
-                        <Text fontWeight="bold" mb={2}>⚠️ Common Concerns</Text>
+                        <Text fontWeight="bold" mb={2} color="orange.700">⚠️ Things to be aware of</Text>
                         <VStack align="start" gap={1}>
-                          {analysis.insights.reviewAnalysis.frequentComplaints.map((complaint, i) => (
+                          {analysis.insights.reviewAnalysis.commonConcerns.map((concern, i) => (
                             <HStack key={i}>
                               <Icon as={AlertTriangle} color="orange.500" w={4} h={4} />
-                              <Text fontSize="sm">{complaint}</Text>
+                              <Text fontSize="sm">{concern}</Text>
                             </HStack>
                           ))}
                         </VStack>
                       </Box>
                     )}
 
-                    {analysis.insights.reviewAnalysis.hostCommunication && (
+                    {/* Host response pattern */}
+                    {analysis.insights.reviewAnalysis.hostResponsePattern && (
                       <Box p={3} bg="purple.50" borderRadius="md">
-                        <Text fontWeight="bold" mb={1}>💬 Host Communication</Text>
-                        <Text fontSize="sm">{analysis.insights.reviewAnalysis.hostCommunication}</Text>
+                        <Text fontWeight="bold" mb={1}>💬 Host Response Pattern</Text>
+                        <Text fontSize="sm">{analysis.insights.reviewAnalysis.hostResponsePattern}</Text>
                       </Box>
                     )}
 
+                    {/* Guest insights */}
                     {analysis.insights.reviewAnalysis.guestInsights && (
                       <Box p={3} bg="blue.50" borderRadius="md">
-                        <Text fontWeight="bold" mb={1}>🔍 Guest Experience Insights</Text>
-                        <Text fontSize="sm">{analysis.insights.reviewAnalysis.guestInsights}</Text>
+                        <Text fontWeight="bold" mb={1}>📝 Generated from guest reviews</Text>
+                        <Text fontSize="sm" fontStyle="italic">{analysis.insights.reviewAnalysis.guestInsights}</Text>
                       </Box>
                     )}
                   </VStack>

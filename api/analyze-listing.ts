@@ -240,12 +240,18 @@ Provide a JSON analysis with this exact structure:
       "score": number (0-100),
       "credibility": "high|medium|low", 
       "summary": "Comprehensive analysis of guest experiences based on review text and ratings",
-      "commonPraise": ["Specific things guests commonly praise"],
-      "frequentComplaints": ["Specific issues guests frequently mention"],
-      "hostCommunication": "Assessment of host responsiveness and communication quality",
-      "cleanlinessScore": number (0-100),
-      "accuracyScore": number (0-100),
-      "valueScore": number (0-100),
+      "reviewThemes": [
+        {
+          "category": "Cleanliness|Location|Host Communication|Value|Amenities|Accuracy|Check-in|Noise Level|WiFi|Parking|etc",
+          "sentiment": "positive|negative|mixed",
+          "frequency": number (how often mentioned, 1-100),
+          "summary": "Brief summary of what guests say about this aspect",
+          "keyPhrases": ["specific phrases from reviews"]
+        }
+      ],
+      "positiveHighlights": ["Top 3-5 things guests consistently love"],
+      "commonConcerns": ["Top 3-5 issues guests frequently mention"],
+      "hostResponsePattern": "Analysis of how host responds to feedback",
       "guestInsights": "Key patterns and insights from actual guest experiences"
     }
   },
@@ -262,12 +268,16 @@ Focus on practical travel advice. Consider:
 - Review credibility and patterns
 - Overall booking confidence
 
-${reviewText ? `IMPORTANT: Since you have access to actual guest reviews, analyze them thoroughly to extract:
-- Specific recurring themes in guest feedback
-- Concrete examples of praise and complaints
-- Patterns that indicate property quality and host performance
-- Any discrepancies between listing description and guest experiences
-- Red flags that could impact traveler satisfaction` : ''}
+${reviewText ? `IMPORTANT: Since you have access to actual guest reviews, analyze them like Amazon does - extract specific themes:
+
+REVIEW THEME ANALYSIS (like Amazon's "Customers say" feature):
+For each major theme guests mention (cleanliness, location, host communication, value, amenities, accuracy, check-in process, noise level, WiFi, parking, space, etc.), provide:
+- How frequently it's mentioned (1-100 scale)
+- Whether sentiment is positive, negative, or mixed
+- Brief summary of what guests specifically say
+- Key phrases guests actually use
+
+Focus on actionable insights that help travelers understand what to expect.` : ''}
 
 Be honest about both positives and concerns. Provide actionable insights based on available data.`
 
@@ -394,13 +404,21 @@ function generateFallbackAnalysis(
         score: reviewScore,
         credibility: listing.reviewsCount > 50 ? 'high' : listing.reviewsCount > 10 ? 'medium' : 'low',
         summary: `${listing.reviewsCount} reviews with ${listing.rating}/5 rating suggests ${listing.rating > 4.5 ? 'excellent' : listing.rating > 4 ? 'good' : 'average'} guest satisfaction.`,
-        commonPraise: listing.rating > 4.5 ? ['High overall rating indicates positive guest experiences'] : [],
-        frequentComplaints: listing.rating < 4 ? ['Lower rating may indicate some guest concerns'] : [],
-        hostCommunication: listing.host.isSuperhost ? 'Superhost status indicates excellent communication' : 'Communication quality not assessed without review text',
-        cleanlinessScore: Math.min(100, listing.rating * 20),
-        accuracyScore: Math.min(100, listing.rating * 20),
-        valueScore: Math.min(100, listing.rating * 20),
-        guestInsights: 'Detailed guest insights require review text analysis'
+        reviewThemes: [
+          {
+            category: 'Overall Experience',
+            sentiment: listing.rating > 4.5 ? 'positive' : listing.rating > 4 ? 'mixed' : 'negative',
+            frequency: 100,
+            summary: `Guests rate this property ${listing.rating}/5 stars`,
+            keyPhrases: listing.rating > 4.5 ? ['excellent stay', 'highly recommend'] : 
+                       listing.rating > 4 ? ['good experience', 'would stay again'] : 
+                       ['mixed reviews', 'some concerns']
+          }
+        ],
+        positiveHighlights: listing.rating > 4.5 ? ['High overall rating indicates positive guest experiences'] : [],
+        commonConcerns: listing.rating < 4 ? ['Lower rating may indicate some guest concerns'] : [],
+        hostResponsePattern: listing.host.isSuperhost ? 'Superhost status indicates excellent communication and responsiveness' : 'Host response pattern not assessed without review text',
+        guestInsights: 'Detailed guest insights require review text analysis - this is based on rating and review count only'
       }
     },
     recommendations: [
@@ -454,12 +472,18 @@ function validateAndCleanAnalysis(
         score: Math.max(0, Math.min(100, analysis.insights?.reviewAnalysis?.score || 50)),
         credibility: analysis.insights?.reviewAnalysis?.credibility || 'medium',
         summary: analysis.insights?.reviewAnalysis?.summary || `${listing.reviewsCount} reviews available`,
-        commonPraise: Array.isArray(analysis.insights?.reviewAnalysis?.commonPraise) ? analysis.insights.reviewAnalysis.commonPraise : [],
-        frequentComplaints: Array.isArray(analysis.insights?.reviewAnalysis?.frequentComplaints) ? analysis.insights.reviewAnalysis.frequentComplaints : [],
-        hostCommunication: analysis.insights?.reviewAnalysis?.hostCommunication,
-        cleanlinessScore: analysis.insights?.reviewAnalysis?.cleanlinessScore ? Math.max(0, Math.min(100, analysis.insights.reviewAnalysis.cleanlinessScore)) : undefined,
-        accuracyScore: analysis.insights?.reviewAnalysis?.accuracyScore ? Math.max(0, Math.min(100, analysis.insights.reviewAnalysis.accuracyScore)) : undefined,
-        valueScore: analysis.insights?.reviewAnalysis?.valueScore ? Math.max(0, Math.min(100, analysis.insights.reviewAnalysis.valueScore)) : undefined,
+        reviewThemes: Array.isArray(analysis.insights?.reviewAnalysis?.reviewThemes) 
+          ? analysis.insights.reviewAnalysis.reviewThemes.map((theme: any) => ({
+              category: theme.category || 'General',
+              sentiment: theme.sentiment || 'mixed',
+              frequency: Math.max(0, Math.min(100, theme.frequency || 50)),
+              summary: theme.summary || 'No summary available',
+              keyPhrases: Array.isArray(theme.keyPhrases) ? theme.keyPhrases : []
+            }))
+          : [],
+        positiveHighlights: Array.isArray(analysis.insights?.reviewAnalysis?.positiveHighlights) ? analysis.insights.reviewAnalysis.positiveHighlights : [],
+        commonConcerns: Array.isArray(analysis.insights?.reviewAnalysis?.commonConcerns) ? analysis.insights.reviewAnalysis.commonConcerns : [],
+        hostResponsePattern: analysis.insights?.reviewAnalysis?.hostResponsePattern,
         guestInsights: analysis.insights?.reviewAnalysis?.guestInsights
       }
     },

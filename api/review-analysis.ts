@@ -66,7 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       success: true,
       listingId,
-      insights
+      insights,
+      reviews: reviewAnalysis.reviews || [] // Return actual review text
     })
 
   } catch (error) {
@@ -140,7 +141,8 @@ async function analyzeListingReviews(listingUrl: string, listingId: string) {
     return {
       summary: analysis,
       breakdown: reviewsData.ratingBreakdown,
-      recentReviewsCount: reviewsData.recentReviewsCount
+      recentReviewsCount: reviewsData.recentReviewsCount,
+      reviews: reviewsData.reviews
     }
 
   } catch (error) {
@@ -161,7 +163,8 @@ async function analyzeListingReviews(listingUrl: string, listingId: string) {
         twoStars: 0,
         oneStar: 0
       },
-      recentReviewsCount: 0
+      recentReviewsCount: 0,
+      reviews: []
     }
   }
 }
