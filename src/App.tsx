@@ -27,7 +27,6 @@ import {
   Award,
   Wifi,
   Filter,
-  Calendar,
   Building,
   Bed,
   Bath,
@@ -42,7 +41,7 @@ import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinemen
 import { SEARCH_CONFIG } from './config/constants'
 
 // Intelligent follow-up question generator
-function generateFollowUpQuestions(query: string, queryAnalysis: any, results: AirbnbListing[]): string[] {
+function generateFollowUpQuestions(query: string, _queryAnalysis: any, results: AirbnbListing[]): string[] {
   const questions: string[] = []
   const queryLower = query.toLowerCase()
   
