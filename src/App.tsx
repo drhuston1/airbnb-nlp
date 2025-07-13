@@ -10,7 +10,14 @@ import {
   Icon,
   VStack,
   Textarea,
-  Grid
+  Grid,
+  Input,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverBody,
+  PopoverCloseButton
 } from '@chakra-ui/react'
 import { 
   MapPin, 
@@ -30,7 +37,9 @@ import {
   Building,
   Bed,
   Bath,
-  Shield
+  Shield,
+  Calendar,
+  Edit3
 } from 'lucide-react'
 
 // Import types
@@ -850,6 +859,31 @@ function App() {
     handleSearch(1, query)
   }
 
+  // Handle date updates
+  const handleDateUpdate = (checkin: string, checkout: string) => {
+    if (loading || !currentQuery) return
+    
+    setCurrentDates({ checkin, checkout, flexible: false })
+    
+    // Create a new search with updated dates
+    const dateQuery = `${currentQuery} from ${new Date(checkin).toLocaleDateString()} to ${new Date(checkout).toLocaleDateString()}`
+    handleSearch(1, dateQuery)
+  }
+
+  // Format date for input (YYYY-MM-DD)
+  const formatDateForInput = (dateString: string): string => {
+    try {
+      return new Date(dateString).toISOString().split('T')[0]
+    } catch {
+      return ''
+    }
+  }
+
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = (): string => {
+    return new Date().toISOString().split('T')[0]
+  }
+
 
   return (
     <Box 
@@ -1488,17 +1522,12 @@ function App() {
       >
         {showResults && (
           <>
-            <Box p={2} borderBottom="1px" borderColor="gray.200">
-              <HStack justify="space-between" align="center">
+            <Box p={3} borderBottom="1px" borderColor="gray.200">
+              <HStack justify="space-between" align="center" mb={2}>
                 <HStack gap={2} fontSize="sm" color="gray.600" flexWrap="wrap">
                   <Text fontWeight="500">{currentResults.length} properties</Text>
                   {currentPriceRange?.budget && (
                     <Text color="#CC6B2E">• {currentPriceRange.budget}</Text>
-                  )}
-                  {currentDates?.checkin && currentDates?.checkout && (
-                    <Text color="#2E7A73">
-                      • {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </Text>
                   )}
                 </HStack>
                 <Button
@@ -1511,6 +1540,161 @@ function App() {
                   <Icon as={X} w={3} h={3} />
                 </Button>
               </HStack>
+              
+              {/* Date Adjustment Controls */}
+              {currentDates?.checkin && currentDates?.checkout ? (
+                <Box>
+                  <HStack gap={3} align="center" flexWrap="wrap">
+                    <HStack gap={1}>
+                      <Icon as={Calendar} w={3} h={3} color="#4ECDC4" />
+                      <Text fontSize="xs" color="gray.500" fontWeight="500">Dates:</Text>
+                    </HStack>
+                    
+                    <Popover placement="bottom-start">
+                      <PopoverTrigger>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          borderColor="#4ECDC4"
+                          color="#2E7A73"
+                          _hover={{ bg: "#F8FDFC", borderColor: "#3FB8B3" }}
+                          rightIcon={<Icon as={Edit3} w={2} h={2} />}
+                          fontSize="xs"
+                          px={2}
+                        >
+                          {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent w="300px">
+                        <PopoverHeader fontSize="sm" fontWeight="600">Adjust Your Dates</PopoverHeader>
+                        <PopoverCloseButton />
+                        <PopoverBody>
+                          <VStack gap={3} align="stretch">
+                            <Box>
+                              <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-in</Text>
+                              <Input
+                                type="date"
+                                size="sm"
+                                defaultValue={formatDateForInput(currentDates.checkin)}
+                                min={getTodayDate()}
+                                onChange={(e) => {
+                                  if (e.target.value && currentDates.checkout) {
+                                    const checkinDate = new Date(e.target.value)
+                                    const checkoutDate = new Date(currentDates.checkout)
+                                    if (checkinDate < checkoutDate) {
+                                      handleDateUpdate(e.target.value, currentDates.checkout)
+                                    }
+                                  }
+                                }}
+                                borderColor="#4ECDC4"
+                                _focus={{ borderColor: "#FF8E53" }}
+                              />
+                            </Box>
+                            <Box>
+                              <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-out</Text>
+                              <Input
+                                type="date"
+                                size="sm"
+                                defaultValue={formatDateForInput(currentDates.checkout)}
+                                min={currentDates.checkin}
+                                onChange={(e) => {
+                                  if (e.target.value && currentDates.checkin) {
+                                    const checkinDate = new Date(currentDates.checkin)
+                                    const checkoutDate = new Date(e.target.value)
+                                    if (checkoutDate > checkinDate) {
+                                      handleDateUpdate(currentDates.checkin, e.target.value)
+                                    }
+                                  }
+                                }}
+                                borderColor="#4ECDC4"
+                                _focus={{ borderColor: "#FF8E53" }}
+                              />
+                            </Box>
+                            <Text fontSize="xs" color="gray.500" textAlign="center" mt={1}>
+                              Results will automatically update when you change dates
+                            </Text>
+                          </VStack>
+                        </PopoverBody>
+                      </PopoverContent>
+                    </Popover>
+                    
+                    <Text fontSize="xs" color="gray.400">
+                      ({Math.ceil((new Date(currentDates.checkout).getTime() - new Date(currentDates.checkin).getTime()) / (1000 * 60 * 60 * 24))} nights)
+                    </Text>
+                  </HStack>
+                </Box>
+              ) : (
+                <HStack gap={2} align="center">
+                  <Icon as={Calendar} w={3} h={3} color="gray.400" />
+                  <Text fontSize="xs" color="gray.500">No dates specified</Text>
+                  <Popover placement="bottom-start">
+                    <PopoverTrigger>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        borderColor="gray.300"
+                        color="gray.600"
+                        _hover={{ bg: "gray.50", borderColor: "#4ECDC4" }}
+                        fontSize="xs"
+                        px={2}
+                      >
+                        Add dates
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent w="300px">
+                      <PopoverHeader fontSize="sm" fontWeight="600">Add Travel Dates</PopoverHeader>
+                      <PopoverCloseButton />
+                      <PopoverBody>
+                        <VStack gap={3} align="stretch">
+                          <Box>
+                            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-in</Text>
+                            <Input
+                              type="date"
+                              size="sm"
+                              min={getTodayDate()}
+                              id="new-checkin"
+                              borderColor="#4ECDC4"
+                              _focus={{ borderColor: "#FF8E53" }}
+                            />
+                          </Box>
+                          <Box>
+                            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-out</Text>
+                            <Input
+                              type="date"
+                              size="sm"
+                              min={getTodayDate()}
+                              id="new-checkout"
+                              borderColor="#4ECDC4"
+                              _focus={{ borderColor: "#FF8E53" }}
+                            />
+                          </Box>
+                          <Button
+                            size="sm"
+                            bg="#4ECDC4"
+                            color="white"
+                            _hover={{ bg: "#3FB8B3" }}
+                            onClick={() => {
+                              const checkinInput = document.getElementById('new-checkin') as HTMLInputElement
+                              const checkoutInput = document.getElementById('new-checkout') as HTMLInputElement
+                              
+                              if (checkinInput?.value && checkoutInput?.value) {
+                                const checkinDate = new Date(checkinInput.value)
+                                const checkoutDate = new Date(checkoutInput.value)
+                                if (checkoutDate > checkinDate) {
+                                  handleDateUpdate(checkinInput.value, checkoutInput.value)
+                                }
+                              }
+                            }}
+                          >
+                            Update Search
+                          </Button>
+                        </VStack>
+                      </PopoverBody>
+                    </PopoverContent>
+                  </Popover>
+                </HStack>
+              )}
+            </Box>
               
               {/* Compact Quick Filters */}
               {quickFilters.length > 0 && (
