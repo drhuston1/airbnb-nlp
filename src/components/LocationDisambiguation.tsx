@@ -6,10 +6,7 @@ import {
   VStack,
   HStack,
   Icon,
-  Alert,
-  AlertIcon,
-  Badge,
-  Tooltip
+  Badge
 } from '@chakra-ui/react'
 import { MapPin, Globe, Star, Info } from 'lucide-react'
 import type { LocationValidation, GeocodeResult } from '../types'
@@ -119,14 +116,20 @@ export function LocationDisambiguation({
           </Box>
 
           {/* Alert for disambiguation */}
-          <Alert status="info" borderRadius="md">
-            <AlertIcon />
-            <Box>
-              <Text fontSize="sm">
+          <Box 
+            bg="blue.50" 
+            border="1px solid" 
+            borderColor="blue.200" 
+            borderRadius="md" 
+            p={3}
+          >
+            <HStack spacing={2}>
+              <Icon as={Info} color="blue.500" w={4} h={4} />
+              <Text fontSize="sm" color="blue.800">
                 We found multiple places named "{originalQuery}". Please select the location you intended:
               </Text>
-            </Box>
-          </Alert>
+            </HStack>
+          </Box>
 
           {/* Location Options */}
           <VStack spacing={3} align="stretch">
@@ -184,9 +187,8 @@ export function LocationDisambiguation({
                         {option.type}
                       </Text>
                       
-                      <Tooltip 
-                        label={`Confidence: ${Math.round(option.confidence * 100)}%`}
-                        fontSize="xs"
+                      <Box
+                        title={`Confidence: ${Math.round(option.confidence * 100)}%`}
                       >
                         <Badge 
                           colorScheme={getConfidenceColor(option.confidence)} 
@@ -194,7 +196,7 @@ export function LocationDisambiguation({
                         >
                           {Math.round(option.confidence * 100)}%
                         </Badge>
-                      </Tooltip>
+                      </Box>
                       
                       {option.components.countryCode && (
                         <Text fontSize="xs" color="gray.400">

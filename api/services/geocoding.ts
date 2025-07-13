@@ -1,5 +1,4 @@
 // Comprehensive geocoding service with multiple providers and disambiguation
-import { createHash } from 'crypto'
 
 interface GeocodeResult {
   location: string
@@ -505,7 +504,15 @@ export class GeocodingService {
    */
   private getCacheKey(query: string, options: GeocodeOptions): string {
     const optionsStr = JSON.stringify(options)
-    return createHash('md5').update(query + optionsStr).digest('hex')
+    const combined = query + optionsStr
+    // Simple hash function for caching (not cryptographically secure)
+    let hash = 0
+    for (let i = 0; i < combined.length; i++) {
+      const char = combined.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36)
   }
 
   /**
