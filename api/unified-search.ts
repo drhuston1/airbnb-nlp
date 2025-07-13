@@ -398,11 +398,30 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
           photos: listing.photos ? `Array(${listing.photos.length})` : 'none',
           images: listing.images ? `Array(${listing.images.length})` : 'none',
           contextual_pictures: listing.contextual_pictures ? `Array(${listing.contextual_pictures.length})` : 'none',
-          picture_count: listing.picture_count || 'none'
+          picture_count: listing.picture_count || 'none',
+          karta: listing.karta ? 'object exists' : 'none',
+          karta_pictureUrls: (listing.karta && listing.karta.pictureUrls) ? `Array(${listing.karta.pictureUrls.length})` : 'none'
         })
+        
+        // Log the first few items of each array to understand structure
+        if (listing.contextual_pictures && listing.contextual_pictures.length > 0) {
+          console.log('🔍 contextual_pictures[0]:', listing.contextual_pictures[0])
+        }
+        if (listing.photos && listing.photos.length > 0) {
+          console.log('🔍 photos[0]:', listing.photos[0])
+        }
+        if (listing.pictures && listing.pictures.length > 0) {
+          console.log('🔍 pictures[0]:', listing.pictures[0])
+        }
+        if (listing.picture_urls && listing.picture_urls.length > 0) {
+          console.log('🔍 picture_urls[0]:', listing.picture_urls[0])
+        }
+        if (listing.karta && listing.karta.pictureUrls && listing.karta.pictureUrls.length > 0) {
+          console.log('🔍 karta.pictureUrls[0]:', listing.karta.pictureUrls[0])
+        }
       }
       
-      // Try multiple image extraction strategies
+      // Try multiple image extraction strategies for real multiple images
       if (listing.contextual_pictures && Array.isArray(listing.contextual_pictures) && listing.contextual_pictures.length > 0) {
         // Extract from contextual_pictures (most complete source)
         images = listing.contextual_pictures.map((pic: any) => {
@@ -432,27 +451,35 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
       } else if (listing.picture_urls && Array.isArray(listing.picture_urls) && listing.picture_urls.length > 0) {
         // Array of picture URLs
         images = listing.picture_urls.filter(Boolean)
+      } else if (listing.karta && listing.karta.pictureUrls && Array.isArray(listing.karta.pictureUrls)) {
+        // Karta structure - alternative image source
+        images = listing.karta.pictureUrls.filter(Boolean)
       } else if (listing.picture_url) {
-        // Single picture URL - create variants for demonstration
+        // Single picture URL - try to get more images by modifying the URL parameters
         const baseUrl = listing.picture_url
         images = [baseUrl]
         
-        // Create variants with different sizes for demo purposes
-        // In production, you'd need to call individual listing APIs to get real multiple images
-        if (listing.picture_count && listing.picture_count > 1) {
-          const variants = [
-            baseUrl.replace('?im_w=720', '?im_w=960'),
-            baseUrl.replace('?im_w=720', '?im_w=480'),
-            baseUrl.replace('?im_w=720', '?im_w=1200')
+        // Try to extract the image ID and construct additional image URLs
+        const imageIdMatch = baseUrl.match(/\/pictures\/(.+?)\//)
+        if (imageIdMatch && listing.picture_count && listing.picture_count > 1) {
+          // Try different image sizes/formats that might exist
+          const baseImageUrl = baseUrl.replace(/\?.*$/, '') // Remove query params
+          const potentialImages = [
+            baseImageUrl + '?im_w=1200',
+            baseImageUrl + '?im_w=960',
+            baseImageUrl + '?im_w=720',
+            baseImageUrl + '?im_w=480'
           ]
-          images.push(...variants.slice(0, Math.min(listing.picture_count - 1, 3)))
-        } else {
-          // For demo purposes, create a few variants even without picture_count
-          const variants = [
-            baseUrl.replace('?im_w=720', '?im_w=960'),
-            baseUrl.replace('?im_w=720', '?im_w=1200')
-          ]
-          images.push(...variants)
+          
+          // Add unique URLs only
+          potentialImages.forEach(url => {
+            if (!images.includes(url)) {
+              images.push(url)
+            }
+          })
+          
+          // Limit to actual picture count
+          images = images.slice(0, Math.min(listing.picture_count, 4))
         }
       } else if (listing.xl_picture_url) {
         images = [listing.xl_picture_url]
