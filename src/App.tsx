@@ -1825,9 +1825,16 @@ function App() {
                           <HStack justify="space-between" w="full">
                             <HStack gap={1}>
                               <Icon as={MapPin} color="gray.400" w={3} h={3} />
-                              <Text fontSize="xs" color="gray.600" lineClamp={1}>
-                                {listing.location.city}
-                              </Text>
+                              <Link 
+                                href={`https://www.google.com/maps/search/${encodeURIComponent(listing.location.city + ', ' + listing.location.country)}`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                _hover={{ textDecoration: 'underline' }}
+                              >
+                                <Text fontSize="xs" color="gray.600" lineClamp={1}>
+                                  {listing.location.city}
+                                </Text>
+                              </Link>
                             </HStack>
                             <HStack gap={2}>
                               <HStack gap={1}>
