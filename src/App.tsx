@@ -1330,32 +1330,20 @@ function App() {
                 
                 {/* Follow-up Questions */}
                 {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && (
-                  <Box mt={4}>
-                    <Text fontSize="sm" color="gray.600" mb={3}>You might also want to ask:</Text>
-                    <Flex gap={2} flexWrap="wrap">
+                  <Box mt={4} p={3} bg="#F8FDFC" borderRadius="md" borderLeft="3px solid" borderColor="#4ECDC4">
+                    <Text fontSize="sm" color="gray.600" mb={2} fontWeight="500">To help narrow down your search:</Text>
+                    <VStack align="start" gap={1}>
                       {message.followUps.map((followUp, index) => (
-                        <Button
+                        <Text
                           key={index}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRefinementQuery(followUp)}
-                          borderColor="#4ECDC4"
-                          color="#2E7A73"
-                          bg="#E0F7F4"
-                          _hover={{ 
-                            bg: "#C0F0EC",
-                            borderColor: "#3FB8B3",
-                            color: "#1F5C57"
-                          }}
-                          borderRadius="full"
-                          px={3}
-                          fontSize="xs"
-                          fontWeight="500"
+                          fontSize="sm"
+                          color="gray.700"
+                          lineHeight="1.4"
                         >
-                          {followUp}
-                        </Button>
+                          • {followUp}
+                        </Text>
                       ))}
-                    </Flex>
+                    </VStack>
                   </Box>
                 )}
               </Box>
