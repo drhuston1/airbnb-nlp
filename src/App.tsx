@@ -1198,7 +1198,7 @@ function App() {
                 </VStack>
                 
                 {/* Hero Content */}
-                <VStack gap={6} textAlign="center" maxW="4xl">
+                <VStack gap={8} textAlign="center" maxW="5xl">
                   <VStack gap={4}>
                     <Text fontSize={{ base: "4xl", md: "5xl", lg: "6xl" }} color="gray.900" fontWeight="900" lineHeight="0.9" letterSpacing="-2px">
                       Find your perfect
@@ -1209,6 +1209,66 @@ function App() {
                       Skip the endless scrolling. Just describe your dream vacation in natural language, 
                       and our AI will instantly find properties that match your exact vision.
                     </Text>
+                  </VStack>
+                  
+                  {/* Integrated Search Box */}
+                  <VStack gap={4} w="full" maxW="5xl">
+                    <HStack gap={4} w="full">
+                      <Textarea
+                        placeholder="Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSearch()
+                          }
+                        }}
+                        resize="none"
+                        minH="70px"
+                        bg="white"
+                        border="3px solid"
+                        borderColor="rgba(255, 255, 255, 0.8)"
+                        _focus={{
+                          borderColor: "#FF8E53",
+                          boxShadow: "0 0 0 4px rgba(255, 142, 83, 0.2)"
+                        }}
+                        _hover={{ borderColor: "rgba(255, 255, 255, 1)" }}
+                        borderRadius="2xl"
+                        px={6}
+                        py={5}
+                        fontSize="lg"
+                        fontWeight="400"
+                        flex="1"
+                        boxShadow="0 8px 32px rgba(0, 0, 0, 0.1)"
+                        backdropFilter="blur(10px)"
+                      />
+                      <Button
+                        onClick={() => handleSearch()}
+                        disabled={!searchQuery.trim() || loading}
+                        bg="linear-gradient(135deg, #FF8E53 0%, #FF6B6B 100%)"
+                        color="white"
+                        _hover={{ 
+                          bg: "linear-gradient(135deg, #FF6B6B 0%, #E55A5A 100%)",
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 12px 32px rgba(255, 107, 107, 0.4)"
+                        }}
+                        _disabled={{ 
+                          bg: "gray.300",
+                          color: "gray.500"
+                        }}
+                        borderRadius="2xl"
+                        px={12}
+                        h="70px"
+                        fontWeight="800"
+                        fontSize="lg"
+                        minW="180px"
+                        boxShadow="0 8px 24px rgba(255, 107, 107, 0.3)"
+                        transition="all 0.3s"
+                      >
+                        {loading ? <Spinner size="md" /> : "Find My Stay"}
+                      </Button>
+                    </HStack>
                   </VStack>
                   
                   {/* Trust Indicators */}
@@ -1230,71 +1290,9 @@ function App() {
               </Flex>
             </Box>
             
-            {/* Search Section */}
-            <Box py={12} px={8}>
+            {/* Examples Section */}
+            <Box py={12} px={8} bg="white">
               <Flex justify="center" align="center" direction="column" maxW="6xl" mx="auto">
-
-                {/* Search Box */}
-                <VStack gap={6} w="full" maxW="5xl" mb={12}>
-                  <Text fontSize="2xl" color="gray.800" fontWeight="700" textAlign="center">
-                    What's your ideal vacation?
-                  </Text>
-                  <HStack gap={4} w="full">
-                    <Textarea
-                      placeholder="Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSearch()
-                        }
-                      }}
-                      resize="none"
-                      minH="70px"
-                      bg="white"
-                      border="3px solid"
-                      borderColor="#4ECDC4"
-                      _focus={{
-                        borderColor: "#FF8E53",
-                        boxShadow: "0 0 0 4px rgba(78, 205, 196, 0.15)"
-                      }}
-                      _hover={{ borderColor: "#3FB8B3" }}
-                      borderRadius="2xl"
-                      px={6}
-                      py={5}
-                      fontSize="lg"
-                      fontWeight="400"
-                      flex="1"
-                      boxShadow="0 4px 20px rgba(0, 0, 0, 0.05)"
-                    />
-                    <Button
-                      onClick={() => handleSearch()}
-                      disabled={!searchQuery.trim() || loading}
-                      bg="linear-gradient(135deg, #4ECDC4 0%, #3FB8B3 100%)"
-                      color="white"
-                      _hover={{ 
-                        bg: "linear-gradient(135deg, #3FB8B3 0%, #2E9B94 100%)",
-                        transform: "translateY(-2px)",
-                        boxShadow: "0 8px 25px rgba(78, 205, 196, 0.3)"
-                      }}
-                      _disabled={{ 
-                        bg: "gray.300",
-                        color: "gray.500"
-                      }}
-                      borderRadius="2xl"
-                      px={12}
-                      h="70px"
-                      fontWeight="800"
-                      fontSize="lg"
-                      minW="180px"
-                      boxShadow="0 4px 20px rgba(78, 205, 196, 0.2)"
-                      transition="all 0.3s"
-                    >
-                      Find My Stay
-                    </Button>
-                  </HStack>
-                </VStack>
 
                 {/* Enhanced Example Grid */}
                 <Box w="full" maxW="6xl">
