@@ -57,7 +57,7 @@ interface PropertyTypeInsights {
   }>
 }
 
-interface RefinementSuggestion {
+export interface RefinementSuggestion {
   type: 'price' | 'rating' | 'amenity' | 'property_type' | 'host_type'
   label: string
   description: string
@@ -391,4 +391,4 @@ export class RefinementAnalyzer {
 }
 
 // Export for use in main app
-export type { RefinementSuggestion, PriceInsights, RatingInsights, AmenityInsights, PropertyTypeInsights }
+export type { PriceInsights, RatingInsights, AmenityInsights, PropertyTypeInsights }

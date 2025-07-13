@@ -65,13 +65,23 @@ export interface SearchResponse {
     checkout?: string
     flexible?: boolean
   }
+  sources?: {
+    platform: string
+    count: number
+    status: 'success' | 'error' | 'timeout'
+    error?: string
+  }[]
 }
+
+// Import RefinementSuggestion from refinementAnalyzer
+import type { RefinementSuggestion } from '../utils/refinementAnalyzer'
 
 export interface ChatMessage {
   id: string
   type: 'user' | 'assistant'
   content: string
   followUps?: string[]
+  refinementSuggestions?: RefinementSuggestion[]
   timestamp: Date
 }
 

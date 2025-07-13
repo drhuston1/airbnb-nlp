@@ -164,80 +164,8 @@ async function filterWithGPT(query: string, listings: AirbnbListing[]): Promise<
     throw error
   }
 }
-interface AirbnbListing {
-  id: string
-  name: string
-  url: string
-  images: string[]
-  price: {
-    total: number
-    rate: number
-    currency: string
-  }
-  rating: number
-  reviewsCount: number
-  location: {
-    city: string
-    country: string
-  }
-  host: {
-    name: string
-    isSuperhost: boolean
-  }
-  amenities: string[]
-  roomType: string
-  propertyType?: string
-  platform?: string
-  // Enhanced property details
-  bedrooms?: number
-  bathrooms?: number
-  beds?: number
-  maxGuests?: number
-  // Review insights
-  trustScore?: number // 0-100 score based on rating and review count
-  reviewInsights?: {
-    positiveHighlights: string[]
-    negativeInsights: string[]
-    commonConcerns: string[]
-    overallSentiment: 'positive' | 'mixed' | 'negative'
-  }
-}
-
-interface SearchResponse {
-  listings: AirbnbListing[]
-  hasMore: boolean
-  totalResults: number
-  page: number
-  searchUrl?: string
-  source?: string
-  dates?: {
-    checkin?: string
-    checkout?: string
-    flexible?: boolean
-  }
-  sources?: {
-    platform: string
-    count: number
-    status: 'success' | 'error' | 'timeout'
-    error?: string
-  }[]
-}
-
-interface ChatMessage {
-  id: string
-  type: 'user' | 'assistant'
-  content: string
-  followUps?: string[]
-  refinementSuggestions?: RefinementSuggestion[]
-  timestamp: Date
-}
-
-interface SearchHistory {
-  id: string
-  query: string
-  timestamp: Date
-  resultCount: number
-}
+// Import types
+import type { AirbnbListing, SearchResponse, ChatMessage, SearchHistory } from './types'
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -1446,60 +1374,60 @@ function App() {
             <div ref={messagesEndRef} />
           </Box>
         )}
-      </Box>
+        </Box>
 
         {/* Chat Input - Only show when there are messages */}
         {messages.length > 0 && (
-        <Box bg="white" px={4} py={4} borderTop="2px" borderColor="#4ECDC4">
-          <Box maxW="3xl" mx="auto">
-            <HStack gap={3}>
-              <Textarea
-                placeholder="Ask for more properties or refine your search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSearch()
-                  }
-                }}
-                resize="none"
-                minH="44px"
-                maxH="120px"
-                bg="white"
-                border="2px"
-                borderColor="gray.400"
-                _focus={{
-                  borderColor: "#4ECDC4",
-                  boxShadow: "0 0 0 3px rgba(78, 205, 196, 0.1)"
-                }}
-                _hover={{ borderColor: "#FF8E53" }}
-                borderRadius="xl"
-                py={3}
-                px={4}
-                fontSize="md"
-              />
-              <Button
-                onClick={() => handleSearch()}
-                disabled={!searchQuery.trim() || loading}
-                size="md"
-                bg="#4ECDC4"
-                color="white"
-                _hover={{ bg: "#3FB8B3" }}
-                _disabled={{ 
-                  bg: "gray.300",
-                  color: "gray.500"
-                }}
-                borderRadius="xl"
-                px={4}
-                h="44px"
-              >
-                <Icon as={Send} w={4} h={4} />
-              </Button>
-            </HStack>
+          <Box bg="white" px={4} py={4} borderTop="2px" borderColor="#4ECDC4">
+            <Box maxW="3xl" mx="auto">
+              <HStack gap={3}>
+                <Textarea
+                  placeholder="Ask for more properties or refine your search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSearch()
+                    }
+                  }}
+                  resize="none"
+                  minH="44px"
+                  maxH="120px"
+                  bg="white"
+                  border="2px"
+                  borderColor="gray.400"
+                  _focus={{
+                    borderColor: "#4ECDC4",
+                    boxShadow: "0 0 0 3px rgba(78, 205, 196, 0.1)"
+                  }}
+                  _hover={{ borderColor: "#FF8E53" }}
+                  borderRadius="xl"
+                  py={3}
+                  px={4}
+                  fontSize="md"
+                />
+                <Button
+                  onClick={() => handleSearch()}
+                  disabled={!searchQuery.trim() || loading}
+                  size="md"
+                  bg="#4ECDC4"
+                  color="white"
+                  _hover={{ bg: "#3FB8B3" }}
+                  _disabled={{ 
+                    bg: "gray.300",
+                    color: "gray.500"
+                  }}
+                  borderRadius="xl"
+                  px={4}
+                  h="44px"
+                >
+                  <Icon as={Send} w={4} h={4} />
+                </Button>
+              </HStack>
+            </Box>
           </Box>
-        </Box>
-      )}
+        )}
       </Box>
 
       {/* Results Panel */}
@@ -1619,21 +1547,23 @@ function App() {
                   )}
                 </Box>
               ) : (
-                <HStack gap={2} align="center">
-                  <Icon as={Calendar} w={3} h={3} color="gray.400" />
-                  <Text fontSize="xs" color="gray.500">No dates specified</Text>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    borderColor="gray.300"
-                    color="gray.600"
-                    _hover={{ bg: "gray.50", borderColor: "#4ECDC4" }}
-                    fontSize="xs"
-                    px={2}
-                    onClick={() => setShowDateEditor(!showDateEditor)}
-                  >
-                    Add dates
-                  </Button>
+                <Box position="relative">
+                  <HStack gap={2} align="center">
+                    <Icon as={Calendar} w={3} h={3} color="gray.400" />
+                    <Text fontSize="xs" color="gray.500">No dates specified</Text>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      borderColor="gray.300"
+                      color="gray.600"
+                      _hover={{ bg: "gray.50", borderColor: "#4ECDC4" }}
+                      fontSize="xs"
+                      px={2}
+                      onClick={() => setShowDateEditor(!showDateEditor)}
+                    >
+                      Add dates
+                    </Button>
+                  </HStack>
                   
                   {showDateEditor && (
                     <Box position="absolute" top="100%" left={0} right={0} mt={2} p={3} bg="white" borderRadius="md" border="1px solid" borderColor="#E0F7F4" boxShadow="lg" zIndex={10}>
@@ -1696,9 +1626,8 @@ function App() {
                       </VStack>
                     </Box>
                   )}
-                </HStack>
+                </Box>
               )}
-            </Box>
               
               {/* Compact Quick Filters */}
               {quickFilters.length > 0 && (
