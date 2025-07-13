@@ -1516,7 +1516,7 @@ function App() {
         flexDirection="column"
       >
         {showResults && (
-          <Box display="flex" flexDirection="column" h="full">
+          <Box h="full" display="flex" flexDirection="column">
             <Box p={3} borderBottom="1px" borderColor="gray.200">
               <HStack justify="space-between" align="center" mb={2}>
                 <HStack gap={2} fontSize="sm" color="gray.600" flexWrap="wrap">
@@ -2005,46 +2005,45 @@ function App() {
                   ))}
                 </Grid>
               )}
+              
+              {currentResults.length > 0 && (
+                <Box p={3} borderTop="2px" borderColor="#FF6B6B">
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="xs" color="gray.500">
+                      Page {currentPage}
+                    </Text>
+                    <HStack gap={1}>
+                      <Button 
+                        size="xs" 
+                        variant="outline"
+                        onClick={handlePrevPage}
+                        disabled={currentPage === 1 || loading}
+                        borderColor="#4ECDC4"
+                        _hover={{ 
+                          bg: "#F0F8F7",
+                          borderColor: "#FF8E53"
+                        }}
+                      >
+                        ←
+                      </Button>
+                      <Button 
+                        size="xs" 
+                        variant="outline"
+                        onClick={handleNextPage}
+                        disabled={!hasMore || loading}
+                        borderColor="#4ECDC4"
+                        _hover={{ 
+                          bg: "#F0F8F7",
+                          borderColor: "#FF8E53"
+                        }}
+                      >
+                        →
+                      </Button>
+                    </HStack>
+                  </Flex>
+                </Box>
+              )}
             </Box>
-            
-            {/* Pagination in results panel */}
-            {currentResults.length > 0 && (
-              <Box p={3} borderTop="2px" borderColor="#FF6B6B">
-                <Flex justify="space-between" align="center">
-                  <Text fontSize="xs" color="gray.500">
-                    Page {currentPage}
-                  </Text>
-                  <HStack gap={1}>
-                    <Button 
-                      size="xs" 
-                      variant="outline"
-                      onClick={handlePrevPage}
-                      disabled={currentPage === 1 || loading}
-                      borderColor="#4ECDC4"
-                      _hover={{ 
-                        bg: "#F0F8F7",
-                        borderColor: "#FF8E53"
-                      }}
-                    >
-                      ←
-                    </Button>
-                    <Button 
-                      size="xs" 
-                      variant="outline"
-                      onClick={handleNextPage}
-                      disabled={!hasMore || loading}
-                      borderColor="#4ECDC4"
-                      _hover={{ 
-                        bg: "#F0F8F7",
-                        borderColor: "#FF8E53"
-                      }}
-                    >
-                      →
-                    </Button>
-                  </HStack>
-                </Flex>
-              </Box>
-            )}
           </Box>
         )}
       </Box>
