@@ -181,28 +181,40 @@ export class RefinementAnalyzer {
   // Generate intelligent refinement suggestions
   generateRefinementSuggestions(originalQuery: string): RefinementSuggestion[] {
     const suggestions: RefinementSuggestion[] = []
+    const queryLower = originalQuery.toLowerCase()
     
     const priceInsights = this.analyzePrices()
     const ratingInsights = this.analyzeRatings()
     const amenityInsights = this.analyzeAmenities()
     const propertyInsights = this.analyzePropertyTypes()
 
-    // Price-based suggestions
-    priceInsights.suggestedRanges.forEach(range => {
-      if (range.count > FILTER_CONFIG.MIN_SUGGESTION_COUNT) { // Only suggest if there are enough properties
-        suggestions.push({
-          type: 'price',
-          label: range.label,
-          description: `${range.count} properties in this range`,
-          query: `${originalQuery} under $${range.max}/night`,
-          count: range.count,
-          priority: range.count > this.listings.length * SEARCH_CONFIG.HIGH_PRIORITY_THRESHOLD ? 'high' : 'medium'
-        })
-      }
-    })
+    // Helper function to check if query already contains a criteria
+    const alreadySpecified = (terms: string[]): boolean => {
+      return terms.some(term => queryLower.includes(term.toLowerCase()))
+    }
 
-    // Rating-based suggestions
-    if (ratingInsights.distribution.excellent > 0) {
+    // Detect location context for smart amenity filtering
+    const isWarmLocation = this.isWarmClimate(queryLower)
+    const isColdLocation = this.isColdClimate(queryLower)
+
+    // Price-based suggestions - only if no price mentioned
+    if (!alreadySpecified(['$', 'budget', 'luxury', 'cheap', 'expensive', 'under', 'over', 'range'])) {
+      priceInsights.suggestedRanges.forEach(range => {
+        if (range.count > FILTER_CONFIG.MIN_SUGGESTION_COUNT) {
+          suggestions.push({
+            type: 'price',
+            label: range.label,
+            description: `${range.count} properties in this range`,
+            query: `${originalQuery} under $${range.max}/night`,
+            count: range.count,
+            priority: range.count > this.listings.length * SEARCH_CONFIG.HIGH_PRIORITY_THRESHOLD ? 'high' : 'medium'
+          })
+        }
+      })
+    }
+
+    // Rating-based suggestions - only if not already specified
+    if (!alreadySpecified(['excellent', '4.8', '4.9', '5.0', 'highly rated', 'top rated']) && ratingInsights.distribution.excellent > 0) {
       suggestions.push({
         type: 'rating',
         label: 'Excellent ratings only',
@@ -213,8 +225,8 @@ export class RefinementAnalyzer {
       })
     }
 
-    // Superhost suggestion
-    if (ratingInsights.superhostCount > 0) {
+    // Superhost suggestion - only if not already specified
+    if (!alreadySpecified(['superhost', 'super host']) && ratingInsights.superhostCount > 0) {
       suggestions.push({
         type: 'host_type',
         label: 'Superhosts only',
@@ -225,22 +237,34 @@ export class RefinementAnalyzer {
       })
     }
 
-    // Amenity-based suggestions (top 3 popular amenities)
+    // Smart amenity-based suggestions (context-aware)
     amenityInsights.popular.slice(0, FILTER_CONFIG.MAX_AMENITY_SUGGESTIONS).forEach(amenity => {
-      if (amenity.percentage > SEARCH_CONFIG.POPULAR_AMENITY_THRESHOLD) { // Only suggest if reasonably common
+      const amenityLower = amenity.amenity.toLowerCase()
+      
+      // Skip if already mentioned in query
+      if (alreadySpecified([amenityLower])) return
+      
+      // Skip climate-inappropriate amenities
+      if (isWarmLocation && ['heating', 'fireplace'].some(warm => amenityLower.includes(warm))) return
+      if (isColdLocation && ['air conditioning', 'pool'].some(cold => amenityLower.includes(cold))) return
+      
+      // Skip less useful amenities for vacation rentals
+      if (['hot water', 'essentials'].some(basic => amenityLower.includes(basic))) return
+      
+      if (amenity.percentage > SEARCH_CONFIG.POPULAR_AMENITY_THRESHOLD) {
         suggestions.push({
           type: 'amenity',
-          label: `With ${amenity.amenity.toLowerCase()}`,
+          label: `With ${amenityLower}`,
           description: `${amenity.count} properties have this amenity`,
-          query: `${originalQuery} with ${amenity.amenity.toLowerCase()}`,
+          query: `${originalQuery} with ${amenityLower}`,
           count: amenity.count,
-          priority: amenity.percentage > SEARCH_CONFIG.POPULAR_AMENITY_THRESHOLD ? 'high' : 'medium'
+          priority: amenity.percentage > 50 ? 'high' : 'medium'
         })
       }
     })
 
-    // Property type suggestions (if multiple types available)
-    if (propertyInsights.types.length > 1) {
+    // Property type suggestions - only if not specified and multiple types available
+    if (!alreadySpecified(['apartment', 'house', 'villa', 'condo', 'entire', 'private room', 'shared']) && propertyInsights.types.length > 1) {
       propertyInsights.types
         .filter(type => type.count > FILTER_CONFIG.MIN_SUGGESTION_COUNT)
         .slice(0, FILTER_CONFIG.MAX_PROPERTY_TYPE_SUGGESTIONS)
@@ -256,7 +280,7 @@ export class RefinementAnalyzer {
         })
     }
 
-    // Sort by priority and count
+    // Sort by priority and count, limit to meaningful suggestions
     return suggestions
       .sort((a, b) => {
         if (a.priority !== b.priority) {
@@ -265,7 +289,26 @@ export class RefinementAnalyzer {
         }
         return b.count - a.count
       })
-      .slice(0, SEARCH_CONFIG.MAX_REFINEMENT_SUGGESTIONS) // Return top suggestions
+      .slice(0, 6) // Reduced from 12 to 6 for more focused suggestions
+  }
+
+  // Helper methods for location context
+  private isWarmClimate(query: string): boolean {
+    const warmLocations = [
+      'miami', 'malibu', 'san diego', 'los angeles', 'hawaii', 'florida', 'arizona', 
+      'nevada', 'california', 'texas', 'new orleans', 'charleston', 'savannah',
+      'phoenix', 'las vegas', 'key west', 'santa barbara', 'palm springs'
+    ]
+    return warmLocations.some(location => query.includes(location.toLowerCase()))
+  }
+
+  private isColdClimate(query: string): boolean {
+    const coldLocations = [
+      'aspen', 'denver', 'seattle', 'portland', 'boston', 'new york', 'chicago',
+      'minneapolis', 'alaska', 'montana', 'vermont', 'new hampshire', 'maine',
+      'colorado', 'utah', 'wyoming', 'north dakota', 'minnesota'
+    ]
+    return coldLocations.some(location => query.includes(location.toLowerCase()))
   }
 
   // Helper methods

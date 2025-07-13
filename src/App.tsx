@@ -41,6 +41,89 @@ import type { SearchContext } from './types'
 import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinementAnalyzer'
 import { SEARCH_CONFIG } from './config/constants'
 
+// Intelligent follow-up question generator
+function generateFollowUpQuestions(query: string, queryAnalysis: any, results: AirbnbListing[]): string[] {
+  const questions: string[] = []
+  const queryLower = query.toLowerCase()
+  
+  // Helper to check if something was already specified
+  const hasSpecified = (terms: string[]): boolean => {
+    return terms.some(term => queryLower.includes(term.toLowerCase()))
+  }
+
+  // Price range questions
+  if (!hasSpecified(['$', 'budget', 'luxury', 'cheap', 'expensive', 'under', 'over', 'range'])) {
+    const prices = results.map(r => r.price.rate)
+    const minPrice = Math.min(...prices)
+    const maxPrice = Math.max(...prices)
+    
+    if (maxPrice > minPrice + 100) {
+      questions.push(`What's your budget range? I found options from $${minPrice} to $${maxPrice} per night`)
+    }
+  }
+
+  // Date-specific questions
+  if (!hasSpecified(['checkin', 'checkout', 'dates', 'when', 'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'])) {
+    questions.push('When are you planning to visit? Dates can affect availability and pricing')
+  }
+
+  // Guest count questions
+  if (!hasSpecified(['people', 'guests', 'adults', 'children', 'kids', 'family', 'couple', 'group'])) {
+    questions.push('How many guests will be staying?')
+  }
+
+  // Bedroom/accommodation questions
+  if (!hasSpecified(['bedroom', 'bed', 'room', 'sleep'])) {
+    const bedroomCounts = results.filter(r => r.bedrooms && r.bedrooms > 0).map(r => r.bedrooms!)
+    if (bedroomCounts.length > 0) {
+      const uniqueBedrooms = [...new Set(bedroomCounts)].sort((a, b) => a - b)
+      if (uniqueBedrooms.length > 1) {
+        questions.push(`How many bedrooms do you need? I found options with ${uniqueBedrooms.join(', ')} bedrooms`)
+      }
+    }
+  }
+
+  // Amenity-based questions (context-aware)
+  const isWarmLocation = ['miami', 'malibu', 'san diego', 'los angeles', 'hawaii', 'florida', 'california', 'arizona'].some(loc => queryLower.includes(loc))
+  
+  if (!hasSpecified(['pool', 'swimming']) && isWarmLocation) {
+    const poolCount = results.filter(r => r.amenities.some(a => a.toLowerCase().includes('pool'))).length
+    if (poolCount > 0) {
+      questions.push(`Would you like a pool? ${poolCount} properties have swimming pools`)
+    }
+  }
+
+  if (!hasSpecified(['parking', 'car']) && !queryLower.includes('downtown')) {
+    const parkingCount = results.filter(r => r.amenities.some(a => a.toLowerCase().includes('parking'))).length
+    if (parkingCount > 0) {
+      questions.push(`Do you need parking? ${parkingCount} properties include parking`)
+    }
+  }
+
+  // Special requirements questions
+  if (!hasSpecified(['pet', 'dog', 'cat', 'animal'])) {
+    questions.push('Traveling with pets? I can filter for pet-friendly options')
+  }
+
+  // Quality/experience questions
+  if (!hasSpecified(['superhost', 'rating', 'reviews', 'excellent', 'highly rated'])) {
+    const superhostCount = results.filter(r => r.host.isSuperhost).length
+    const excellentCount = results.filter(r => r.rating >= 4.8).length
+    
+    if (superhostCount > 0 || excellentCount > 0) {
+      questions.push('Looking for top-rated stays? I can show only superhosts or excellent ratings')
+    }
+  }
+
+  // Location refinement questions
+  if (results.length > 10) {
+    questions.push('Want me to narrow down by specific neighborhood or area?')
+  }
+
+  // Return 2-3 most relevant questions
+  return questions.slice(0, 3)
+}
+
 // GPT-powered semantic filtering function
 async function filterWithGPT(query: string, listings: AirbnbListing[]): Promise<AirbnbListing[]> {
   try {
@@ -659,7 +742,7 @@ function App() {
         responseContent += ` (${platformSummary}). Check the results panel →`  
       }
       
-      // Generate intelligent refinement suggestions based on search results
+      // Generate intelligent refinement suggestions and follow-up questions based on search results
       const followUpSuggestions: string[] = []
       let refinementSuggestions: RefinementSuggestion[] = []
       
@@ -667,7 +750,12 @@ function App() {
         try {
           const analyzer = new RefinementAnalyzer(filteredResults)
           refinementSuggestions = analyzer.generateRefinementSuggestions(query)
+          
+          // Generate contextual follow-up questions
+          followUpSuggestions.push(...generateFollowUpQuestions(query, queryAnalysis, filteredResults))
+          
           console.log('Generated refinement suggestions:', refinementSuggestions)
+          console.log('Generated follow-up questions:', followUpSuggestions)
         } catch (error) {
           console.error('Failed to generate refinement suggestions:', error)
         }
