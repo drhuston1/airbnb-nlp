@@ -662,32 +662,25 @@ function preprocessLocationForAirbnb(location: string): string {
     return location
   }
 
-  // Handle common location formats and aliases
+  // Handle common abbreviations and ambiguous location names
   const locationMappings: Record<string, string> = {
-    // Cape Cod variations
-    'cape cod': 'Cape Cod, MA',
-    'cape cod ma': 'Cape Cod, MA', 
-    'cape cod massachusetts': 'Cape Cod, MA',
+    // Common abbreviations
+    'nyc': 'New York City',
+    'sf': 'San Francisco',
+    'la': 'Los Angeles',
+    'dc': 'Washington DC',
+    'vegas': 'Las Vegas',
     
-    // Other common variations
-    'nyc': 'New York, NY',
-    'new york city': 'New York, NY',
-    'sf': 'San Francisco, CA',
-    'san francisco': 'San Francisco, CA',
-    'la': 'Los Angeles, CA', 
-    'los angeles': 'Los Angeles, CA',
-    'dc': 'Washington, DC',
-    'washington dc': 'Washington, DC',
-    'south beach': 'South Beach, Miami, FL',
-    'napa valley': 'Napa, CA',
-    'big sur': 'Big Sur, CA',
-    'the hamptons': 'Hamptons, NY',
-    'martha\'s vineyard': 'Martha\'s Vineyard, MA',
-    'block island': 'Block Island, RI',
-    'key west': 'Key West, FL',
-    'lake tahoe': 'Lake Tahoe, CA',
-    'park city': 'Park City, UT',
-    'jackson hole': 'Jackson, WY'
+    // Distinctive travel destinations that need geographic context
+    'cape cod': 'Cape Cod, Massachusetts',
+    'martha\'s vineyard': 'Martha\'s Vineyard, Massachusetts',
+    'nantucket': 'Nantucket, Massachusetts',
+    'the hamptons': 'Hamptons, New York',
+    'big sur': 'Big Sur, California',
+    'napa valley': 'Napa, California',
+    'lake tahoe': 'Lake Tahoe, California',
+    'jackson hole': 'Jackson, Wyoming',
+    'key west': 'Key West, Florida'
   }
 
   const normalized = location.toLowerCase().trim()
@@ -697,29 +690,7 @@ function preprocessLocationForAirbnb(location: string): string {
     return locationMappings[normalized]
   }
 
-  // Add state abbreviations for major US destinations if missing
-  const stateAbbreviations: Record<string, string> = {
-    'austin': 'Austin, TX',
-    'chicago': 'Chicago, IL', 
-    'denver': 'Denver, CO',
-    'seattle': 'Seattle, WA',
-    'portland': 'Portland, OR',
-    'charleston': 'Charleston, SC',
-    'savannah': 'Savannah, GA',
-    'nashville': 'Nashville, TN',
-    'new orleans': 'New Orleans, LA',
-    'phoenix': 'Phoenix, AZ',
-    'san diego': 'San Diego, CA',
-    'boston': 'Boston, MA',
-    'philadelphia': 'Philadelphia, PA',
-    'denver': 'Denver, CO',
-    'atlanta': 'Atlanta, GA'
-  }
-
-  // Only add state if the location doesn't already have one
-  if (stateAbbreviations[normalized] && !location.includes(',')) {
-    return stateAbbreviations[normalized]
-  }
+  // Let geocoding handle common city names without forced geographic context
 
   // Return original location if no preprocessing needed
   return location

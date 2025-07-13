@@ -497,8 +497,7 @@ async function validateExtractedLocation(location: string, originalQuery: string
     const result = await geocodingService.geocode(location, {
       includeAlternatives: true,
       maxResults: 3,
-      fuzzyMatching: true,
-      preferredCountry: 'US' // Bias toward US results for travel queries
+      fuzzyMatching: true
     })
     
     if (!result) {
@@ -522,11 +521,73 @@ async function validateExtractedLocation(location: string, originalQuery: string
       }
     }
     
-    // Check for disambiguation needed
+    // Check for disambiguation needed - be more proactive for travel queries
     let disambiguation = undefined
     
-    if (result.alternatives && result.alternatives.length > 0) {
-      // Check if we have significantly different locations with same name
+    // List of locations that commonly have ambiguity issues in travel context
+    const ambiguousLocations = [
+      'cape cod', 'cambridge', 'oxford', 'paris', 'london', 'manchester', 
+      'birmingham', 'bristol', 'newport', 'springfield', 'franklin', 
+      'georgetown', 'madison', 'clinton', 'portland', 'austin'
+    ]
+    
+    const isAmbiguousLocation = ambiguousLocations.some(ambiguous => 
+      location.toLowerCase().includes(ambiguous)
+    )
+    
+    // For known ambiguous travel locations, always try to show alternatives
+    if (isAmbiguousLocation) {
+      console.log(`🤔 "${location}" is potentially ambiguous for travel - checking for alternatives`)
+      
+      // Try to find alternatives even if the primary result seems confident
+      let allOptions = [result]
+      
+      if (result.alternatives && result.alternatives.length > 0) {
+        allOptions.push(...result.alternatives)
+      }
+      
+      // For ambiguous locations, also try a broader search
+      try {
+        const broaderSearch = await geocodingService.geocode(location, {
+          maxResults: 5,
+          includeAlternatives: false
+        })
+        
+        if (broaderSearch && broaderSearch.coordinates.lat !== result.coordinates.lat) {
+          allOptions.push(broaderSearch)
+        }
+      } catch (error) {
+        // Ignore errors for broader search
+      }
+      
+      // Filter to unique locations and different countries/regions
+      const uniqueOptions = allOptions.filter((option, index, arr) => {
+        if (index === 0) return true // Always include primary result
+        
+        // Check if this location is meaningfully different
+        const isDifferentCountry = option.components.country !== result.components.country
+        const isDifferentState = option.components.state !== result.components.state
+        const isHighConfidence = option.confidence > 0.4
+        
+        return (isDifferentCountry || isDifferentState) && isHighConfidence
+      }).slice(0, 4) // Limit to 4 options
+      
+      if (uniqueOptions.length > 1) {
+        disambiguation = {
+          required: true,
+          options: uniqueOptions,
+          message: `I found multiple places named "${location}". Which one did you mean?`
+        }
+      } else if (isAmbiguousLocation && result.confidence < 0.9) {
+        // Even with only one result, show confirmation for ambiguous locations with low confidence
+        disambiguation = {
+          required: false, // Optional confirmation
+          options: [result],
+          message: `I found "${result.displayName}". Is this the location you meant?`
+        }
+      }
+    } else if (result.alternatives && result.alternatives.length > 0) {
+      // Standard disambiguation logic for non-travel queries
       const hasAmbiguity = result.alternatives.some(alt => 
         alt.components.country !== result.components.country && alt.confidence > 0.6
       )
@@ -566,39 +627,33 @@ function preprocessLocationForGeocoding(location: string): string {
     return location
   }
 
-  // Handle common location formats and aliases - focused on US travel destinations
+  // Handle ambiguous locations and common abbreviations that need clarification
   const locationMappings: Record<string, string> = {
-    // Cape Cod variations (CRITICAL FIX)
-    'cape cod': 'Cape Cod, Massachusetts',
-    'cape cod ma': 'Cape Cod, Massachusetts', 
-    'cape cod massachusetts': 'Cape Cod, Massachusetts',
-    
-    // Martha's Vineyard and surrounding areas
+    // Unique/distinctive place names that need geographic context
+    'cape cod': 'Cape Cod, Massachusetts', // Famous vacation destination
     'martha\'s vineyard': 'Martha\'s Vineyard, Massachusetts',
-    'marthas vineyard': 'Martha\'s Vineyard, Massachusetts',
+    'marthas vineyard': 'Martha\'s Vineyard, Massachusetts', 
     'nantucket': 'Nantucket, Massachusetts',
-    'block island': 'Block Island, Rhode Island',
-    
-    // Other popular travel destinations
     'the hamptons': 'Hamptons, New York',
     'hamptons': 'Hamptons, New York',
-    'montauk': 'Montauk, New York',
-    'key west': 'Key West, Florida',
     'big sur': 'Big Sur, California',
     'napa valley': 'Napa, California',
     'lake tahoe': 'Lake Tahoe, California',
     'jackson hole': 'Jackson, Wyoming',
-    'park city': 'Park City, Utah',
-    'south beach': 'South Beach, Miami, Florida',
+    'key west': 'Key West, Florida',
     
-    // Major cities
-    'nyc': 'New York, New York',
-    'new york city': 'New York, New York',
-    'sf': 'San Francisco, California',
-    'la': 'Los Angeles, California',
-    'dc': 'Washington, DC',
-    'vegas': 'Las Vegas, Nevada',
-    'las vegas': 'Las Vegas, Nevada'
+    // Common abbreviations that are ambiguous
+    'nyc': 'New York City',
+    'sf': 'San Francisco',
+    'la': 'Los Angeles', 
+    'dc': 'Washington DC',
+    'vegas': 'Las Vegas',
+    
+    // Places that commonly have name conflicts
+    'cambridge': 'Cambridge, Massachusetts', // Most famous Cambridge
+    'oxford': 'Oxford, England', // Most famous Oxford
+    'paris': 'Paris, France', // Most famous Paris
+    'london': 'London, England' // Most famous London
   }
 
   const normalized = location.toLowerCase().trim()
@@ -608,31 +663,9 @@ function preprocessLocationForGeocoding(location: string): string {
     return locationMappings[normalized]
   }
 
-  // Add state for major US cities if missing (and it's likely a US search)
-  const usStates: Record<string, string> = {
-    'austin': 'Austin, Texas',
-    'chicago': 'Chicago, Illinois', 
-    'denver': 'Denver, Colorado',
-    'seattle': 'Seattle, Washington',
-    'portland': 'Portland, Oregon',
-    'charleston': 'Charleston, South Carolina',
-    'savannah': 'Savannah, Georgia',
-    'nashville': 'Nashville, Tennessee',
-    'new orleans': 'New Orleans, Louisiana',
-    'phoenix': 'Phoenix, Arizona',
-    'san diego': 'San Diego, California',
-    'boston': 'Boston, Massachusetts',
-    'philadelphia': 'Philadelphia, Pennsylvania',
-    'atlanta': 'Atlanta, Georgia',
-    'miami': 'Miami, Florida',
-    'orlando': 'Orlando, Florida',
-    'tampa': 'Tampa, Florida'
-  }
-
-  // Only add state if the location doesn't already have one and seems to be a US city
-  if (usStates[normalized] && !location.includes(',') && !location.includes(' ')) {
-    return usStates[normalized]
-  }
+  // For commonly ambiguous city names, don't add geographic context unless necessary
+  // Let the geocoding service handle common cities like "Austin", "Portland", etc.
+  // Only preprocess when we know there's a specific disambiguation issue
 
   // Return original location if no preprocessing needed
   return location

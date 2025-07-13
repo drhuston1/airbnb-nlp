@@ -429,12 +429,19 @@ function App() {
     if (queryAnalysis.locationValidation) {
       setLocationValidation(queryAnalysis.locationValidation)
       
-      // Check if disambiguation is required
-      if (queryAnalysis.locationValidation.disambiguation?.required) {
-        console.log('🗺️ Location disambiguation required')
-        setShowLocationDisambiguation(true)
-        setLoading(false)
-        return
+      // Check if disambiguation is needed (required or optional)
+      if (queryAnalysis.locationValidation.disambiguation) {
+        if (queryAnalysis.locationValidation.disambiguation.required) {
+          console.log('🗺️ Location disambiguation required')
+          setShowLocationDisambiguation(true)
+          setLoading(false)
+          return
+        } else {
+          console.log('🤔 Optional location confirmation available')
+          setShowLocationDisambiguation(true)
+          setLoading(false)
+          return
+        }
       }
       
       // Show location validation warnings

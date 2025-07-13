@@ -23,7 +23,7 @@ export function LocationDisambiguation({
   onLocationSelected,
   onDismiss
 }: LocationDisambiguationProps) {
-  if (!validation.disambiguation?.required) {
+  if (!validation.disambiguation) {
     return null
   }
 
@@ -106,7 +106,7 @@ export function LocationDisambiguation({
             <Stack direction="row" gap={2} mb={2}>
               <Icon as={Info} color="#4ECDC4" w={5} h={5} />
               <Text fontSize="lg" fontWeight="600" color="gray.800">
-                Multiple Locations Found
+                {disambiguation.required ? 'Multiple Locations Found' : 'Confirm Location'}
               </Text>
             </Stack>
             <Text fontSize="sm" color="gray.600">
@@ -125,7 +125,10 @@ export function LocationDisambiguation({
             <Stack direction="row" gap={2}>
               <Icon as={Info} color="blue.500" w={4} h={4} />
               <Text fontSize="sm" color="blue.800">
-                We found multiple places named "{originalQuery}". Please select the location you intended:
+                {disambiguation.required 
+                  ? `We found multiple places named "${originalQuery}". Please select the location you intended:`
+                  : `Please confirm this is the location you're looking for:`
+                }
               </Text>
             </Stack>
           </Box>
@@ -239,14 +242,14 @@ export function LocationDisambiguation({
               color="gray.600"
               _hover={{ bg: "gray.100" }}
             >
-              Cancel
+              {disambiguation.required ? 'Cancel' : 'Skip'}
             </Button>
             
             <Button
               size="sm"
-              bg="gray.100"
-              color="gray.700"
-              _hover={{ bg: "gray.200" }}
+              bg="#4ECDC4"
+              color="white"
+              _hover={{ bg: "#3FB8B3" }}
               onClick={() => {
                 // Use the first (recommended) option
                 if (disambiguation.options.length > 0) {
@@ -254,7 +257,7 @@ export function LocationDisambiguation({
                 }
               }}
             >
-              Use Recommended
+              {disambiguation.required ? 'Use Recommended' : 'Confirm & Search'}
             </Button>
           </Stack>
         </Stack>

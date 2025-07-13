@@ -79,7 +79,7 @@ export class GeocodingService {
           return result
         }
       } catch (error) {
-        console.warn(`⚠️ ${provider.name} geocoding failed:`, error)
+        console.warn(`⚠️ ${provider.name} geocoding failed:`, error instanceof Error ? error.message : error)
         continue
       }
     }
@@ -97,8 +97,12 @@ export class GeocodingService {
   ): Promise<GeocodeResult | null> {
     const apiKey = process.env.MAPBOX_ACCESS_TOKEN
     if (!apiKey) {
+      console.log('⚠️ MAPBOX_ACCESS_TOKEN not found in environment variables')
+      console.log('Available env vars:', Object.keys(process.env).filter(key => key.toLowerCase().includes('map')))
       throw new Error('Mapbox API key not configured')
     }
+    
+    console.log('✅ Using Mapbox for geocoding with configured API key')
 
     const params = new URLSearchParams({
       q: query,
@@ -144,7 +148,7 @@ export class GeocodingService {
       q: query,
       format: 'json',
       addressdetails: '1',
-      limit: (options.maxResults || 5).toString(),
+      limit: '10', // Get more results to find best US match
       extratags: '1',
       namedetails: '1',
       ...(options.preferredCountry && { countrycodes: options.preferredCountry })
@@ -170,7 +174,39 @@ export class GeocodingService {
       return null
     }
 
-    return this.transformNominatimResult(data[0], query)
+    // Select the best result based on importance and relevance, not just order
+    let bestResult = data[0]
+    
+    // If we have multiple results, prefer the one with highest importance score
+    if (data.length > 1) {
+      bestResult = data.reduce((best: any, current: any) => {
+        const bestImportance = parseFloat(best.importance || '0')
+        const currentImportance = parseFloat(current.importance || '0')
+        
+        // Also consider if it's a more specific location type
+        const bestIsCity = ['city', 'town', 'village'].includes(best.type)
+        const currentIsCity = ['city', 'town', 'village'].includes(current.type)
+        
+        if (currentIsCity && !bestIsCity) return current
+        if (bestIsCity && !currentIsCity) return best
+        
+        return currentImportance > bestImportance ? current : best
+      })
+    }
+    
+    if (options.preferredCountry) {
+      const countryCode = options.preferredCountry.toLowerCase()
+      const preferredCountryResult = data.find((result: any) => 
+        result.address?.country_code?.toLowerCase() === countryCode
+      )
+      
+      if (preferredCountryResult) {
+        bestResult = preferredCountryResult
+        console.log(`🌍 Found preferred country match: ${bestResult.display_name}`)
+      }
+    }
+
+    return this.transformNominatimResult(bestResult, query)
   }
 
   /**
