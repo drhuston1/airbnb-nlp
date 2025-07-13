@@ -1801,65 +1801,84 @@ function App() {
                               </VStack>
                             </Box>
                             
-                            {/* Image navigation controls */}
+                            {/* Image navigation controls - always show if multiple images */}
                             {listing.images.length > 1 && (
                               <>
                                 {/* Previous button */}
                                 <Button
                                   position="absolute"
-                                  left={2}
+                                  left={1}
                                   top="50%"
                                   transform="translateY(-50%)"
-                                  size="xs"
+                                  size="sm"
                                   borderRadius="full"
-                                  bg="blackAlpha.700"
-                                  color="white"
-                                  _hover={{ bg: "blackAlpha.800" }}
+                                  bg="white"
+                                  color="gray.700"
+                                  boxShadow="md"
+                                  border="1px solid"
+                                  borderColor="gray.200"
+                                  _hover={{ 
+                                    bg: "gray.50",
+                                    transform: "translateY(-50%) scale(1.1)",
+                                    boxShadow: "lg"
+                                  }}
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     prevImage(listing.id, listing.images.length)
                                   }}
-                                  p={1}
-                                  minW="auto"
-                                  h="auto"
+                                  zIndex={2}
+                                  width="32px"
+                                  height="32px"
+                                  minW="32px"
+                                  p={0}
                                 >
-                                  <Icon as={ChevronLeft} w={3} h={3} />
+                                  <Icon as={ChevronLeft} w={4} h={4} />
                                 </Button>
                                 
                                 {/* Next button */}
                                 <Button
                                   position="absolute"
-                                  right={2}
+                                  right={1}
                                   top="50%"
                                   transform="translateY(-50%)"
-                                  size="xs"
+                                  size="sm"
                                   borderRadius="full"
-                                  bg="blackAlpha.700"
-                                  color="white"
-                                  _hover={{ bg: "blackAlpha.800" }}
+                                  bg="white"
+                                  color="gray.700"
+                                  boxShadow="md"
+                                  border="1px solid"
+                                  borderColor="gray.200"
+                                  _hover={{ 
+                                    bg: "gray.50",
+                                    transform: "translateY(-50%) scale(1.1)",
+                                    boxShadow: "lg"
+                                  }}
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     nextImage(listing.id, listing.images.length)
                                   }}
-                                  p={1}
-                                  minW="auto"
-                                  h="auto"
+                                  zIndex={2}
+                                  width="32px"
+                                  height="32px"
+                                  minW="32px"
+                                  p={0}
                                 >
-                                  <Icon as={ChevronRight} w={3} h={3} />
+                                  <Icon as={ChevronRight} w={4} h={4} />
                                 </Button>
                                 
-                                {/* Image counter */}
+                                {/* Image counter - always visible */}
                                 <Box
                                   position="absolute"
                                   bottom={2}
                                   right={2}
-                                  bg="blackAlpha.700"
+                                  bg="blackAlpha.800"
                                   color="white"
                                   px={2}
                                   py={1}
                                   borderRadius="md"
                                   fontSize="xs"
-                                  fontWeight="500"
+                                  fontWeight="600"
+                                  zIndex={2}
                                 >
                                   {getCurrentImageIndex(listing.id) + 1} / {listing.images.length}
                                 </Box>
