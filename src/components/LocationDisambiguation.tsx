@@ -3,8 +3,7 @@ import {
   Box,
   Text,
   Button,
-  VStack,
-  HStack,
+  Stack,
   Icon,
   Badge
 } from '@chakra-ui/react'
@@ -101,15 +100,15 @@ export function LocationDisambiguation({
         boxShadow="2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <VStack spacing={4} align="stretch">
+        <Stack gap={4} align="stretch">
           {/* Header */}
           <Box>
-            <HStack spacing={2} mb={2}>
+            <Stack direction="row" gap={2} mb={2}>
               <Icon as={Info} color="#4ECDC4" w={5} h={5} />
               <Text fontSize="lg" fontWeight="600" color="gray.800">
                 Multiple Locations Found
               </Text>
-            </HStack>
+            </Stack>
             <Text fontSize="sm" color="gray.600">
               {disambiguation.message}
             </Text>
@@ -123,16 +122,16 @@ export function LocationDisambiguation({
             borderRadius="md" 
             p={3}
           >
-            <HStack spacing={2}>
+            <Stack direction="row" gap={2}>
               <Icon as={Info} color="blue.500" w={4} h={4} />
               <Text fontSize="sm" color="blue.800">
                 We found multiple places named "{originalQuery}". Please select the location you intended:
               </Text>
-            </HStack>
+            </Stack>
           </Box>
 
           {/* Location Options */}
-          <VStack spacing={3} align="stretch">
+          <Stack gap={3} align="stretch">
             {disambiguation.options.map((option, index) => (
               <Button
                 key={`${option.coordinates.lat}-${option.coordinates.lng}`}
@@ -154,7 +153,7 @@ export function LocationDisambiguation({
                 justifyContent="flex-start"
                 transition="all 0.2s"
               >
-                <HStack spacing={3} w="full" align="center">
+                <Stack direction="row" gap={3} w="full" align="center">
                   {/* Location Icon */}
                   <Box
                     p={2}
@@ -166,8 +165,8 @@ export function LocationDisambiguation({
                   </Box>
 
                   {/* Location Details */}
-                  <VStack align="start" spacing={1} flex="1">
-                    <HStack spacing={2} align="center">
+                  <Stack align="start" gap={1} flex="1">
+                    <Stack direction="row" gap={2} align="center">
                       <Text fontWeight="600" fontSize="md">
                         {option.location}
                       </Text>
@@ -176,13 +175,13 @@ export function LocationDisambiguation({
                           Recommended
                         </Badge>
                       )}
-                    </HStack>
+                    </Stack>
                     
                     <Text fontSize="sm" color="gray.600" lineHeight="1.3">
                       {formatLocation(option)}
                     </Text>
                     
-                    <HStack spacing={2} align="center">
+                    <Stack direction="row" gap={2} align="center">
                       <Text fontSize="xs" color="gray.500" textTransform="capitalize">
                         {option.type}
                       </Text>
@@ -203,17 +202,17 @@ export function LocationDisambiguation({
                           {option.components.countryCode}
                         </Text>
                       )}
-                    </HStack>
-                  </VStack>
+                    </Stack>
+                  </Stack>
 
                   {/* Map Preview Indicator */}
                   <Box color="gray.400">
                     <Icon as={MapPin} w={4} h={4} />
                   </Box>
-                </HStack>
+                </Stack>
               </Button>
             ))}
-          </VStack>
+          </Stack>
 
           {/* Location Suggestions */}
           {validation.suggestions && validation.suggestions.length > 0 && (
@@ -221,18 +220,18 @@ export function LocationDisambiguation({
               <Text fontSize="sm" fontWeight="500" color="gray.700" mb={2}>
                 Helpful tips:
               </Text>
-              <VStack spacing={1} align="start">
+              <Stack gap={1} align="start">
                 {validation.suggestions.slice(0, 3).map((suggestion, index) => (
                   <Text key={index} fontSize="xs" color="gray.600">
                     • {suggestion}
                   </Text>
                 ))}
-              </VStack>
+              </Stack>
             </Box>
           )}
 
           {/* Action Buttons */}
-          <HStack spacing={3} pt={2}>
+          <Stack direction="row" gap={3} pt={2}>
             <Button
               variant="ghost"
               size="sm"
@@ -257,8 +256,8 @@ export function LocationDisambiguation({
             >
               Use Recommended
             </Button>
-          </HStack>
-        </VStack>
+          </Stack>
+        </Stack>
       </Box>
     </Box>
   )
