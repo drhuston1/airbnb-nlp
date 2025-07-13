@@ -1328,10 +1328,10 @@ function App() {
                 )}
 
                 
-                {/* Legacy Follow-up Suggestions (fallback) */}
-                {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && !message.refinementSuggestions && (
+                {/* Follow-up Questions */}
+                {message.type === 'assistant' && message.followUps && message.followUps.length > 0 && (
                   <Box mt={4}>
-                    <Text fontSize="sm" color="gray.600" mb={3}>You might also want to:</Text>
+                    <Text fontSize="sm" color="gray.600" mb={3}>You might also want to ask:</Text>
                     <Flex gap={2} flexWrap="wrap">
                       {message.followUps.map((followUp, index) => (
                         <Button
