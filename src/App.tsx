@@ -11,13 +11,7 @@ import {
   VStack,
   Textarea,
   Grid,
-  Input,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverBody,
-  PopoverCloseButton
+  Input
 } from '@chakra-ui/react'
 import { 
   MapPin, 
@@ -261,6 +255,7 @@ function App() {
   const [quickFilters, setQuickFilters] = useState<RefinementSuggestion[]>([])
   const [currentDates, setCurrentDates] = useState<{checkin?: string, checkout?: string, flexible?: boolean} | null>(null)
   const [currentPriceRange, setCurrentPriceRange] = useState<{min?: number, max?: number, budget?: string} | null>(null)
+  const [showDateEditor, setShowDateEditor] = useState(false)
   
   
   // Refs
@@ -1550,103 +1545,101 @@ function App() {
                       <Text fontSize="xs" color="gray.500" fontWeight="500">Dates:</Text>
                     </HStack>
                     
-                    <Popover placement="bottom-start">
-                      <PopoverTrigger>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          borderColor="#4ECDC4"
-                          color="#2E7A73"
-                          _hover={{ bg: "#F8FDFC", borderColor: "#3FB8B3" }}
-                          rightIcon={<Icon as={Edit3} w={2} h={2} />}
-                          fontSize="xs"
-                          px={2}
-                        >
-                          {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent w="300px">
-                        <PopoverHeader fontSize="sm" fontWeight="600">Adjust Your Dates</PopoverHeader>
-                        <PopoverCloseButton />
-                        <PopoverBody>
-                          <VStack gap={3} align="stretch">
-                            <Box>
-                              <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-in</Text>
-                              <Input
-                                type="date"
-                                size="sm"
-                                defaultValue={formatDateForInput(currentDates.checkin)}
-                                min={getTodayDate()}
-                                onChange={(e) => {
-                                  if (e.target.value && currentDates.checkout) {
-                                    const checkinDate = new Date(e.target.value)
-                                    const checkoutDate = new Date(currentDates.checkout)
-                                    if (checkinDate < checkoutDate) {
-                                      handleDateUpdate(e.target.value, currentDates.checkout)
-                                    }
-                                  }
-                                }}
-                                borderColor="#4ECDC4"
-                                _focus={{ borderColor: "#FF8E53" }}
-                              />
-                            </Box>
-                            <Box>
-                              <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-out</Text>
-                              <Input
-                                type="date"
-                                size="sm"
-                                defaultValue={formatDateForInput(currentDates.checkout)}
-                                min={currentDates.checkin}
-                                onChange={(e) => {
-                                  if (e.target.value && currentDates.checkin) {
-                                    const checkinDate = new Date(currentDates.checkin)
-                                    const checkoutDate = new Date(e.target.value)
-                                    if (checkoutDate > checkinDate) {
-                                      handleDateUpdate(currentDates.checkin, e.target.value)
-                                    }
-                                  }
-                                }}
-                                borderColor="#4ECDC4"
-                                _focus={{ borderColor: "#FF8E53" }}
-                              />
-                            </Box>
-                            <Text fontSize="xs" color="gray.500" textAlign="center" mt={1}>
-                              Results will automatically update when you change dates
-                            </Text>
-                          </VStack>
-                        </PopoverBody>
-                      </PopoverContent>
-                    </Popover>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      borderColor="#4ECDC4"
+                      color="#2E7A73"
+                      _hover={{ bg: "#F8FDFC", borderColor: "#3FB8B3" }}
+                      fontSize="xs"
+                      px={2}
+                      onClick={() => setShowDateEditor(!showDateEditor)}
+                    >
+                      {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      <Icon as={Edit3} w={2} h={2} ml={1} />
+                    </Button>
                     
                     <Text fontSize="xs" color="gray.400">
                       ({Math.ceil((new Date(currentDates.checkout).getTime() - new Date(currentDates.checkin).getTime()) / (1000 * 60 * 60 * 24))} nights)
                     </Text>
                   </HStack>
+                  
+                  {showDateEditor && (
+                    <Box mt={3} p={3} bg="#F8FDFC" borderRadius="md" border="1px solid" borderColor="#E0F7F4">
+                      <VStack gap={3} align="stretch">
+                        <HStack gap={3}>
+                          <Box flex="1">
+                            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-in</Text>
+                            <Input
+                              type="date"
+                              size="sm"
+                              defaultValue={formatDateForInput(currentDates.checkin)}
+                              min={getTodayDate()}
+                              onChange={(e) => {
+                                if (e.target.value && currentDates.checkout) {
+                                  const checkinDate = new Date(e.target.value)
+                                  const checkoutDate = new Date(currentDates.checkout)
+                                  if (checkinDate < checkoutDate) {
+                                    handleDateUpdate(e.target.value, currentDates.checkout)
+                                    setShowDateEditor(false)
+                                  }
+                                }
+                              }}
+                              borderColor="#4ECDC4"
+                              _focus={{ borderColor: "#FF8E53" }}
+                            />
+                          </Box>
+                          <Box flex="1">
+                            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-out</Text>
+                            <Input
+                              type="date"
+                              size="sm"
+                              defaultValue={formatDateForInput(currentDates.checkout)}
+                              min={currentDates.checkin}
+                              onChange={(e) => {
+                                if (e.target.value && currentDates.checkin) {
+                                  const checkinDate = new Date(currentDates.checkin)
+                                  const checkoutDate = new Date(e.target.value)
+                                  if (checkoutDate > checkinDate) {
+                                    handleDateUpdate(currentDates.checkin, e.target.value)
+                                    setShowDateEditor(false)
+                                  }
+                                }
+                              }}
+                              borderColor="#4ECDC4"
+                              _focus={{ borderColor: "#FF8E53" }}
+                            />
+                          </Box>
+                        </HStack>
+                        <Text fontSize="xs" color="gray.500" textAlign="center">
+                          Results will automatically update when you change dates
+                        </Text>
+                      </VStack>
+                    </Box>
+                  )}
                 </Box>
               ) : (
                 <HStack gap={2} align="center">
                   <Icon as={Calendar} w={3} h={3} color="gray.400" />
                   <Text fontSize="xs" color="gray.500">No dates specified</Text>
-                  <Popover placement="bottom-start">
-                    <PopoverTrigger>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        borderColor="gray.300"
-                        color="gray.600"
-                        _hover={{ bg: "gray.50", borderColor: "#4ECDC4" }}
-                        fontSize="xs"
-                        px={2}
-                      >
-                        Add dates
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent w="300px">
-                      <PopoverHeader fontSize="sm" fontWeight="600">Add Travel Dates</PopoverHeader>
-                      <PopoverCloseButton />
-                      <PopoverBody>
-                        <VStack gap={3} align="stretch">
-                          <Box>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    borderColor="gray.300"
+                    color="gray.600"
+                    _hover={{ bg: "gray.50", borderColor: "#4ECDC4" }}
+                    fontSize="xs"
+                    px={2}
+                    onClick={() => setShowDateEditor(!showDateEditor)}
+                  >
+                    Add dates
+                  </Button>
+                  
+                  {showDateEditor && (
+                    <Box position="absolute" top="100%" left={0} right={0} mt={2} p={3} bg="white" borderRadius="md" border="1px solid" borderColor="#E0F7F4" boxShadow="lg" zIndex={10}>
+                      <VStack gap={3} align="stretch">
+                        <HStack gap={3}>
+                          <Box flex="1">
                             <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-in</Text>
                             <Input
                               type="date"
@@ -1657,7 +1650,7 @@ function App() {
                               _focus={{ borderColor: "#FF8E53" }}
                             />
                           </Box>
-                          <Box>
+                          <Box flex="1">
                             <Text fontSize="xs" color="gray.600" mb={1} fontWeight="500">Check-out</Text>
                             <Input
                               type="date"
@@ -1668,11 +1661,14 @@ function App() {
                               _focus={{ borderColor: "#FF8E53" }}
                             />
                           </Box>
+                        </HStack>
+                        <HStack gap={2}>
                           <Button
                             size="sm"
                             bg="#4ECDC4"
                             color="white"
                             _hover={{ bg: "#3FB8B3" }}
+                            flex="1"
                             onClick={() => {
                               const checkinInput = document.getElementById('new-checkin') as HTMLInputElement
                               const checkoutInput = document.getElementById('new-checkout') as HTMLInputElement
@@ -1682,16 +1678,24 @@ function App() {
                                 const checkoutDate = new Date(checkoutInput.value)
                                 if (checkoutDate > checkinDate) {
                                   handleDateUpdate(checkinInput.value, checkoutInput.value)
+                                  setShowDateEditor(false)
                                 }
                               }
                             }}
                           >
                             Update Search
                           </Button>
-                        </VStack>
-                      </PopoverBody>
-                    </PopoverContent>
-                  </Popover>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setShowDateEditor(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  )}
                 </HStack>
               )}
             </Box>
