@@ -107,6 +107,15 @@ export default async function handler(
     
     const analysis = await analyzeQueryWithGPT(query, openaiKey, previousLocation, hasExistingResults)
     
+    // Apply location preprocessing before validation (critical for accurate geocoding)
+    if (analysis.location && analysis.location !== 'Unknown' && analysis.location !== 'SAME') {
+      const preprocessedLocation = preprocessLocationForGeocoding(analysis.location)
+      if (preprocessedLocation !== analysis.location) {
+        console.log(`🗺️ Location preprocessing: "${analysis.location}" → "${preprocessedLocation}"`)
+        analysis.location = preprocessedLocation
+      }
+    }
+    
     // Validate location if one was extracted and it's not a refinement using previous location
     if (analysis.location && analysis.location !== 'Unknown' && analysis.location !== 'SAME') {
       console.log(`🗺️ Validating extracted location: "${analysis.location}"`)
@@ -488,7 +497,8 @@ async function validateExtractedLocation(location: string, originalQuery: string
     const result = await geocodingService.geocode(location, {
       includeAlternatives: true,
       maxResults: 3,
-      fuzzyMatching: true
+      fuzzyMatching: true,
+      preferredCountry: 'US' // Bias toward US results for travel queries
     })
     
     if (!result) {
@@ -546,4 +556,84 @@ async function validateExtractedLocation(location: string, originalQuery: string
       suggestions: [`Unable to validate location "${location}"`]
     }
   }
+}
+
+/**
+ * Preprocess location strings before geocoding for better matching
+ */
+function preprocessLocationForGeocoding(location: string): string {
+  if (!location || typeof location !== 'string') {
+    return location
+  }
+
+  // Handle common location formats and aliases - focused on US travel destinations
+  const locationMappings: Record<string, string> = {
+    // Cape Cod variations (CRITICAL FIX)
+    'cape cod': 'Cape Cod, Massachusetts',
+    'cape cod ma': 'Cape Cod, Massachusetts', 
+    'cape cod massachusetts': 'Cape Cod, Massachusetts',
+    
+    // Martha's Vineyard and surrounding areas
+    'martha\'s vineyard': 'Martha\'s Vineyard, Massachusetts',
+    'marthas vineyard': 'Martha\'s Vineyard, Massachusetts',
+    'nantucket': 'Nantucket, Massachusetts',
+    'block island': 'Block Island, Rhode Island',
+    
+    // Other popular travel destinations
+    'the hamptons': 'Hamptons, New York',
+    'hamptons': 'Hamptons, New York',
+    'montauk': 'Montauk, New York',
+    'key west': 'Key West, Florida',
+    'big sur': 'Big Sur, California',
+    'napa valley': 'Napa, California',
+    'lake tahoe': 'Lake Tahoe, California',
+    'jackson hole': 'Jackson, Wyoming',
+    'park city': 'Park City, Utah',
+    'south beach': 'South Beach, Miami, Florida',
+    
+    // Major cities
+    'nyc': 'New York, New York',
+    'new york city': 'New York, New York',
+    'sf': 'San Francisco, California',
+    'la': 'Los Angeles, California',
+    'dc': 'Washington, DC',
+    'vegas': 'Las Vegas, Nevada',
+    'las vegas': 'Las Vegas, Nevada'
+  }
+
+  const normalized = location.toLowerCase().trim()
+  
+  // Check for exact matches first
+  if (locationMappings[normalized]) {
+    return locationMappings[normalized]
+  }
+
+  // Add state for major US cities if missing (and it's likely a US search)
+  const usStates: Record<string, string> = {
+    'austin': 'Austin, Texas',
+    'chicago': 'Chicago, Illinois', 
+    'denver': 'Denver, Colorado',
+    'seattle': 'Seattle, Washington',
+    'portland': 'Portland, Oregon',
+    'charleston': 'Charleston, South Carolina',
+    'savannah': 'Savannah, Georgia',
+    'nashville': 'Nashville, Tennessee',
+    'new orleans': 'New Orleans, Louisiana',
+    'phoenix': 'Phoenix, Arizona',
+    'san diego': 'San Diego, California',
+    'boston': 'Boston, Massachusetts',
+    'philadelphia': 'Philadelphia, Pennsylvania',
+    'atlanta': 'Atlanta, Georgia',
+    'miami': 'Miami, Florida',
+    'orlando': 'Orlando, Florida',
+    'tampa': 'Tampa, Florida'
+  }
+
+  // Only add state if the location doesn't already have one and seems to be a US city
+  if (usStates[normalized] && !location.includes(',') && !location.includes(' ')) {
+    return usStates[normalized]
+  }
+
+  // Return original location if no preprocessing needed
+  return location
 }
