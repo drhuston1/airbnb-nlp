@@ -355,6 +355,22 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
       // More robust ID extraction
       const listingId = listing.id || item.id || listing.listing_id || item.listing_id || `temp_${index}`
       
+      // Try to get the actual URL from the API response first
+      let listingUrl = listing.url || item.url || listing.listing_url || item.listing_url
+      
+      // If no URL provided, construct one, but validate the ID format first
+      if (!listingUrl) {
+        // Airbnb listing IDs are typically numeric, but can be very long
+        const cleanId = listingId.toString().replace(/[^0-9]/g, '')
+        if (cleanId && cleanId.length > 0) {
+          listingUrl = `https://www.airbnb.com/rooms/${cleanId}`
+        } else {
+          // Fallback to search if ID is invalid
+          const searchQuery = encodeURIComponent(listing.name || listing.public_address || 'property')
+          listingUrl = `https://www.airbnb.com/s/?query=${searchQuery}`
+        }
+      }
+      
       // Extract price info from pricing_quote (sibling to listing)
       const pricingQuote = item.pricing_quote || {}
       let priceValue = 100
@@ -439,7 +455,7 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
       const transformedListing: UnifiedProperty = {
         id: listingId?.toString() || `fallback_${index}`,
         name: listing.name || listing.public_address || `Property ${index + 1}`,
-        url: `https://www.airbnb.com/rooms/${listingId}`,
+        url: listingUrl,
         images,
         price: {
           total: priceValue,
