@@ -1,0 +1,263 @@
+// Location disambiguation component for handling ambiguous locations
+import {
+  Box,
+  Text,
+  Button,
+  VStack,
+  HStack,
+  Icon,
+  Alert,
+  AlertIcon,
+  Badge,
+  Tooltip
+} from '@chakra-ui/react'
+import { MapPin, Globe, Star, Info } from 'lucide-react'
+import type { LocationValidation, GeocodeResult } from '../types'
+
+interface LocationDisambiguationProps {
+  validation: LocationValidation
+  originalQuery: string
+  onLocationSelected: (location: GeocodeResult) => void
+  onDismiss: () => void
+}
+
+export function LocationDisambiguation({
+  validation,
+  originalQuery,
+  onLocationSelected,
+  onDismiss
+}: LocationDisambiguationProps) {
+  if (!validation.disambiguation?.required) {
+    return null
+  }
+
+  const { disambiguation } = validation
+
+  const handleLocationSelect = (location: GeocodeResult) => {
+    console.log(`📍 User selected location: ${location.displayName}`)
+    onLocationSelected(location)
+  }
+
+  const getLocationIcon = (type: GeocodeResult['type']) => {
+    switch (type) {
+      case 'city':
+        return MapPin
+      case 'neighborhood':
+        return MapPin
+      case 'landmark':
+        return Star
+      case 'region':
+        return Globe
+      case 'country':
+        return Globe
+      default:
+        return MapPin
+    }
+  }
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.8) return 'green'
+    if (confidence >= 0.6) return 'yellow'
+    return 'red'
+  }
+
+  const formatLocation = (result: GeocodeResult) => {
+    const parts = []
+    
+    if (result.components.city && result.components.city !== result.location) {
+      parts.push(result.components.city)
+    }
+    
+    if (result.components.state) {
+      parts.push(result.components.state)
+    }
+    
+    if (result.components.country) {
+      parts.push(result.components.country)
+    }
+    
+    return parts.join(', ')
+  }
+
+  return (
+    <Box
+      position="fixed"
+      top="0"
+      left="0"
+      right="0"
+      bottom="0"
+      bg="blackAlpha.600"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      zIndex={1000}
+      onClick={onDismiss}
+    >
+      <Box
+        bg="white"
+        borderRadius="xl"
+        p={6}
+        maxW="600px"
+        w="90%"
+        maxH="80vh"
+        overflowY="auto"
+        boxShadow="2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <VStack spacing={4} align="stretch">
+          {/* Header */}
+          <Box>
+            <HStack spacing={2} mb={2}>
+              <Icon as={Info} color="#4ECDC4" w={5} h={5} />
+              <Text fontSize="lg" fontWeight="600" color="gray.800">
+                Multiple Locations Found
+              </Text>
+            </HStack>
+            <Text fontSize="sm" color="gray.600">
+              {disambiguation.message}
+            </Text>
+          </Box>
+
+          {/* Alert for disambiguation */}
+          <Alert status="info" borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <Text fontSize="sm">
+                We found multiple places named "{originalQuery}". Please select the location you intended:
+              </Text>
+            </Box>
+          </Alert>
+
+          {/* Location Options */}
+          <VStack spacing={3} align="stretch">
+            {disambiguation.options.map((option, index) => (
+              <Button
+                key={`${option.coordinates.lat}-${option.coordinates.lng}`}
+                variant="outline"
+                size="lg"
+                onClick={() => handleLocationSelect(option)}
+                borderColor={index === 0 ? "#4ECDC4" : "gray.300"}
+                color={index === 0 ? "#2E7A73" : "gray.700"}
+                bg={index === 0 ? "#F8FDFC" : "white"}
+                _hover={{ 
+                  borderColor: "#4ECDC4",
+                  bg: "#F8FDFC",
+                  transform: "translateY(-1px)",
+                  boxShadow: "md"
+                }}
+                p={4}
+                h="auto"
+                textAlign="left"
+                justifyContent="flex-start"
+                transition="all 0.2s"
+              >
+                <HStack spacing={3} w="full" align="center">
+                  {/* Location Icon */}
+                  <Box
+                    p={2}
+                    borderRadius="md"
+                    bg={index === 0 ? "#4ECDC4" : "gray.100"}
+                    color={index === 0 ? "white" : "gray.600"}
+                  >
+                    <Icon as={getLocationIcon(option.type)} w={4} h={4} />
+                  </Box>
+
+                  {/* Location Details */}
+                  <VStack align="start" spacing={1} flex="1">
+                    <HStack spacing={2} align="center">
+                      <Text fontWeight="600" fontSize="md">
+                        {option.location}
+                      </Text>
+                      {index === 0 && (
+                        <Badge colorScheme="teal" size="sm">
+                          Recommended
+                        </Badge>
+                      )}
+                    </HStack>
+                    
+                    <Text fontSize="sm" color="gray.600" lineHeight="1.3">
+                      {formatLocation(option)}
+                    </Text>
+                    
+                    <HStack spacing={2} align="center">
+                      <Text fontSize="xs" color="gray.500" textTransform="capitalize">
+                        {option.type}
+                      </Text>
+                      
+                      <Tooltip 
+                        label={`Confidence: ${Math.round(option.confidence * 100)}%`}
+                        fontSize="xs"
+                      >
+                        <Badge 
+                          colorScheme={getConfidenceColor(option.confidence)} 
+                          size="sm"
+                        >
+                          {Math.round(option.confidence * 100)}%
+                        </Badge>
+                      </Tooltip>
+                      
+                      {option.components.countryCode && (
+                        <Text fontSize="xs" color="gray.400">
+                          {option.components.countryCode}
+                        </Text>
+                      )}
+                    </HStack>
+                  </VStack>
+
+                  {/* Map Preview Indicator */}
+                  <Box color="gray.400">
+                    <Icon as={MapPin} w={4} h={4} />
+                  </Box>
+                </HStack>
+              </Button>
+            ))}
+          </VStack>
+
+          {/* Location Suggestions */}
+          {validation.suggestions && validation.suggestions.length > 0 && (
+            <Box>
+              <Text fontSize="sm" fontWeight="500" color="gray.700" mb={2}>
+                Helpful tips:
+              </Text>
+              <VStack spacing={1} align="start">
+                {validation.suggestions.slice(0, 3).map((suggestion, index) => (
+                  <Text key={index} fontSize="xs" color="gray.600">
+                    • {suggestion}
+                  </Text>
+                ))}
+              </VStack>
+            </Box>
+          )}
+
+          {/* Action Buttons */}
+          <HStack spacing={3} pt={2}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDismiss}
+              color="gray.600"
+              _hover={{ bg: "gray.100" }}
+            >
+              Cancel
+            </Button>
+            
+            <Button
+              size="sm"
+              bg="gray.100"
+              color="gray.700"
+              _hover={{ bg: "gray.200" }}
+              onClick={() => {
+                // Use the first (recommended) option
+                if (disambiguation.options.length > 0) {
+                  handleLocationSelect(disambiguation.options[0])
+                }
+              }}
+            >
+              Use Recommended
+            </Button>
+          </HStack>
+        </VStack>
+      </Box>
+    </Box>
+  )
+}

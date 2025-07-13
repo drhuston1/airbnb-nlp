@@ -1,6 +1,7 @@
 // Enhanced query analysis with GPT-4o-mini for location and refinement understanding
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { API_CONFIG } from './config'
+import { geocodingService, type GeocodeResult } from './services/geocoding'
 
 interface QueryAnalysisRequest {
   query: string
@@ -41,6 +42,18 @@ interface QueryAnalysis {
   }
   intent: 'new_search' | 'refine_location' | 'refine_criteria' | 'more_specific'
   confidence: number
+  locationValidation?: {
+    valid: boolean
+    confidence: number
+    validated?: GeocodeResult
+    alternatives?: GeocodeResult[]
+    disambiguation?: {
+      required: boolean
+      options: GeocodeResult[]
+      message: string
+    }
+    suggestions?: string[]
+  }
 }
 
 interface QueryAnalysisResponse {
@@ -93,6 +106,25 @@ export default async function handler(
     })
     
     const analysis = await analyzeQueryWithGPT(query, openaiKey, previousLocation, hasExistingResults)
+    
+    // Validate location if one was extracted and it's not a refinement using previous location
+    if (analysis.location && analysis.location !== 'Unknown' && analysis.location !== 'SAME') {
+      console.log(`🗺️ Validating extracted location: "${analysis.location}"`)
+      
+      try {
+        const locationValidation = await validateExtractedLocation(analysis.location, query)
+        analysis.locationValidation = locationValidation
+        
+        // Update the location with validated result if available
+        if (locationValidation.valid && locationValidation.validated) {
+          analysis.location = locationValidation.validated.location
+          console.log(`✅ Location validated and updated: ${analysis.location}`)
+        }
+      } catch (error) {
+        console.warn('Location validation failed:', error)
+        // Continue without validation - don't break the flow
+      }
+    }
     
     const response: QueryAnalysisResponse = {
       analysis,
@@ -442,5 +474,76 @@ Return ONLY the JSON object, no other text:`
   } catch (error) {
     console.error('GPT query analysis failed:', error)
     throw error
+  }
+}
+
+/**
+ * Validate extracted location using geocoding service
+ */
+async function validateExtractedLocation(location: string, originalQuery: string) {
+  try {
+    // Determine context from query for better geocoding
+    const context = originalQuery.toLowerCase().includes('business') ? 'business' : 'travel'
+    
+    const result = await geocodingService.geocode(location, {
+      includeAlternatives: true,
+      maxResults: 3,
+      fuzzyMatching: true
+    })
+    
+    if (!result) {
+      // Try fuzzy matching for typos
+      const fuzzyResults = await geocodingService.fuzzyGeocode(location, {
+        maxResults: 3
+      })
+      
+      if (fuzzyResults.length > 0) {
+        return {
+          valid: false,
+          confidence: 0,
+          suggestions: fuzzyResults.map(r => `Did you mean "${r.displayName}"?`).slice(0, 3)
+        }
+      }
+      
+      return {
+        valid: false,
+        confidence: 0,
+        suggestions: [`Could not find location "${location}". Please check spelling.`]
+      }
+    }
+    
+    // Check for disambiguation needed
+    let disambiguation = undefined
+    
+    if (result.alternatives && result.alternatives.length > 0) {
+      // Check if we have significantly different locations with same name
+      const hasAmbiguity = result.alternatives.some(alt => 
+        alt.components.country !== result.components.country && alt.confidence > 0.6
+      )
+      
+      if (hasAmbiguity) {
+        disambiguation = {
+          required: true,
+          options: [result, ...result.alternatives.slice(0, 3)],
+          message: `Multiple locations found for "${location}". Did you mean:`
+        }
+      }
+    }
+    
+    return {
+      valid: result.confidence >= 0.5,
+      confidence: result.confidence,
+      validated: result,
+      alternatives: result.alternatives,
+      disambiguation
+    }
+    
+  } catch (error) {
+    console.error('Location validation error:', error)
+    return {
+      valid: false,
+      confidence: 0,
+      suggestions: [`Unable to validate location "${location}"`]
+    }
   }
 }

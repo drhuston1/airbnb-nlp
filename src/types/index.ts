@@ -102,3 +102,38 @@ export interface SearchContext {
   minPrice?: number
   maxPrice?: number
 }
+
+// Geocoding types
+export interface GeocodeResult {
+  location: string
+  confidence: number
+  coordinates: {
+    lat: number
+    lng: number
+  }
+  components: {
+    city?: string
+    state?: string
+    country?: string
+    countryCode?: string
+    postalCode?: string
+    neighborhood?: string
+  }
+  displayName: string
+  type: 'city' | 'neighborhood' | 'landmark' | 'region' | 'country'
+  providers: string[]
+  alternatives?: GeocodeResult[]
+}
+
+export interface LocationValidation {
+  valid: boolean
+  confidence: number
+  validated?: GeocodeResult
+  alternatives?: GeocodeResult[]
+  disambiguation?: {
+    required: boolean
+    options: GeocodeResult[]
+    message: string
+  }
+  suggestions?: string[]
+}

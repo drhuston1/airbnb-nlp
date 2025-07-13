@@ -167,7 +167,10 @@ async function filterWithGPT(query: string, listings: AirbnbListing[]): Promise<
   }
 }
 // Import types
-import type { AirbnbListing, SearchResponse, ChatMessage, SearchHistory } from './types'
+import type { AirbnbListing, SearchResponse, ChatMessage, SearchHistory, LocationValidation, GeocodeResult } from './types'
+
+// Import location disambiguation component
+import { LocationDisambiguation } from './components/LocationDisambiguation'
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -187,6 +190,8 @@ function App() {
   const [currentPriceRange, setCurrentPriceRange] = useState<{min?: number, max?: number, budget?: string} | null>(null)
   const [showDateEditor, setShowDateEditor] = useState(false)
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({})
+  const [locationValidation, setLocationValidation] = useState<LocationValidation | null>(null)
+  const [showLocationDisambiguation, setShowLocationDisambiguation] = useState(false)
   
   
   // Refs
@@ -317,6 +322,41 @@ function App() {
     setLastQueryAnalysis(queryAnalysis)
     console.log('Enhanced Query Analysis:', queryAnalysis)
     console.log('Final extracted location:', extractedLocation)
+    
+    // Handle location validation if available
+    if (queryAnalysis.locationValidation) {
+      setLocationValidation(queryAnalysis.locationValidation)
+      
+      // Check if disambiguation is required
+      if (queryAnalysis.locationValidation.disambiguation?.required) {
+        console.log('🗺️ Location disambiguation required')
+        setShowLocationDisambiguation(true)
+        setLoading(false)
+        return
+      }
+      
+      // Show location validation warnings
+      if (!queryAnalysis.locationValidation.valid) {
+        const suggestions = queryAnalysis.locationValidation.suggestions || []
+        const warningMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: `I couldn't find a clear match for "${extractedLocation}". ${suggestions.length > 0 ? suggestions[0] : 'Please try a different location.'}`,
+          followUps: suggestions.slice(1, 4),
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, warningMessage])
+        setTimeout(scrollToBottom, 100)
+        setLoading(false)
+        return
+      }
+      
+      // Use validated location if available
+      if (queryAnalysis.locationValidation.validated) {
+        extractedLocation = queryAnalysis.locationValidation.validated.location
+        console.log(`✅ Using validated location: ${extractedLocation}`)
+      }
+    }
     
     // If no location found, ask for one
     if (extractedLocation === 'Unknown') {
@@ -832,6 +872,22 @@ function App() {
     const currentIndex = getCurrentImageIndex(listingId)
     const prevIndex = currentIndex === 0 ? totalImages - 1 : currentIndex - 1
     setCurrentImageIndex(listingId, prevIndex)
+  }
+
+  // Handle location disambiguation
+  const handleLocationSelected = (selectedLocation: GeocodeResult) => {
+    console.log(`📍 Location selected: ${selectedLocation.displayName}`)
+    setShowLocationDisambiguation(false)
+    
+    // Update search with the selected location
+    const locationQuery = `${searchQuery} in ${selectedLocation.location}, ${selectedLocation.components.country}`
+    handleSearch(1, locationQuery)
+  }
+
+  const handleLocationDisambiguationDismiss = () => {
+    setShowLocationDisambiguation(false)
+    setLocationValidation(null)
+    setLoading(false)
   }
 
 
@@ -1825,6 +1881,7 @@ function App() {
                                   }}
                                   onClick={(e) => {
                                     e.stopPropagation()
+                                    console.log(`⬅️ Previous image clicked for ${listing.id}, current: ${getCurrentImageIndex(listing.id)}`)
                                     prevImage(listing.id, listing.images.length)
                                   }}
                                   zIndex={2}
@@ -1856,6 +1913,7 @@ function App() {
                                   }}
                                   onClick={(e) => {
                                     e.stopPropagation()
+                                    console.log(`➡️ Next image clicked for ${listing.id}, current: ${getCurrentImageIndex(listing.id)}`)
                                     nextImage(listing.id, listing.images.length)
                                   }}
                                   zIndex={2}
@@ -1881,7 +1939,12 @@ function App() {
                                   fontWeight="600"
                                   zIndex={2}
                                 >
-                                  {getCurrentImageIndex(listing.id) + 1} / {listing.images.length}
+                                  {(() => {
+                                    const currentIndex = getCurrentImageIndex(listing.id)
+                                    const total = listing.images.length
+                                    console.log(`🎛️ Counter for ${listing.id}: ${currentIndex + 1}/${total}`)
+                                    return `${currentIndex + 1} / ${total}`
+                                  })()}
                                 </Box>
                               </>
                             )}
@@ -2070,6 +2133,16 @@ function App() {
           </Box>
         ) : null}
       </Box>
+
+      {/* Location Disambiguation Modal */}
+      {showLocationDisambiguation && locationValidation && (
+        <LocationDisambiguation
+          validation={locationValidation}
+          originalQuery={searchQuery}
+          onLocationSelected={handleLocationSelected}
+          onDismiss={handleLocationDisambiguationDismiss}
+        />
+      )}
     </Box>
   )
 }
