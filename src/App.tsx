@@ -1515,7 +1515,7 @@ function App() {
         display="flex"
         flexDirection="column"
       >
-        {showResults && (
+        {showResults ? (
           <Box h="full" display="flex" flexDirection="column">
             <Box p={3} borderBottom="1px" borderColor="gray.200">
               <HStack justify="space-between" align="center" mb={2}>
@@ -2045,7 +2045,7 @@ function App() {
               )}
             </Box>
           </Box>
-        )}
+        ) : null}
       </Box>
     </Box>
   )
