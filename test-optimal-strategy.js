@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // Test the optimal multi-provider geocoding strategy
-import { config } from 'dotenv';
-import fetch from 'node-fetch';
+const { config } = require('dotenv');
+const fetch = require('node-fetch');
 
 config({ path: '.env.local' });
 

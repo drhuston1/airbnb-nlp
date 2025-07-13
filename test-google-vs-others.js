@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // Compare Google vs other providers to see why multi-provider might be better
-import { config } from 'dotenv';
-import fetch from 'node-fetch';
+const { config } = require('dotenv');
+const fetch = require('node-fetch');
 
 config({ path: '.env.local' });
 
