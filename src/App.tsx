@@ -773,7 +773,76 @@ function App() {
       position="relative"
       overflow="hidden"
     >
-      {/* Clean background - no decorative elements */}
+      {/* Subtle Background Decorative Elements */}
+      <Box
+        position="absolute"
+        top="10%"
+        left="15%"
+        width="80px"
+        height="80px"
+        borderRadius="50%"
+        bg="linear-gradient(135deg, #FF6B6B10, #FF8E5315)"
+        opacity={0.6}
+        zIndex={0}
+      />
+      <Box
+        position="absolute"
+        top="60%"
+        right="20%"
+        width="60px"
+        height="60px"
+        borderRadius="20px"
+        bg="linear-gradient(45deg, #4ECDC415, #E0F7F420)"
+        opacity={0.5}
+        zIndex={0}
+        transform="rotate(45deg)"
+      />
+      <Box
+        position="absolute"
+        bottom="20%"
+        left="5%"
+        width="40px"
+        height="120px"
+        borderRadius="20px"
+        bg="linear-gradient(180deg, #FFE8D615, #FFEEE620)"
+        opacity={0.4}
+        zIndex={0}
+        transform="rotate(-15deg)"
+      />
+      <Box
+        position="absolute"
+        top="30%"
+        right="5%"
+        width="50px"
+        height="50px"
+        bg="linear-gradient(90deg, #FF8E5315, #4ECDC415)"
+        opacity={0.5}
+        zIndex={0}
+        clipPath="polygon(50% 0%, 0% 100%, 100% 100%)"
+      />
+      <Box
+        position="absolute"
+        bottom="40%"
+        right="35%"
+        width="70px"
+        height="30px"
+        borderRadius="15px"
+        bg="linear-gradient(135deg, #E0F7F420, #FFE5E520)"
+        opacity={0.4}
+        zIndex={0}
+        transform="rotate(25deg)"
+      />
+      <Box
+        position="absolute"
+        top="5%"
+        right="40%"
+        width="35px"
+        height="35px"
+        borderRadius="50%"
+        bg="#FF6B6B12"
+        opacity={0.6}
+        zIndex={0}
+      />
       {/* Main Sidebar */}
       <Box
         position="relative"
@@ -987,10 +1056,17 @@ function App() {
             </Box>
 
             {/* Chat Input - Centered */}
-            <Box w="full" maxW="2xl" mb={8}>
+            <Box w="full" maxW="3xl" mb={8}>
               <HStack gap={3}>
                 <Textarea
-                  placeholder="Beach house in Malibu, dog-friendly cabin, modern loft downtown..."
+                  placeholder="Tell me exactly what you're looking for... 
+• Location and dates
+• Number of guests and bedrooms
+• Amenities like pool, parking, kitchen
+• Budget range and preferences
+• Any special requirements
+
+Example: 'Luxury beachfront villa in Malibu for 6 people with pool, superhost only, under $500/night, August 15-22'"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => {
@@ -1000,20 +1076,21 @@ function App() {
                     }
                   }}
                   resize="none"
-                  minH="52px"
-                  maxH="120px"
+                  minH="120px"
+                  maxH="200px"
                   bg="white"
-                  border="2px"
-                  borderColor="gray.400"
+                  border="2px solid"
+                  borderColor="#4ECDC4"
                   _focus={{
-                    borderColor: "#4ECDC4",
-                    boxShadow: "0 0 0 3px rgba(78, 205, 196, 0.1)"
+                    borderColor: "#FF8E53",
+                    boxShadow: "0 0 0 4px rgba(78, 205, 196, 0.1)"
                   }}
-                  _hover={{ borderColor: "#FF8E53" }}
+                  _hover={{ borderColor: "#FF6B6B" }}
                   borderRadius="xl"
-                  py={4}
-                  px={4}
+                  py={6}
+                  px={6}
                   fontSize="md"
+                  lineHeight="1.5"
                 />
                 <Button
                   onClick={() => handleSearch()}
@@ -1052,11 +1129,12 @@ function App() {
                     variant="outline"
                     size="sm"
                     onClick={() => setSearchQuery(example)}
-                    borderColor="gray.300"
-                    color="gray.700"
+                    borderColor="#4ECDC4"
+                    color="#2E7A73"
+                    bg="white"
                     _hover={{ 
-                      bg: "gray.50",
-                      borderColor: "gray.400"
+                      bg: "#F8FDFC",
+                      borderColor: "#FF8E53"
                     }}
                     borderRadius="md"
                     px={4}
@@ -1215,69 +1293,25 @@ function App() {
       >
         {showResults && (
           <>
-            <Box p={3} borderBottom="2px" borderColor="#FF8E53">
-              <HStack justify="space-between" align="center" mb={2}>
-                <VStack align="start" gap={1}>
-                  <HStack gap={2}>
-                    <Icon as={Home} w={3} h={3} color="gray.600" />
-                    <Text fontSize="sm" fontWeight="500" color="gray.700">
-                      Properties ({currentResults.length})
+            <Box p={2} borderBottom="1px" borderColor="gray.200">
+              <HStack justify="space-between" align="center">
+                <HStack gap={2} fontSize="sm" color="gray.600" flexWrap="wrap">
+                  <Text fontWeight="500">{currentResults.length} properties</Text>
+                  {currentPriceRange?.budget && (
+                    <Text color="#CC6B2E">• {currentPriceRange.budget}</Text>
+                  )}
+                  {currentDates?.checkin && currentDates?.checkout && (
+                    <Text color="#2E7A73">
+                      • {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </Text>
-                  </HStack>
-                  {/* Compact info row */}
-                  <HStack gap={3} flexWrap="wrap" fontSize="xs" color="gray.600">
-                    {/* Platform count */}
-                    {currentResults.length > 0 && (
-                      <Text>
-                        {Object.entries(
-                          currentResults.reduce((acc, listing) => {
-                            const platform = listing.platform || 'unknown'
-                            acc[platform] = (acc[platform] || 0) + 1
-                            return acc
-                          }, {} as Record<string, number>)
-                        ).map(([platform, count]) => 
-                          `${count} ${platform === 'airbnb' ? 'Airbnb' : platform}`
-                        ).join(', ')}
-                      </Text>
-                    )}
-                    
-                    {/* Date Filter Indicator */}
-                    {currentDates && currentDates.checkin && currentDates.checkout && (
-                      <HStack gap={1}>
-                        <Icon as={Calendar} w={3} h={3} color="#4ECDC4" />
-                        <Text color="#2E7A73">
-                          {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {currentDates.flexible && ' (flexible)'}
-                        </Text>
-                      </HStack>
-                    )}
-                    
-                    {/* Price Filter Indicator */}
-                    {currentPriceRange && (currentPriceRange.min || currentPriceRange.max || currentPriceRange.budget) && (
-                      <HStack gap={1}>
-                        <Icon as={DollarSign} w={3} h={3} color="#FF8E53" />
-                        <Text color="#CC6B2E">
-                          {currentPriceRange.budget ? (
-                            <Text as="span" textTransform="capitalize">{currentPriceRange.budget} range</Text>
-                          ) : (
-                            <>
-                              {currentPriceRange.min ? `$${currentPriceRange.min}` : '$0'} - {currentPriceRange.max ? `$${currentPriceRange.max}` : 'unlimited'}/night
-                            </>
-                          )}
-                        </Text>
-                      </HStack>
-                    )}
-                  </HStack>
-                </VStack>
+                  )}
+                </HStack>
                 <Button
                   size="xs"
                   variant="ghost"
                   onClick={() => setShowResults(false)}
                   color="#8B9DC3"
-                  _hover={{ 
-                    bg: "#F8FDFC",
-                    borderColor: "#4ECDC4"
-                  }}
+                  _hover={{ bg: "#F8FDFC" }}
                 >
                   <Icon as={X} w={3} h={3} />
                 </Button>
@@ -1285,14 +1319,11 @@ function App() {
               
               {/* Compact Quick Filters */}
               {quickFilters.length > 0 && (
-                <Box>
-                  <HStack mb={2} align="center">
-                    <Icon as={Filter} w={3} h={3} color="#4ECDC4" />
-                    <Text fontSize="sm" fontWeight="500" color="gray.700">
-                      Quick filters ({quickFilters.length})
-                    </Text>
-                  </HStack>
-                  <Grid templateColumns="repeat(auto-fit, minmax(140px, 1fr))" gap={2}>
+                <Box mt={2}>
+                  <Text fontSize="xs" fontWeight="500" color="gray.500" mb={1}>
+                    Quick filters
+                  </Text>
+                  <Grid templateColumns="repeat(auto-fit, minmax(120px, 1fr))" gap={1}>
                     {quickFilters.map((filter, index) => {
                       const getIcon = () => {
                         switch (filter.type) {
@@ -1323,8 +1354,8 @@ function App() {
                           onClick={() => handleRefinementQuery(filter.query)}
                           borderColor={color.main}
                           color={color.dark}
-                          bg={color.bg}
-                          border="2px"
+                          bg="white"
+                          border="1px solid"
                           _hover={{ 
                             bg: '#F8FDFC',
                             borderColor: color.dark,
@@ -1535,27 +1566,23 @@ function App() {
                             </HStack>
                           </HStack>
 
-                          {/* Property details: bedrooms and bathrooms */}
-                          <HStack gap={4} color="gray.600">
+                          {/* Property details: bedrooms, bathrooms, type */}
+                          <HStack gap={3} color="gray.600">
                             {listing.bedrooms !== undefined && listing.bedrooms > 0 && (
                               <HStack gap={1}>
                                 <Icon as={Bed} w={3} h={3} />
-                                <Text fontSize="xs">
-                                  {listing.bedrooms} {listing.bedrooms === 1 ? 'bed' : 'beds'}
-                                </Text>
+                                <Text fontSize="xs">{listing.bedrooms}</Text>
                               </HStack>
                             )}
                             {listing.bathrooms !== undefined && listing.bathrooms > 0 && (
                               <HStack gap={1}>
                                 <Icon as={Bath} w={3} h={3} />
-                                <Text fontSize="xs">
-                                  {listing.bathrooms} {listing.bathrooms === 1 ? 'bath' : 'baths'}
-                                </Text>
+                                <Text fontSize="xs">{listing.bathrooms}</Text>
                               </HStack>
                             )}
                             <HStack gap={1}>
                               <Icon as={Building} w={3} h={3} color="gray.400" />
-                              <Text fontSize="xs" color="gray.500">
+                              <Text fontSize="xs" color="gray.500" lineClamp={1}>
                                 {listing.propertyType || listing.roomType}
                               </Text>
                             </HStack>
