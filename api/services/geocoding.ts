@@ -33,15 +33,27 @@ export class GeocodingService {
   private cache = new Map<string, GeocodeResult>()
   private cacheExpiry = 24 * 60 * 60 * 1000 // 24 hours
   
-  // Provider priority order
+  // Provider configuration with different strategies
   private providers = [
-    { name: 'mapbox', handler: this.geocodeWithMapbox.bind(this) },
-    { name: 'nominatim', handler: this.geocodeWithNominatim.bind(this) },
-    { name: 'google', handler: this.geocodeWithGoogle.bind(this) }
+    { 
+      name: 'mapbox', 
+      handler: this.geocodeWithMapbox.bind(this),
+      config: { excludeAddresses: true, goodFor: ['cities', 'countries'] }
+    },
+    { 
+      name: 'nominatim', 
+      handler: this.geocodeWithNominatim.bind(this),
+      config: { goodFor: ['geographic_features', 'disambiguation'] }
+    },
+    { 
+      name: 'google', 
+      handler: this.geocodeWithGoogle.bind(this),
+      config: { goodFor: ['accuracy', 'local_places'] }
+    }
   ]
 
   /**
-   * Main geocoding function with multi-provider fallback
+   * Main geocoding function with intelligent provider selection
    */
   async geocode(
     query: string, 
@@ -57,35 +69,202 @@ export class GeocodingService {
 
     console.log(`🔍 Geocoding location: "${query}"`)
     
-    // Preprocess query for better matching
-    const processedQuery = this.preprocessQuery(query)
+    // Check for proximity queries first (e.g., "near Disney World")
+    const extractedLandmark = this.extractLandmarkFromProximityQuery(query)
+    const searchQuery = extractedLandmark || query
     
-    // Try each provider in order
-    for (const provider of this.providers) {
+    console.log(extractedLandmark ? `🎯 Extracted landmark: "${extractedLandmark}"` : `📍 Direct location search`)
+    
+    // Preprocess query for better matching
+    const processedQuery = this.preprocessQuery(searchQuery)
+    
+    // Try intelligent provider selection
+    const results = await this.tryMultipleProviders(processedQuery, options)
+    
+    if (results.length === 0) {
+      console.log(`❌ All geocoding providers failed for: ${query}`)
+      return null
+    }
+    
+    // Select best result and merge alternatives
+    const bestResult = this.selectBestResult(results, query)
+    
+    // Add alternatives from all providers if requested
+    if (options.includeAlternatives) {
+      bestResult.alternatives = this.mergeAlternatives(results, bestResult)
+    }
+    
+    console.log(`✅ Selected best result: ${bestResult.displayName} (confidence: ${bestResult.confidence}, provider: ${bestResult.providers.join(',')})`)
+    
+    // Cache the result
+    this.cache.set(cacheKey, bestResult)
+    return bestResult
+  }
+
+  /**
+   * Try multiple providers with optimal strategy
+   */
+  private async tryMultipleProviders(
+    query: string, 
+    options: GeocodeOptions
+  ): Promise<GeocodeResult[]> {
+    const results: GeocodeResult[] = []
+    
+    // STRATEGY: Google first for accuracy, then get alternatives from other providers
+    
+    // Step 1: Try Google first (best accuracy)
+    try {
+      console.log(`🌐 Trying Google for primary result...`)
+      const googleResult = await this.geocodeWithGoogle(query, options)
+      if (googleResult && googleResult.confidence > 0.5) {
+        console.log(`✅ Google successful: ${googleResult.displayName}`)
+        results.push(googleResult)
+      }
+    } catch (error) {
+      console.warn(`⚠️ Google failed:`, error instanceof Error ? error.message : error)
+    }
+    
+    // Step 2: Always try other providers for alternatives (disambiguation)
+    const alternativeProviders = [
+      { name: 'nominatim', handler: this.geocodeWithNominatim.bind(this) },
+      { name: 'mapbox', handler: this.geocodeWithMapbox.bind(this) }
+    ]
+    
+    for (const provider of alternativeProviders) {
       try {
-        console.log(`📍 Trying ${provider.name} for geocoding...`)
-        const result = await provider.handler(processedQuery, options)
-        
-        if (result && result.confidence > 0.5) {
-          console.log(`✅ ${provider.name} geocoding successful: ${result.displayName} (confidence: ${result.confidence})`)
+        console.log(`📍 Trying ${provider.name} for alternatives...`)
+        const result = await provider.handler(query, { ...options, maxResults: 3 })
+        if (result && result.confidence > 0.4) { // Lower threshold for alternatives
+          console.log(`✅ ${provider.name} alternative: ${result.displayName}`)
           
-          // Add alternatives if requested
-          if (options.includeAlternatives) {
-            result.alternatives = await this.findAlternatives(processedQuery, result, options)
+          // Only add if it's meaningfully different from existing results
+          const isDifferent = results.every(existing => 
+            Math.abs(existing.coordinates.lat - result.coordinates.lat) > 0.1 ||
+            Math.abs(existing.coordinates.lng - result.coordinates.lng) > 0.1 ||
+            existing.components.country !== result.components.country
+          )
+          
+          if (isDifferent) {
+            results.push(result)
+          } else {
+            console.log(`   📍 ${provider.name} result too similar to existing, skipping`)
           }
-          
-          // Cache the result
-          this.cache.set(cacheKey, result)
-          return result
         }
       } catch (error) {
-        console.warn(`⚠️ ${provider.name} geocoding failed:`, error instanceof Error ? error.message : error)
-        continue
+        console.warn(`⚠️ ${provider.name} failed:`, error instanceof Error ? error.message : error)
       }
     }
+    
+    // Step 3: If Google failed completely, use best alternative as primary
+    if (results.length === 0) {
+      console.log(`🔄 Google failed, trying fallback strategy...`)
+      
+      // Try in order of preference for fallback
+      const fallbackOrder = [
+        { name: 'nominatim', handler: this.geocodeWithNominatim.bind(this) },
+        { name: 'mapbox', handler: this.geocodeWithMapbox.bind(this) }
+      ]
+      
+      for (const provider of fallbackOrder) {
+        try {
+          console.log(`📍 Fallback to ${provider.name}...`)
+          const result = await provider.handler(query, options)
+          if (result && result.confidence > 0.5) {
+            console.log(`✅ ${provider.name} fallback successful: ${result.displayName}`)
+            results.push(result)
+            break // Use first successful fallback as primary
+          }
+        } catch (error) {
+          console.warn(`⚠️ ${provider.name} fallback failed:`, error instanceof Error ? error.message : error)
+        }
+      }
+    }
+    
+    console.log(`📊 Final results: ${results.length} from providers: ${results.map(r => r.providers.join(',')).join(', ')}`)
+    return results
+  }
 
-    console.log(`❌ All geocoding providers failed for: ${query}`)
-    return null
+  /**
+   * Select the best result from multiple providers
+   */
+  private selectBestResult(results: GeocodeResult[], originalQuery: string): GeocodeResult {
+    if (results.length === 1) return results[0]
+    
+    // Score each result based on relevance to travel queries
+    const scoredResults = results.map(result => ({
+      result,
+      score: this.calculateTravelRelevanceScore(result, originalQuery)
+    }))
+    
+    // Sort by score descending
+    scoredResults.sort((a, b) => b.score - a.score)
+    
+    return scoredResults[0].result
+  }
+
+  /**
+   * Calculate travel relevance score for result selection
+   */
+  private calculateTravelRelevanceScore(result: GeocodeResult, originalQuery: string): number {
+    let score = result.confidence * 100 // Base score from confidence
+    
+    // Major bonus for Google results (our primary provider)
+    if (result.providers.includes('google')) {
+      score += 50
+    }
+    
+    // Bonus for geographic features (like Cape Cod)  
+    if (result.type === 'region' || result.type === 'landmark') {
+      score += 20
+    }
+    
+    // Bonus for major travel destinations
+    const isMajorDestination = ['France', 'United Kingdom', 'Germany', 'United States'].includes(result.components.country || '')
+    if (isMajorDestination && result.type === 'city') {
+      score += 15
+    }
+    
+    // Bonus for exact name matches
+    const queryLower = originalQuery.toLowerCase()
+    const locationLower = result.location.toLowerCase()
+    if (locationLower === queryLower) {
+      score += 10
+    }
+    
+    // Penalty for very specific addresses when looking for general locations
+    if (result.type === 'address' && !originalQuery.includes('street') && !originalQuery.includes('address')) {
+      score -= 30
+    }
+    
+    return score
+  }
+
+  /**
+   * Merge alternatives from multiple providers
+   */
+  private mergeAlternatives(results: GeocodeResult[], bestResult: GeocodeResult): GeocodeResult[] {
+    const alternatives: GeocodeResult[] = []
+    
+    // Add other primary results as alternatives
+    results.forEach(result => {
+      if (result !== bestResult) {
+        alternatives.push(result)
+      }
+      // Add their alternatives too
+      if (result.alternatives) {
+        alternatives.push(...result.alternatives)
+      }
+    })
+    
+    // Remove duplicates and sort by confidence
+    const uniqueAlternatives = alternatives.filter((alt, index, arr) => 
+      index === arr.findIndex(other => 
+        Math.abs(other.coordinates.lat - alt.coordinates.lat) < 0.1 &&
+        Math.abs(other.coordinates.lng - alt.coordinates.lng) < 0.1
+      )
+    ).sort((a, b) => b.confidence - a.confidence)
+    
+    return uniqueAlternatives.slice(0, 5) // Limit to top 5 alternatives
   }
 
   /**
@@ -107,7 +286,7 @@ export class GeocodingService {
     const params = new URLSearchParams({
       q: query,
       access_token: apiKey,
-      types: 'place,locality,neighborhood,address',
+      types: 'place,locality,region,district', // Exclude 'address' to avoid street name pollution
       limit: (options.maxResults || 5).toString(),
       ...(options.preferredCountry && { country: options.preferredCountry }),
       ...(options.biasLocation && { 
@@ -476,6 +655,62 @@ export class GeocodingService {
     }
     
     return Math.min(0.85, baseConfidence)
+  }
+
+  /**
+   * Check if query is for a geographic feature
+   */
+  private isGeographicFeature(query: string): boolean {
+    const queryLower = query.toLowerCase()
+    const geographicTerms = [
+      'cape', 'peninsula', 'island', 'bay', 'beach', 'coast', 'shore',
+      'mountain', 'valley', 'canyon', 'national park', 'state park',
+      'lake', 'river', 'falls', 'forest', 'desert', 'plateau'
+    ]
+    
+    return geographicTerms.some(term => queryLower.includes(term))
+  }
+
+  /**
+   * Check if query is for a landmark or point of interest
+   */
+  private isLandmarkQuery(query: string): boolean {
+    const queryLower = query.toLowerCase()
+    const landmarkTerms = [
+      'disney', 'disneyland', 'universal studios', 'theme park',
+      'statue of liberty', 'golden gate bridge', 'times square',
+      'central park', 'empire state', 'hollywood', 'broadway',
+      'smithsonian', 'museum', 'cathedral', 'tower', 'monument',
+      'observatory', 'zoo', 'aquarium', 'casino', 'stadium',
+      'airport', 'pier', 'boardwalk', 'downtown', 'french quarter'
+    ]
+    
+    return landmarkTerms.some(term => queryLower.includes(term))
+  }
+
+  /**
+   * Extract landmark from proximity queries like "near Disney World"
+   */
+  private extractLandmarkFromProximityQuery(query: string): string | null {
+    const patterns = [
+      /near\s+(.+)/i,
+      /close\s+to\s+(.+)/i,
+      /around\s+(.+)/i,
+      /by\s+(.+)/i,
+      /vacation\s+home\s+near\s+(.+)/i,
+      /house\s+close\s+to\s+(.+)/i,
+      /rental\s+near\s+(.+)/i,
+      /stay\s+near\s+(.+)/i
+    ]
+    
+    for (const pattern of patterns) {
+      const match = query.match(pattern)
+      if (match) {
+        return match[1].trim()
+      }
+    }
+    
+    return null
   }
 
   /**

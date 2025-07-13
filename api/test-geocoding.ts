@@ -12,6 +12,55 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  if (req.method === 'POST') {
+    // Handle individual location testing
+    try {
+      const { location, options = {} } = req.body
+
+      if (!location) {
+        return res.status(400).json({ error: 'Location is required' })
+      }
+
+      console.log(`🧪 Testing geocoding for: "${location}"`)
+      
+      const result = await geocodingService.geocode(location, {
+        includeAlternatives: options.includeAlternatives || true,
+        maxResults: options.maxResults || 5,
+        fuzzyMatching: true
+      })
+
+      if (!result) {
+        console.log(`❌ No geocoding results for: "${location}"`)
+        return res.status(404).json({ 
+          error: 'No results found',
+          location,
+          confidence: 0,
+          alternatives: []
+        })
+      }
+
+      console.log(`✅ Geocoding success: "${location}" → "${result.displayName}" (confidence: ${result.confidence})`)
+
+      return res.status(200).json({
+        location: result.location,
+        displayName: result.displayName,
+        confidence: result.confidence,
+        coordinates: result.coordinates,
+        components: result.components,
+        type: result.type,
+        providers: result.providers,
+        alternatives: result.alternatives || []
+      })
+
+    } catch (error) {
+      console.error('Test geocoding error:', error)
+      return res.status(500).json({ 
+        error: 'Geocoding failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
