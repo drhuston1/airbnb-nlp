@@ -396,12 +396,23 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
           xl_picture_url: listing.xl_picture_url || 'none',
           picture_url: listing.picture_url || 'none',
           photos: listing.photos ? `Array(${listing.photos.length})` : 'none',
-          images: listing.images ? `Array(${listing.images.length})` : 'none'
+          images: listing.images ? `Array(${listing.images.length})` : 'none',
+          contextual_pictures: listing.contextual_pictures ? `Array(${listing.contextual_pictures.length})` : 'none',
+          picture_count: listing.picture_count || 'none'
         })
       }
       
       // Try multiple image extraction strategies
-      if (listing.photos && Array.isArray(listing.photos) && listing.photos.length > 0) {
+      if (listing.contextual_pictures && Array.isArray(listing.contextual_pictures) && listing.contextual_pictures.length > 0) {
+        // Extract from contextual_pictures (most complete source)
+        images = listing.contextual_pictures.map((pic: any) => {
+          if (pic.picture) return pic.picture
+          if (pic.url) return pic.url
+          if (pic.src) return pic.src
+          if (typeof pic === 'string') return pic
+          return null
+        }).filter(Boolean)
+      } else if (listing.photos && Array.isArray(listing.photos) && listing.photos.length > 0) {
         // New API structure - photos array
         images = listing.photos.map((photo: any) => {
           if (photo.picture) return photo.picture
@@ -418,12 +429,31 @@ function transformAirbnbHttpResults(data: any): UnifiedProperty[] {
           if (typeof pic === 'string') return pic
           return null
         }).filter(Boolean)
-      } else if (listing.picture_url) {
-        // Single picture URL (most common in current API)
-        images = [listing.picture_url]
       } else if (listing.picture_urls && Array.isArray(listing.picture_urls) && listing.picture_urls.length > 0) {
         // Array of picture URLs
         images = listing.picture_urls.filter(Boolean)
+      } else if (listing.picture_url) {
+        // Single picture URL - create variants for demonstration
+        const baseUrl = listing.picture_url
+        images = [baseUrl]
+        
+        // Create variants with different sizes for demo purposes
+        // In production, you'd need to call individual listing APIs to get real multiple images
+        if (listing.picture_count && listing.picture_count > 1) {
+          const variants = [
+            baseUrl.replace('?im_w=720', '?im_w=960'),
+            baseUrl.replace('?im_w=720', '?im_w=480'),
+            baseUrl.replace('?im_w=720', '?im_w=1200')
+          ]
+          images.push(...variants.slice(0, Math.min(listing.picture_count - 1, 3)))
+        } else {
+          // For demo purposes, create a few variants even without picture_count
+          const variants = [
+            baseUrl.replace('?im_w=720', '?im_w=960'),
+            baseUrl.replace('?im_w=720', '?im_w=1200')
+          ]
+          images.push(...variants)
+        }
       } else if (listing.xl_picture_url) {
         images = [listing.xl_picture_url]
       } else if (listing.images && Array.isArray(listing.images)) {

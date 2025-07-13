@@ -1761,7 +1761,8 @@ function App() {
                                 objectPosition: 'center'
                               }}
                               onLoad={() => {
-                                console.log(`✅ Image loaded successfully: ${listing.images[getCurrentImageIndex(listing.id)] || listing.images[0]}`)
+                                console.log(`✅ Image loaded: ${listing.images[getCurrentImageIndex(listing.id)] || listing.images[0]}`)
+                                console.log(`📷 Listing ${listing.id} has ${listing.images.length} images, showing index ${getCurrentImageIndex(listing.id)}`)
                               }}
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement
