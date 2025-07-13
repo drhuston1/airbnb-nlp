@@ -1516,7 +1516,7 @@ function App() {
         flexDirection="column"
       >
         {showResults && (
-          <Flex direction="column" h="full">
+          <Box display="flex" flexDirection="column" h="full">
             <Box p={3} borderBottom="1px" borderColor="gray.200">
               <HStack justify="space-between" align="center" mb={2}>
                 <HStack gap={2} fontSize="sm" color="gray.600" flexWrap="wrap">
@@ -2045,7 +2045,7 @@ function App() {
                 </Flex>
               </Box>
             )}
-          </Flex>
+          </Box>
         )}
       </Box>
     </Box>
