@@ -139,6 +139,36 @@ async function analyzeListingWithAI(
   apiKey: string
 ): Promise<ListingAnalysis> {
   
+  // First try to fetch detailed listing info including reviews
+  let reviewText = ''
+  let detailedInfo = null
+  
+  try {
+    console.log(`🔍 Fetching detailed listing info for review analysis...`)
+    
+    // Extract listing ID from URL if available
+    const listingId = extractListingId(listing.id)
+    if (listingId) {
+      console.log(`📝 Attempting to fetch reviews for listing ID: ${listingId}`)
+      
+      const reviewsResponse = await fetch('/api/get-review-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId })
+      })
+      
+      if (reviewsResponse.ok) {
+        const reviewData = await reviewsResponse.json()
+        if (reviewData.reviews && reviewData.reviews.length > 0) {
+          reviewText = reviewData.reviews.slice(0, 10).map((review: any) => review.text || review.comment).join('\n\n')
+          console.log(`✅ Fetched ${reviewData.reviews.length} reviews for analysis`)
+        }
+      }
+    }
+  } catch (error) {
+    console.warn(`⚠️ Failed to fetch detailed reviews:`, error instanceof Error ? error.message : error)
+  }
+  
   // Prepare context for analysis
   const averagePrice = context?.alternatives?.length 
     ? context.alternatives.reduce((sum, alt) => sum + alt.price.rate, 0) / context.alternatives.length
@@ -166,6 +196,16 @@ CONTEXT:
 - Search Query: ${context?.searchQuery || 'Not provided'}
 - Average Price of Alternatives: ${averagePrice ? `${listing.price.currency}${averagePrice.toFixed(0)}/night` : 'Not available'}
 - Average Rating of Alternatives: ${averageRating ? `${averageRating.toFixed(1)}/5` : 'Not available'}
+
+${reviewText ? `RECENT GUEST REVIEWS:
+${reviewText}
+
+Please analyze these actual guest reviews to provide insights into:
+- Common praise and complaints
+- Specific issues mentioned by guests
+- Patterns in guest experiences
+- Property-specific feedback (cleanliness, amenities, host communication, etc.)
+- Any red flags or concerns that frequently appear` : 'REVIEWS: Only basic rating/count available - no review text for analysis'}
 
 Provide a JSON analysis with this exact structure:
 
@@ -199,7 +239,14 @@ Provide a JSON analysis with this exact structure:
     "reviewAnalysis": {
       "score": number (0-100),
       "credibility": "high|medium|low", 
-      "summary": "What the review count and rating suggest"
+      "summary": "Comprehensive analysis of guest experiences based on review text and ratings",
+      "commonPraise": ["Specific things guests commonly praise"],
+      "frequentComplaints": ["Specific issues guests frequently mention"],
+      "hostCommunication": "Assessment of host responsiveness and communication quality",
+      "cleanlinessScore": number (0-100),
+      "accuracyScore": number (0-100),
+      "valueScore": number (0-100),
+      "guestInsights": "Key patterns and insights from actual guest experiences"
     }
   },
   "recommendations": ["Key recommendations for this booking"],
@@ -215,7 +262,14 @@ Focus on practical travel advice. Consider:
 - Review credibility and patterns
 - Overall booking confidence
 
-Be honest about both positives and concerns. Provide actionable insights.`
+${reviewText ? `IMPORTANT: Since you have access to actual guest reviews, analyze them thoroughly to extract:
+- Specific recurring themes in guest feedback
+- Concrete examples of praise and complaints
+- Patterns that indicate property quality and host performance
+- Any discrepancies between listing description and guest experiences
+- Red flags that could impact traveler satisfaction` : ''}
+
+Be honest about both positives and concerns. Provide actionable insights based on available data.`
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -275,6 +329,26 @@ Be honest about both positives and concerns. Provide actionable insights.`
   }
 }
 
+// Helper function to extract listing ID from various ID formats
+function extractListingId(id: string): string | null {
+  if (!id) return null
+  
+  // Handle various ID formats
+  if (id.includes('/rooms/')) {
+    const match = id.match(/\/rooms\/(\d+)/)
+    return match ? match[1] : null
+  }
+  
+  // Direct numeric ID
+  if (/^\d+$/.test(id)) {
+    return id
+  }
+  
+  // Extract numeric ID from complex formats
+  const numericMatch = id.match(/(\d{8,})/)
+  return numericMatch ? numericMatch[1] : null
+}
+
 function generateFallbackAnalysis(
   listing: ListingAnalysisRequest['listing'],
   context: ListingAnalysisRequest['context']
@@ -319,7 +393,14 @@ function generateFallbackAnalysis(
       reviewAnalysis: {
         score: reviewScore,
         credibility: listing.reviewsCount > 50 ? 'high' : listing.reviewsCount > 10 ? 'medium' : 'low',
-        summary: `${listing.reviewsCount} reviews with ${listing.rating}/5 rating suggests ${listing.rating > 4.5 ? 'excellent' : listing.rating > 4 ? 'good' : 'average'} guest satisfaction.`
+        summary: `${listing.reviewsCount} reviews with ${listing.rating}/5 rating suggests ${listing.rating > 4.5 ? 'excellent' : listing.rating > 4 ? 'good' : 'average'} guest satisfaction.`,
+        commonPraise: listing.rating > 4.5 ? ['High overall rating indicates positive guest experiences'] : [],
+        frequentComplaints: listing.rating < 4 ? ['Lower rating may indicate some guest concerns'] : [],
+        hostCommunication: listing.host.isSuperhost ? 'Superhost status indicates excellent communication' : 'Communication quality not assessed without review text',
+        cleanlinessScore: Math.min(100, listing.rating * 20),
+        accuracyScore: Math.min(100, listing.rating * 20),
+        valueScore: Math.min(100, listing.rating * 20),
+        guestInsights: 'Detailed guest insights require review text analysis'
       }
     },
     recommendations: [
@@ -372,7 +453,14 @@ function validateAndCleanAnalysis(
       reviewAnalysis: {
         score: Math.max(0, Math.min(100, analysis.insights?.reviewAnalysis?.score || 50)),
         credibility: analysis.insights?.reviewAnalysis?.credibility || 'medium',
-        summary: analysis.insights?.reviewAnalysis?.summary || `${listing.reviewsCount} reviews available`
+        summary: analysis.insights?.reviewAnalysis?.summary || `${listing.reviewsCount} reviews available`,
+        commonPraise: Array.isArray(analysis.insights?.reviewAnalysis?.commonPraise) ? analysis.insights.reviewAnalysis.commonPraise : [],
+        frequentComplaints: Array.isArray(analysis.insights?.reviewAnalysis?.frequentComplaints) ? analysis.insights.reviewAnalysis.frequentComplaints : [],
+        hostCommunication: analysis.insights?.reviewAnalysis?.hostCommunication,
+        cleanlinessScore: analysis.insights?.reviewAnalysis?.cleanlinessScore ? Math.max(0, Math.min(100, analysis.insights.reviewAnalysis.cleanlinessScore)) : undefined,
+        accuracyScore: analysis.insights?.reviewAnalysis?.accuracyScore ? Math.max(0, Math.min(100, analysis.insights.reviewAnalysis.accuracyScore)) : undefined,
+        valueScore: analysis.insights?.reviewAnalysis?.valueScore ? Math.max(0, Math.min(100, analysis.insights.reviewAnalysis.valueScore)) : undefined,
+        guestInsights: analysis.insights?.reviewAnalysis?.guestInsights
       }
     },
     recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : ['Analysis recommendations unavailable'],

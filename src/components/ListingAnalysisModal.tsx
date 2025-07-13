@@ -45,6 +45,13 @@ interface ListingAnalysis {
       score: number;
       credibility: 'high' | 'medium' | 'low';
       summary: string;
+      commonPraise?: string[];
+      frequentComplaints?: string[];
+      hostCommunication?: string;
+      cleanlinessScore?: number;
+      accuracyScore?: number;
+      valueScore?: number;
+      guestInsights?: string;
     };
   };
   recommendations: string[];
@@ -388,6 +395,7 @@ export function ListingAnalysisModal({
                         {analysis.insights.reviewAnalysis.credibility.toUpperCase()} CREDIBILITY
                       </Badge>
                     </HStack>
+                    
                     <Text>{analysis.insights.reviewAnalysis.summary}</Text>
                     
                     <Box p={3} bg="yellow.50" borderRadius="md">
@@ -398,6 +406,57 @@ export function ListingAnalysisModal({
                         </Text>
                       </HStack>
                     </Box>
+
+                    {/* Enhanced review analysis */}
+                    {analysis.insights.reviewAnalysis.cleanlinessScore && (
+                      <Grid templateColumns="repeat(3, 1fr)" gap={4}>
+                        {renderScoreCircle(analysis.insights.reviewAnalysis.cleanlinessScore, 'Cleanliness')}
+                        {analysis.insights.reviewAnalysis.accuracyScore && renderScoreCircle(analysis.insights.reviewAnalysis.accuracyScore, 'Accuracy')}
+                        {analysis.insights.reviewAnalysis.valueScore && renderScoreCircle(analysis.insights.reviewAnalysis.valueScore, 'Value')}
+                      </Grid>
+                    )}
+
+                    {analysis.insights.reviewAnalysis.commonPraise && analysis.insights.reviewAnalysis.commonPraise.length > 0 && (
+                      <Box>
+                        <Text fontWeight="bold" mb={2}>✅ What Guests Love</Text>
+                        <VStack align="start" gap={1}>
+                          {analysis.insights.reviewAnalysis.commonPraise.map((praise, i) => (
+                            <HStack key={i}>
+                              <Icon as={CheckCircle} color="green.500" w={4} h={4} />
+                              <Text fontSize="sm">{praise}</Text>
+                            </HStack>
+                          ))}
+                        </VStack>
+                      </Box>
+                    )}
+
+                    {analysis.insights.reviewAnalysis.frequentComplaints && analysis.insights.reviewAnalysis.frequentComplaints.length > 0 && (
+                      <Box>
+                        <Text fontWeight="bold" mb={2}>⚠️ Common Concerns</Text>
+                        <VStack align="start" gap={1}>
+                          {analysis.insights.reviewAnalysis.frequentComplaints.map((complaint, i) => (
+                            <HStack key={i}>
+                              <Icon as={AlertTriangle} color="orange.500" w={4} h={4} />
+                              <Text fontSize="sm">{complaint}</Text>
+                            </HStack>
+                          ))}
+                        </VStack>
+                      </Box>
+                    )}
+
+                    {analysis.insights.reviewAnalysis.hostCommunication && (
+                      <Box p={3} bg="purple.50" borderRadius="md">
+                        <Text fontWeight="bold" mb={1}>💬 Host Communication</Text>
+                        <Text fontSize="sm">{analysis.insights.reviewAnalysis.hostCommunication}</Text>
+                      </Box>
+                    )}
+
+                    {analysis.insights.reviewAnalysis.guestInsights && (
+                      <Box p={3} bg="blue.50" borderRadius="md">
+                        <Text fontWeight="bold" mb={1}>🔍 Guest Experience Insights</Text>
+                        <Text fontSize="sm">{analysis.insights.reviewAnalysis.guestInsights}</Text>
+                      </Box>
+                    )}
                   </VStack>
                 )}
               </Box>
