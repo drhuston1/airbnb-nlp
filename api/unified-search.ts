@@ -169,6 +169,10 @@ async function callAirbnbHttpAPI(payload: any) {
   
   const { location, adults = 1, children = 0, checkin, checkout, priceMin, priceMax, minBedrooms, minBathrooms } = payload
   
+  // Preprocess location for better matching
+  const processedLocation = preprocessLocationForAirbnb(location)
+  console.log(`🗺️ Location preprocessing: "${location}" → "${processedLocation}"`)
+  
   // Log filtering parameters
   if (checkin && checkout) {
     console.log(`📅 Filtering by dates: ${checkin} to ${checkout}`)
@@ -213,7 +217,34 @@ async function callAirbnbHttpAPI(payload: any) {
     
     console.log('✅ Session initialized')
     
-    // Step 2: Build search request parameters
+    // Step 2: Get proper place ID for location (this is key for accurate results)
+    let placeId = ''
+    let searchQuery = processedLocation
+    
+    try {
+      // Try to get a proper place ID from Airbnb's search suggestions API
+      const suggestionsUrl = `https://www.airbnb.com/api/v2/autocomplete_suggestions?location=${encodeURIComponent(processedLocation)}&v=2&limit=1`
+      const suggestionsResponse = await fetch(suggestionsUrl, {
+        headers: {
+          ...AIRBNB_HEADERS,
+          'Cookie': sessionCookies
+        }
+      })
+      
+      if (suggestionsResponse.ok) {
+        const suggestionsData = await suggestionsResponse.json()
+        if (suggestionsData.suggestions && suggestionsData.suggestions.length > 0) {
+          const firstSuggestion = suggestionsData.suggestions[0]
+          placeId = firstSuggestion.place_id || ''
+          searchQuery = firstSuggestion.display || firstSuggestion.name || location
+          console.log(`✅ Found place ID for ${processedLocation}: ${placeId} (${searchQuery})`)
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ Could not get place ID for ${processedLocation}, using location string directly`)
+    }
+
+    // Step 3: Build search request parameters with proper location handling
     const searchUrl = new URL('https://www.airbnb.com/api/v2/explore_tabs')
     searchUrl.searchParams.set('version', '1.3.9')
     searchUrl.searchParams.set('_format', 'for_explore_search_web')
@@ -233,8 +264,16 @@ async function callAirbnbHttpAPI(payload: any) {
     searchUrl.searchParams.set('federated_search_session_id', Date.now().toString())
     searchUrl.searchParams.set('tab_id', 'home_tab')
     searchUrl.searchParams.set('refinement_paths[]', '/homes')
-    searchUrl.searchParams.set('query', location)
-    searchUrl.searchParams.set('place_id', '')
+    
+    // Use place_id if available, otherwise fall back to query
+    if (placeId) {
+      searchUrl.searchParams.set('place_id', placeId)
+      searchUrl.searchParams.set('query', '') // Clear query when using place_id
+    } else {
+      searchUrl.searchParams.set('query', searchQuery)
+      searchUrl.searchParams.set('place_id', '')
+    }
+    
     searchUrl.searchParams.set('checkin', checkin || '')
     searchUrl.searchParams.set('checkout', checkout || '')
     searchUrl.searchParams.set('adults', adults.toString())
@@ -256,7 +295,7 @@ async function callAirbnbHttpAPI(payload: any) {
     
     console.log('🔗 Search URL:', searchUrl.toString())
     
-    // Step 3: Make search API call
+    // Step 4: Make search API call
     console.log('🚀 Making search API request...')
     const searchResponse = await fetch(searchUrl.toString(), {
       method: 'GET',
@@ -274,7 +313,7 @@ async function callAirbnbHttpAPI(payload: any) {
     const searchData = await searchResponse.json()
     console.log('✅ Received search response')
     
-    // Step 4: Transform results to our format
+    // Step 5: Transform results to our format
     const listings = transformAirbnbHttpResults(searchData)
     console.log(`🎉 HTTP API found ${listings.length} listings`)
     
@@ -615,4 +654,73 @@ function calculateTrustScore(rating: number, reviewsCount: number): number {
 
   const totalScore = Math.round(ratingScore + reviewCountScore)
   return Math.min(100, Math.max(0, totalScore))
+}
+
+// Preprocess location strings for better Airbnb API matching
+function preprocessLocationForAirbnb(location: string): string {
+  if (!location || typeof location !== 'string') {
+    return location
+  }
+
+  // Handle common location formats and aliases
+  const locationMappings: Record<string, string> = {
+    // Cape Cod variations
+    'cape cod': 'Cape Cod, MA',
+    'cape cod ma': 'Cape Cod, MA', 
+    'cape cod massachusetts': 'Cape Cod, MA',
+    
+    // Other common variations
+    'nyc': 'New York, NY',
+    'new york city': 'New York, NY',
+    'sf': 'San Francisco, CA',
+    'san francisco': 'San Francisco, CA',
+    'la': 'Los Angeles, CA', 
+    'los angeles': 'Los Angeles, CA',
+    'dc': 'Washington, DC',
+    'washington dc': 'Washington, DC',
+    'south beach': 'South Beach, Miami, FL',
+    'napa valley': 'Napa, CA',
+    'big sur': 'Big Sur, CA',
+    'the hamptons': 'Hamptons, NY',
+    'martha\'s vineyard': 'Martha\'s Vineyard, MA',
+    'block island': 'Block Island, RI',
+    'key west': 'Key West, FL',
+    'lake tahoe': 'Lake Tahoe, CA',
+    'park city': 'Park City, UT',
+    'jackson hole': 'Jackson, WY'
+  }
+
+  const normalized = location.toLowerCase().trim()
+  
+  // Check for exact matches first
+  if (locationMappings[normalized]) {
+    return locationMappings[normalized]
+  }
+
+  // Add state abbreviations for major US destinations if missing
+  const stateAbbreviations: Record<string, string> = {
+    'austin': 'Austin, TX',
+    'chicago': 'Chicago, IL', 
+    'denver': 'Denver, CO',
+    'seattle': 'Seattle, WA',
+    'portland': 'Portland, OR',
+    'charleston': 'Charleston, SC',
+    'savannah': 'Savannah, GA',
+    'nashville': 'Nashville, TN',
+    'new orleans': 'New Orleans, LA',
+    'phoenix': 'Phoenix, AZ',
+    'san diego': 'San Diego, CA',
+    'boston': 'Boston, MA',
+    'philadelphia': 'Philadelphia, PA',
+    'denver': 'Denver, CO',
+    'atlanta': 'Atlanta, GA'
+  }
+
+  // Only add state if the location doesn't already have one
+  if (stateAbbreviations[normalized] && !location.includes(',')) {
+    return stateAbbreviations[normalized]
+  }
+
+  // Return original location if no preprocessing needed
+  return location
 }
