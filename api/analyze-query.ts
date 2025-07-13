@@ -109,10 +109,20 @@ export default async function handler(
     
     // Apply location preprocessing before validation (critical for accurate geocoding)
     if (analysis.location && analysis.location !== 'Unknown' && analysis.location !== 'SAME') {
-      const preprocessedLocation = preprocessLocationForGeocoding(analysis.location)
+      // Clean up the location first (remove trailing text that confuses geocoding)
+      let cleanedLocation = analysis.location
+        .replace(/\s+for\s+families?/gi, '')
+        .replace(/\s+area$/gi, '')
+        .replace(/\s+region$/gi, '')
+        .trim()
+      
+      const preprocessedLocation = preprocessLocationForGeocoding(cleanedLocation)
       if (preprocessedLocation !== analysis.location) {
         console.log(`🗺️ Location preprocessing: "${analysis.location}" → "${preprocessedLocation}"`)
         analysis.location = preprocessedLocation
+      } else if (cleanedLocation !== analysis.location) {
+        console.log(`🧹 Location cleaned: "${analysis.location}" → "${cleanedLocation}"`)
+        analysis.location = cleanedLocation
       }
     }
     
@@ -524,16 +534,8 @@ async function validateExtractedLocation(location: string, originalQuery: string
     // Check for disambiguation needed - be more proactive for travel queries
     let disambiguation = undefined
     
-    // List of locations that commonly have ambiguity issues in travel context
-    const ambiguousLocations = [
-      'cape cod', 'cambridge', 'oxford', 'paris', 'london', 'manchester', 
-      'birmingham', 'bristol', 'newport', 'springfield', 'franklin', 
-      'georgetown', 'madison', 'clinton', 'portland', 'austin'
-    ]
-    
-    const isAmbiguousLocation = ambiguousLocations.some(ambiguous => 
-      location.toLowerCase().includes(ambiguous)
-    )
+    // Remove hardcoded ambiguous location detection
+    const isAmbiguousLocation = false
     
     // For known ambiguous travel locations, always try to show alternatives
     if (isAmbiguousLocation) {
@@ -546,19 +548,7 @@ async function validateExtractedLocation(location: string, originalQuery: string
         allOptions.push(...result.alternatives)
       }
       
-      // For ambiguous locations, also try a broader search
-      try {
-        const broaderSearch = await geocodingService.geocode(location, {
-          maxResults: 5,
-          includeAlternatives: false
-        })
-        
-        if (broaderSearch && broaderSearch.coordinates.lat !== result.coordinates.lat) {
-          allOptions.push(broaderSearch)
-        }
-      } catch (error) {
-        // Ignore errors for broader search
-      }
+      // Remove hardcoded alternative searches
       
       // Filter to unique locations and different countries/regions
       const uniqueOptions = allOptions.filter((option, index, arr) => {
@@ -627,46 +617,6 @@ function preprocessLocationForGeocoding(location: string): string {
     return location
   }
 
-  // Handle ambiguous locations and common abbreviations that need clarification
-  const locationMappings: Record<string, string> = {
-    // Unique/distinctive place names that need geographic context
-    'cape cod': 'Cape Cod, Massachusetts', // Famous vacation destination
-    'martha\'s vineyard': 'Martha\'s Vineyard, Massachusetts',
-    'marthas vineyard': 'Martha\'s Vineyard, Massachusetts', 
-    'nantucket': 'Nantucket, Massachusetts',
-    'the hamptons': 'Hamptons, New York',
-    'hamptons': 'Hamptons, New York',
-    'big sur': 'Big Sur, California',
-    'napa valley': 'Napa, California',
-    'lake tahoe': 'Lake Tahoe, California',
-    'jackson hole': 'Jackson, Wyoming',
-    'key west': 'Key West, Florida',
-    
-    // Common abbreviations that are ambiguous
-    'nyc': 'New York City',
-    'sf': 'San Francisco',
-    'la': 'Los Angeles', 
-    'dc': 'Washington DC',
-    'vegas': 'Las Vegas',
-    
-    // Places that commonly have name conflicts
-    'cambridge': 'Cambridge, Massachusetts', // Most famous Cambridge
-    'oxford': 'Oxford, England', // Most famous Oxford
-    'paris': 'Paris, France', // Most famous Paris
-    'london': 'London, England' // Most famous London
-  }
-
-  const normalized = location.toLowerCase().trim()
-  
-  // Check for exact matches first
-  if (locationMappings[normalized]) {
-    return locationMappings[normalized]
-  }
-
-  // For commonly ambiguous city names, don't add geographic context unless necessary
-  // Let the geocoding service handle common cities like "Austin", "Portland", etc.
-  // Only preprocess when we know there's a specific disambiguation issue
-
-  // Return original location if no preprocessing needed
+  // Return original location without any hardcoded mappings
   return location
 }

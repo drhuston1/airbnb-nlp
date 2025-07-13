@@ -662,36 +662,6 @@ function preprocessLocationForAirbnb(location: string): string {
     return location
   }
 
-  // Handle common abbreviations and ambiguous location names
-  const locationMappings: Record<string, string> = {
-    // Common abbreviations
-    'nyc': 'New York City',
-    'sf': 'San Francisco',
-    'la': 'Los Angeles',
-    'dc': 'Washington DC',
-    'vegas': 'Las Vegas',
-    
-    // Distinctive travel destinations that need geographic context
-    'cape cod': 'Cape Cod, Massachusetts',
-    'martha\'s vineyard': 'Martha\'s Vineyard, Massachusetts',
-    'nantucket': 'Nantucket, Massachusetts',
-    'the hamptons': 'Hamptons, New York',
-    'big sur': 'Big Sur, California',
-    'napa valley': 'Napa, California',
-    'lake tahoe': 'Lake Tahoe, California',
-    'jackson hole': 'Jackson, Wyoming',
-    'key west': 'Key West, Florida'
-  }
-
-  const normalized = location.toLowerCase().trim()
-  
-  // Check for exact matches first
-  if (locationMappings[normalized]) {
-    return locationMappings[normalized]
-  }
-
-  // Let geocoding handle common city names without forced geographic context
-
-  // Return original location if no preprocessing needed
+  // Return original location without any hardcoded mappings
   return location
 }

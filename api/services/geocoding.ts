@@ -257,35 +257,7 @@ export class GeocodingService {
   ): Promise<GeocodeResult[]> {
     const alternatives: GeocodeResult[] = []
     
-    // Common ambiguous city names
-    const ambiguousNames = [
-      'paris', 'london', 'berlin', 'cambridge', 'oxford', 'manchester',
-      'birmingham', 'bristol', 'glasgow', 'dublin', 'york', 'newcastle',
-      'springfield', 'franklin', 'georgetown', 'madison', 'clinton'
-    ]
-    
-    const queryLower = query.toLowerCase()
-    const isAmbiguous = ambiguousNames.some(name => queryLower.includes(name))
-    
-    if (isAmbiguous) {
-      // Try with different country contexts
-      const countryVariations = ['us', 'ca', 'gb', 'fr', 'de', 'au']
-      
-      for (const country of countryVariations) {
-        if (country === primaryResult.components.countryCode) continue
-        
-        try {
-          const altOptions = { ...options, preferredCountry: country, maxResults: 1 }
-          const altResult = await this.geocodeWithNominatim(query, altOptions)
-          
-          if (altResult && altResult.coordinates.lat !== primaryResult.coordinates.lat) {
-            alternatives.push(altResult)
-          }
-        } catch (error) {
-          // Ignore errors for alternatives
-        }
-      }
-    }
+    // Remove hardcoded ambiguous names detection
     
     return alternatives.slice(0, 3) // Limit to 3 alternatives
   }
@@ -513,24 +485,8 @@ export class GeocodingService {
     // Remove common travel-related words that don't help with geocoding
     const travelWords = /\b(vacation|rental|airbnb|hotel|stay|trip|visit|near|around|close to)\b/gi
     
-    // Handle common abbreviations
-    const abbreviations: Record<string, string> = {
-      'nyc': 'New York City',
-      'sf': 'San Francisco',
-      'la': 'Los Angeles',
-      'dc': 'Washington DC',
-      'uk': 'United Kingdom',
-      'usa': 'United States',
-      'uae': 'United Arab Emirates'
-    }
-    
+    // Remove travel-related words but keep abbreviations as-is
     let processed = query.replace(travelWords, '').trim()
-    
-    // Replace abbreviations
-    Object.entries(abbreviations).forEach(([abbr, full]) => {
-      const regex = new RegExp(`\\b${abbr}\\b`, 'gi')
-      processed = processed.replace(regex, full)
-    })
     
     return processed
   }
@@ -591,31 +547,6 @@ export class GeocodingService {
    */
   private generateTypoVariations(query: string): string[] {
     const variations: string[] = []
-    
-    // Common city name corrections
-    const corrections: Record<string, string[]> = {
-      'mami': ['miami'],
-      'chigago': ['chicago'],
-      'pheonix': ['phoenix'],
-      'sanfransisco': ['san francisco'],
-      'los angeles': ['la', 'los angeles'],
-      'new york': ['nyc', 'new york city'],
-      'wasington': ['washington'],
-      'seatle': ['seattle'],
-      'sandiego': ['san diego'],
-      'lasvegas': ['las vegas']
-    }
-    
-    const queryLower = query.toLowerCase()
-    
-    // Check for direct corrections
-    Object.entries(corrections).forEach(([typo, corrections]) => {
-      if (queryLower.includes(typo)) {
-        corrections.forEach(correction => {
-          variations.push(query.replace(new RegExp(typo, 'gi'), correction))
-        })
-      }
-    })
     
     // Add variations with different spacing
     if (query.includes(' ')) {

@@ -988,16 +988,115 @@ function App() {
   const handleLocationSelected = (selectedLocation: GeocodeResult) => {
     console.log(`📍 Location selected: ${selectedLocation.displayName}`)
     setShowLocationDisambiguation(false)
+    setLocationValidation(null) // Clear validation state to prevent loops
     
-    // Update search with the selected location
-    const locationQuery = `${searchQuery} in ${selectedLocation.location}, ${selectedLocation.components.country}`
-    handleSearch(1, locationQuery)
+    // Create a proper search query by preserving the original intent but using the selected location
+    // Instead of concatenating, we'll trigger a new search with the corrected location
+    let correctedQuery = searchQuery
+    
+    // If the original query mentioned a different location, replace it
+    if (locationValidation?.disambiguation?.options) {
+      const originalLocation = locationValidation.disambiguation.options[0]?.location
+      if (originalLocation && correctedQuery.includes(originalLocation)) {
+        correctedQuery = correctedQuery.replace(originalLocation, selectedLocation.location)
+      }
+    }
+    
+    // Directly proceed with search using the validated location, bypassing location validation
+    handleSearchWithValidatedLocation(correctedQuery, selectedLocation)
   }
 
   const handleLocationDisambiguationDismiss = () => {
     setShowLocationDisambiguation(false)
     setLocationValidation(null)
     setLoading(false)
+  }
+
+  // Search with pre-validated location (bypass location validation to prevent loops)
+  const handleSearchWithValidatedLocation = async (query: string, validatedLocation: GeocodeResult) => {
+    console.log(`🎯 Searching with validated location: ${validatedLocation.displayName}`)
+    
+    // Add user message
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: query,
+      timestamp: new Date()
+    }
+    setMessages(prev => [...prev, userMessage])
+    setLoading(true)
+    setTimeout(scrollToBottom, 100)
+    
+    try {
+      // Skip location validation and proceed directly to search
+      const searchPayload: Record<string, unknown> = {
+        query,
+        page: 1,
+        location: validatedLocation.location,
+        adults: SEARCH_CONFIG.DEFAULT_ADULTS,
+        children: SEARCH_CONFIG.DEFAULT_CHILDREN
+      }
+      
+      console.log('DIRECT SEARCH WITH VALIDATED LOCATION:', searchPayload)
+
+      const response = await fetch('/api/unified-search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(searchPayload)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `Search failed: ${response.statusText}`)
+      }
+
+      const data: SearchResponse = await response.json()
+      const searchResults = data.listings || []
+      
+      // Update context with validated location
+      const newContext = {
+        location: validatedLocation.location,
+        adults: SEARCH_CONFIG.DEFAULT_ADULTS,
+        children: SEARCH_CONFIG.DEFAULT_CHILDREN
+      }
+      setSearchContext(newContext)
+      
+      setCurrentPage(1)
+      setHasMore(data.hasMore || false)
+      setCurrentQuery(query)
+      
+      const responseContent = `Found ${searchResults.length} properties in ${validatedLocation.location}`
+      
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: responseContent,
+        messageType: 'search',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, assistantMessage])
+      setTimeout(scrollToBottom, 100)
+
+      setCurrentResults(searchResults)
+      setShowResults(true)
+      addToHistory(query, searchResults.length)
+      
+    } catch (error) {
+      console.error('Direct search error:', error)
+      
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: 'Sorry, I had trouble searching for properties. Please try again.',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+      setTimeout(scrollToBottom, 100)
+    } finally {
+      setLoading(false)
+    }
   }
 
 
