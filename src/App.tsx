@@ -33,7 +33,9 @@ import {
   Bath,
   Shield,
   Calendar,
-  Edit3
+  Edit3,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 
 // Import types
@@ -184,6 +186,7 @@ function App() {
   const [currentDates, setCurrentDates] = useState<{checkin?: string, checkout?: string, flexible?: boolean} | null>(null)
   const [currentPriceRange, setCurrentPriceRange] = useState<{min?: number, max?: number, budget?: string} | null>(null)
   const [showDateEditor, setShowDateEditor] = useState(false)
+  const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({})
   
   
   // Refs
@@ -807,6 +810,30 @@ function App() {
     return new Date().toISOString().split('T')[0]
   }
 
+  // Image navigation helpers
+  const getCurrentImageIndex = (listingId: string): number => {
+    return imageIndexes[listingId] || 0
+  }
+
+  const setCurrentImageIndex = (listingId: string, index: number) => {
+    setImageIndexes(prev => ({
+      ...prev,
+      [listingId]: index
+    }))
+  }
+
+  const nextImage = (listingId: string, totalImages: number) => {
+    const currentIndex = getCurrentImageIndex(listingId)
+    const nextIndex = (currentIndex + 1) % totalImages
+    setCurrentImageIndex(listingId, nextIndex)
+  }
+
+  const prevImage = (listingId: string, totalImages: number) => {
+    const currentIndex = getCurrentImageIndex(listingId)
+    const prevIndex = currentIndex === 0 ? totalImages - 1 : currentIndex - 1
+    setCurrentImageIndex(listingId, prevIndex)
+  }
+
 
   return (
     <Box 
@@ -1163,7 +1190,7 @@ function App() {
                       in seconds
                     </Text>
                     <Text fontSize="xl" color="gray.700" lineHeight="1.7" maxW="3xl" fontWeight="500">
-                      Skip the endless scrolling. Just describe your dream vacation in natural language, 
+                      Skip the endless scrolling. Just describe your dream vacation in your own words, 
                       and our AI will instantly find properties that match your exact vision.
                     </Text>
                   </VStack>
@@ -1725,7 +1752,7 @@ function App() {
                         {listing.images && listing.images.length > 0 ? (
                           <>
                             <img
-                              src={listing.images[0]}
+                              src={listing.images[getCurrentImageIndex(listing.id)] || listing.images[0]}
                               alt={listing.name}
                               style={{
                                 width: '100%',
@@ -1734,7 +1761,7 @@ function App() {
                                 objectPosition: 'center'
                               }}
                               onLoad={() => {
-                                console.log(`✅ Image loaded successfully: ${listing.images[0]}`)
+                                console.log(`✅ Image loaded successfully: ${listing.images[getCurrentImageIndex(listing.id)] || listing.images[0]}`)
                               }}
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement
@@ -1773,22 +1800,70 @@ function App() {
                                 </Text>
                               </VStack>
                             </Box>
-                            {/* Image overlay with additional info */}
+                            
+                            {/* Image navigation controls */}
                             {listing.images.length > 1 && (
-                              <Box
-                                position="absolute"
-                                bottom={2}
-                                right={2}
-                                bg="blackAlpha.700"
-                                color="white"
-                                px={2}
-                                py={1}
-                                borderRadius="md"
-                                fontSize="xs"
-                                fontWeight="500"
-                              >
-                                +{listing.images.length - 1} more
-                              </Box>
+                              <>
+                                {/* Previous button */}
+                                <Button
+                                  position="absolute"
+                                  left={2}
+                                  top="50%"
+                                  transform="translateY(-50%)"
+                                  size="xs"
+                                  borderRadius="full"
+                                  bg="blackAlpha.700"
+                                  color="white"
+                                  _hover={{ bg: "blackAlpha.800" }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    prevImage(listing.id, listing.images.length)
+                                  }}
+                                  p={1}
+                                  minW="auto"
+                                  h="auto"
+                                >
+                                  <Icon as={ChevronLeft} w={3} h={3} />
+                                </Button>
+                                
+                                {/* Next button */}
+                                <Button
+                                  position="absolute"
+                                  right={2}
+                                  top="50%"
+                                  transform="translateY(-50%)"
+                                  size="xs"
+                                  borderRadius="full"
+                                  bg="blackAlpha.700"
+                                  color="white"
+                                  _hover={{ bg: "blackAlpha.800" }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    nextImage(listing.id, listing.images.length)
+                                  }}
+                                  p={1}
+                                  minW="auto"
+                                  h="auto"
+                                >
+                                  <Icon as={ChevronRight} w={3} h={3} />
+                                </Button>
+                                
+                                {/* Image counter */}
+                                <Box
+                                  position="absolute"
+                                  bottom={2}
+                                  right={2}
+                                  bg="blackAlpha.700"
+                                  color="white"
+                                  px={2}
+                                  py={1}
+                                  borderRadius="md"
+                                  fontSize="xs"
+                                  fontWeight="500"
+                                >
+                                  {getCurrentImageIndex(listing.id) + 1} / {listing.images.length}
+                                </Box>
+                              </>
                             )}
                           </>
                         ) : (
