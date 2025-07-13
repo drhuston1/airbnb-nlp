@@ -1132,11 +1132,11 @@ function App() {
           <Flex flex="1" align="center" justify="center" direction="column" px={6}>
             {/* Header */}
             <Box textAlign="center" mb={10}>
-              <HStack justify="center" mb={4} spacing={3}>
+              <HStack justify="center" mb={4} gap={3}>
                 <Box p={3} borderRadius="full" bg="#F0F8F7" border="2px solid" borderColor="#4ECDC4">
                   <Icon as={Home} w={8} h={8} color="#4ECDC4" />
                 </Box>
-                <VStack align="start" spacing={0}>
+                <VStack align="start" gap={0}>
                   <Text fontSize="3xl" color="gray.800" fontWeight="700" letterSpacing="-0.02em">
                     ChatBnb
                   </Text>
@@ -1145,7 +1145,7 @@ function App() {
                   </Text>
                 </VStack>
               </HStack>
-              <VStack spacing={2}>
+              <VStack gap={2}>
                 <Text fontSize="lg" color="gray.700" fontWeight="500" maxW="xl" mx="auto">
                   Find Airbnb rentals by describing exactly what you want
                 </Text>
