@@ -1129,38 +1129,37 @@ function App() {
           flexDirection="column"
         >
         {messages.length === 0 ? (
-          <Flex flex="1" align="center" justify="center" direction="column" px={6}>
-            {/* Header */}
-            <Box textAlign="center" mb={10}>
-              <HStack justify="center" mb={4} gap={3}>
-                <Box p={3} borderRadius="full" bg="#F0F8F7" border="2px solid" borderColor="#4ECDC4">
-                  <Icon as={Home} w={8} h={8} color="#4ECDC4" />
-                </Box>
-                <VStack align="start" gap={0}>
-                  <Text fontSize="3xl" color="gray.800" fontWeight="700" letterSpacing="-0.02em">
+          <Flex flex="1" align="center" justify="center" direction="column" px={8} py={12}>
+            
+            {/* Clean, Centered Header */}
+            <VStack gap={6} textAlign="center" mb={12} maxW="2xl">
+              <Box>
+                <HStack justify="center" gap={2} mb={2}>
+                  <Icon as={Home} w={6} h={6} color="#4ECDC4" />
+                  <Text fontSize="2xl" color="gray.800" fontWeight="700">
                     ChatBnb
                   </Text>
-                  <Text fontSize="sm" color="#FF8E53" fontWeight="500" textTransform="uppercase" letterSpacing="0.05em">
-                    AI Vacation Search
-                  </Text>
-                </VStack>
-              </HStack>
-              <VStack gap={2}>
-                <Text fontSize="lg" color="gray.700" fontWeight="500" maxW="xl" mx="auto">
-                  Find Airbnb rentals by describing exactly what you want
+                </HStack>
+                <Text fontSize="sm" color="#FF8E53" fontWeight="500" letterSpacing="wide">
+                  AI-Powered Vacation Search
                 </Text>
-                <Text fontSize="md" color="gray.500" maxW="lg" mx="auto" lineHeight="1.5">
-                  No filters needed - just tell me your location, dates, budget, and preferences in plain English
+              </Box>
+              
+              <VStack gap={3}>
+                <Text fontSize="xl" color="gray.800" fontWeight="600" lineHeight="1.3">
+                  Find perfect Airbnb rentals with natural language
+                </Text>
+                <Text fontSize="md" color="gray.600" lineHeight="1.5" maxW="lg">
+                  Just describe what you want - location, dates, budget, amenities. No complex filters needed.
                 </Text>
               </VStack>
-            </Box>
+            </VStack>
 
-            {/* Main Search Input */}
-            <Box w="full" maxW="2xl" mb={6}>
-              <HStack gap={3} align="stretch">
+            {/* Prominent Search Box */}
+            <VStack gap={4} w="full" maxW="2xl" mb={10}>
+              <HStack gap={3} w="full">
                 <Textarea
-                  placeholder="Describe your ideal stay... 
-Location, dates, guests, amenities, budget - just tell me what you want!"
+                  placeholder="Beach house in Malibu for 4 guests, pool, under $300/night, July 15-22..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => {
@@ -1170,8 +1169,7 @@ Location, dates, guests, amenities, budget - just tell me what you want!"
                     }
                   }}
                   resize="none"
-                  minH="80px"
-                  maxH="120px"
+                  minH="60px"
                   bg="white"
                   border="2px solid"
                   borderColor="#4ECDC4"
@@ -1180,11 +1178,12 @@ Location, dates, guests, amenities, budget - just tell me what you want!"
                     boxShadow: "0 0 0 3px rgba(78, 205, 196, 0.1)"
                   }}
                   _hover={{ borderColor: "#4ECDC4" }}
-                  borderRadius="lg"
-                  py={4}
+                  borderRadius="xl"
                   px={4}
+                  py={3}
                   fontSize="md"
-                  lineHeight="1.4"
+                  fontWeight="400"
+                  flex="1"
                 />
                 <Button
                   onClick={() => handleSearch()}
@@ -1196,47 +1195,48 @@ Location, dates, guests, amenities, budget - just tell me what you want!"
                     bg: "gray.300",
                     color: "gray.500"
                   }}
-                  borderRadius="lg"
-                  px={6}
-                  minH="80px"
+                  borderRadius="xl"
+                  px={8}
+                  h="60px"
                   fontWeight="600"
+                  fontSize="md"
                 >
-                  <Icon as={Send} w={5} h={5} />
+                  Search
                 </Button>
               </HStack>
-            </Box>
+            </VStack>
 
-            {/* Example searches - more compact */}
-            <Box textAlign="center" w="full" maxW="4xl">
-              <Text fontSize="xs" color="gray.500" mb={3}>Try these examples:</Text>
-              <Grid templateColumns="repeat(auto-fit, minmax(280px, 1fr))" gap={2} w="full">
+            {/* Simple Example Grid */}
+            <Box w="full" maxW="3xl">
+              <Text fontSize="sm" color="gray.500" textAlign="center" mb={4}>
+                Popular searches:
+              </Text>
+              <Grid templateColumns="repeat(auto-fit, minmax(240px, 1fr))" gap={3}>
                 {[
-                  "Luxury villa in Malibu with pool for 6 people",
-                  "Dog-friendly cabin near Yellowstone under $150", 
-                  "Downtown Chicago loft with parking under $200",
-                  "Family cottage near Disney World with kitchen",
-                  "Romantic Napa Valley getaway with hot tub",
-                  "Austin group house for 10 with pool table"
+                  "Luxury villa in Malibu with pool",
+                  "Dog-friendly cabin near Yellowstone", 
+                  "Downtown loft with parking",
+                  "Family cottage near Disney World",
+                  "Romantic getaway in Napa Valley",
+                  "Group house in Austin"
                 ].map((example) => (
                   <Button
                     key={example}
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => setSearchQuery(example)}
-                    color="#2E7A73"
-                    bg="transparent"
-                    border="1px solid"
-                    borderColor="transparent"
+                    borderColor="gray.200"
+                    color="gray.700"
+                    bg="white"
                     _hover={{ 
-                      bg: "#F8FDFC",
-                      borderColor: "#4ECDC4"
+                      borderColor: "#4ECDC4",
+                      color: "#2E7A73"
                     }}
-                    borderRadius="md"
-                    px={3}
-                    py={2}
+                    borderRadius="lg"
+                    px={4}
+                    py={3}
                     h="auto"
                     whiteSpace="normal"
-                    textAlign="left"
                     fontSize="sm"
                     fontWeight="400"
                   >
