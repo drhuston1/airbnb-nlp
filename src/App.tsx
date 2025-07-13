@@ -1826,7 +1826,11 @@ function App() {
                             <HStack gap={1}>
                               <Icon as={MapPin} color="gray.400" w={3} h={3} />
                               <Link 
-                                href={`https://www.google.com/maps/search/${encodeURIComponent(listing.location.city + ', ' + listing.location.country)}`}
+                                href={`https://www.google.com/maps/search/${encodeURIComponent(
+                                  listing.location.country && listing.location.country !== 'Unknown' 
+                                    ? `${listing.location.city}, ${listing.location.country}`
+                                    : `${listing.location.city}, USA`
+                                )}`}
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 _hover={{ textDecoration: 'underline' }}
