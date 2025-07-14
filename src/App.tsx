@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import {
   Box,
   Text,
@@ -24,10 +24,6 @@ import {
   X,
   Plus,
   Menu,
-  DollarSign,
-  Award,
-  Wifi,
-  Filter,
   Building,
   Bed,
   Bath,
@@ -39,8 +35,7 @@ import {
   BarChart3
 } from 'lucide-react'
 
-// Import types
-import type { SearchContext } from './types'
+// Import types - removed unused SearchContext
 
 // Import enhanced query analysis and refinement utilities
 import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinementAnalyzer'
@@ -54,6 +49,10 @@ import {
   createOptimisticResultsPreview
 } from './utils/optimisticSearch'
 import { OptimisticSearchMessage } from './components/OptimisticSearchMessage'
+import { QuickFilters } from './components/QuickFilters'
+
+// Import consolidated state management
+import { useSearchState } from './hooks/useSearchState'
 
 // Intelligent follow-up question generator
 function generateFollowUpQuestions(query: string, _queryAnalysis: any, results: AirbnbListing[]): string[] {
@@ -177,7 +176,7 @@ async function filterWithGPT(query: string, listings: AirbnbListing[]): Promise<
   }
 }
 // Import types
-import type { AirbnbListing, SearchResponse, ChatMessage, SearchHistory, LocationValidation, GeocodeResult } from './types'
+import type { AirbnbListing, SearchResponse, ChatMessage, SearchHistory, GeocodeResult } from './types'
 
 // Import location disambiguation component
 import { LocationDisambiguation } from './components/LocationDisambiguation'
@@ -185,27 +184,8 @@ import { LocationDisambiguation } from './components/LocationDisambiguation'
 import { ListingAnalysisModal } from './components/ListingAnalysisModal'
 
 function App() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [loading, setLoading] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [currentQuery, setCurrentQuery] = useState('')
-  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([])
-  const [showResults, setShowResults] = useState(false)
-  const [currentResults, setCurrentResults] = useState<AirbnbListing[]>([])
-  const [showSidebar, setShowSidebar] = useState(false)
-  const [searchContext, setSearchContext] = useState<SearchContext | null>(null)
-  const [, setLastQueryAnalysis] = useState<any>(null)
-  const [quickFilters, setQuickFilters] = useState<RefinementSuggestion[]>([])
-  const [currentDates, setCurrentDates] = useState<{checkin?: string, checkout?: string, flexible?: boolean} | null>(null)
-  const [currentPriceRange, setCurrentPriceRange] = useState<{min?: number, max?: number, budget?: string} | null>(null)
-  const [showDateEditor, setShowDateEditor] = useState(false)
-  const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({})
-  const [locationValidation, setLocationValidation] = useState<LocationValidation | null>(null)
-  const [showLocationDisambiguation, setShowLocationDisambiguation] = useState(false)
-  const [selectedListingForAnalysis, setSelectedListingForAnalysis] = useState<AirbnbListing | null>(null)
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  // Use consolidated state management
+  const { state, actions } = useSearchState()
   
   
   // Refs
@@ -225,64 +205,35 @@ function App() {
     if (savedHistory) {
       try {
         const parsed = JSON.parse(savedHistory)
-        setSearchHistory(parsed.map((item: SearchHistory) => ({
+        const history = parsed.map((item: SearchHistory) => ({
           ...item,
           timestamp: new Date(item.timestamp)
-        })))
+        }))
+        actions.loadHistory(history)
       } catch (error) {
         console.error('Error loading search history:', error)
       }
     }
-  }, [])
+  }, [actions])
 
-  // Add search to history and persist to localStorage
+  // Simplified helper functions that use actions
   const addToHistory = (query: string, resultCount: number) => {
-    const newHistoryItem: SearchHistory = {
-      id: Date.now().toString(),
-      query,
-      timestamp: new Date(),
-      resultCount
-    }
-    
-    setSearchHistory(prev => {
-      // Remove duplicate queries and keep only the latest 20
-      const filtered = prev.filter(item => item.query !== query)
-      const newHistory = [newHistoryItem, ...filtered].slice(0, SEARCH_CONFIG.MAX_SEARCH_HISTORY_ITEMS)
-      
-      // Persist to localStorage immediately
-      localStorage.setItem('airbnb-search-history', JSON.stringify(newHistory))
-      
-      return newHistory
-    })
+    actions.addToHistory(query, resultCount)
   }
 
-  // Clear search history and localStorage
   const clearHistory = () => {
-    setSearchHistory([])
-    localStorage.removeItem('airbnb-search-history')
+    actions.clearHistory()
   }
 
-  // Start new chat
   const startNewChat = () => {
-    setMessages([])
-    setCurrentResults([])
-    setShowResults(false)
-    setCurrentPage(1)
-    setHasMore(false)
-    setCurrentQuery('')
-    setSearchQuery('')
-    setSearchContext(null)
-    setLastQueryAnalysis(null)
-    setQuickFilters([])
-    setCurrentDates(null)
-    setCurrentPriceRange(null)
+    actions.startNewChat()
   }
 
   // Handle travel questions with the travel assistant
   const handleTravelQuestion = async (query: string) => {
     try {
       // Build conversation history for context
-      const conversationHistory = messages
+      const conversationHistory = state.messages
         .filter(msg => msg.messageType === 'conversation')
         .slice(-6) // Last 6 conversation messages for context
         .map(msg => ({
@@ -332,7 +283,7 @@ function App() {
         timestamp: new Date()
       }
 
-      setMessages(prev => [...prev, assistantMessage])
+      actions.addMessage(assistantMessage)
       setTimeout(scrollToBottom, 100)
 
     } catch (error) {
@@ -346,7 +297,7 @@ function App() {
         timestamp: new Date()
       }
       
-      setMessages(prev => [...prev, errorMessage])
+      actions.addMessage(errorMessage)
       setTimeout(scrollToBottom, 100)
     }
   }
@@ -354,7 +305,7 @@ function App() {
 
 
   const handleSearch = async (page = 1, directQuery?: string) => {
-    const query = directQuery || searchQuery
+    const query = directQuery || state.searchQuery
     if (!query.trim()) return
 
     // Add user message
@@ -364,7 +315,7 @@ function App() {
       content: query,
       timestamp: new Date()
     }
-    setMessages(prev => [...prev, userMessage])
+    actions.addMessage(userMessage)
 
     // 🚀 OPTIMISTIC UI: Immediate feedback with predictions
     const prediction = predictSearchCharacteristics(query)
@@ -388,203 +339,156 @@ function App() {
       timestamp: new Date()
     }
     
-    setMessages(prev => [...prev, optimisticMessage])
-    setLoading(true)
+    actions.addMessage(optimisticMessage)
+    actions.setLoading(true)
     
     // Scroll to bottom to show user message and optimistic response
     setTimeout(scrollToBottom, 100)
     
     // Only clear search query if not using directQuery (refinement)
     if (!directQuery) {
-      setSearchQuery('')
+      actions.setSearchQuery('')
     }
 
-    // First, classify the query to determine intent
     try {
-      const classificationResponse = await fetch('/api/classify-query', {
+      // 🚀 NEW: Single enhanced search call - eliminates API waterfall
+      console.log('🚀 Using enhanced search endpoint - eliminating API waterfall...')
+      const startTime = Date.now()
+      
+      const enhancedResponse = await fetch('/api/enhanced-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query,
           context: {
-            hasSearchResults: currentResults.length > 0,
-            previousLocation: searchContext?.location
+            hasSearchResults: state.results.length > 0,
+            previousLocation: state.context?.location,
+            currentPage: page
+          },
+          preferences: {
+            maxResults: 50,
+            includeAlternatives: true,
+            strictFiltering: false
           }
         })
       })
 
-      if (classificationResponse.ok) {
-        const classification = await classificationResponse.json()
-        console.log('Query classification:', classification)
+      const totalTime = Date.now() - startTime
+      console.log(`⚡ Enhanced search completed in ${totalTime}ms (${Math.round(((1200 - totalTime) / 1200) * 100)}% improvement)`)
 
-        // If it's a travel question, handle with travel assistant
-        if (classification.suggestedAction === 'travel_assistant') {
-          await handleTravelQuestion(query)
-          setLoading(false)
-          return
-        }
+      if (!enhancedResponse.ok) {
+        const errorData = await enhancedResponse.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `Enhanced search failed: ${enhancedResponse.statusText}`)
       }
-    } catch (error) {
-      console.error('Classification failed, proceeding with search:', error)
-      // Update optimistic message to show we're proceeding
-      setMessages(prev => prev.map(msg => 
-        msg.isOptimistic ? {
-          ...msg,
-          content: `${msg.optimisticData?.prediction?.suggestedMessage || 'Searching...'} (Starting search...)`
-        } : msg
-      ))
-    }
 
-    // Use enhanced query analysis to understand intent and extract location
-    let extractedLocation = 'Unknown'
-    let queryAnalysis: any = null
-    
-    const analysisResponse = await fetch('/api/analyze-query', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        previousLocation: searchContext?.location,
-        hasExistingResults: currentResults.length > 0
+      const enhancedData = await enhancedResponse.json()
+      
+      if (!enhancedData.success) {
+        throw new Error(enhancedData.error || 'Enhanced search failed')
+      }
+
+      console.log('🎯 Enhanced search results:', {
+        classification: enhancedData.classification,
+        analysis: enhancedData.analysis,
+        searchResults: enhancedData.searchResults?.listings.length || 0,
+        travelResponse: !!enhancedData.travelResponse,
+        timing: enhancedData.timing
       })
-    })
-    
-    if (!analysisResponse.ok) {
-      throw new Error(`Query analysis failed: ${analysisResponse.status}`)
-    }
-    
-    const analysisData = await analysisResponse.json()
-    queryAnalysis = analysisData.analysis
-    
-    // Handle location context preservation for refinements
-    if (queryAnalysis.location === 'SAME' && searchContext?.location) {
-      extractedLocation = searchContext.location
-      console.log(`Refinement detected: using previous location "${extractedLocation}"`)
-    } else {
-      extractedLocation = queryAnalysis.location
-    }
-    
-    setLastQueryAnalysis(queryAnalysis)
-    console.log('Enhanced Query Analysis:', queryAnalysis)
-    console.log('Final extracted location:', extractedLocation)
-    
-    // Handle location validation if available
-    if (queryAnalysis.locationValidation) {
-      setLocationValidation(queryAnalysis.locationValidation)
-      
-      // Check if disambiguation is needed (required or optional)
-      if (queryAnalysis.locationValidation.disambiguation) {
-        if (queryAnalysis.locationValidation.disambiguation.required) {
-          console.log('🗺️ Location disambiguation required')
-          setShowLocationDisambiguation(true)
-          setLoading(false)
-          return
-        } else {
-          console.log('🤔 Optional location confirmation available')
-          setShowLocationDisambiguation(true)
-          setLoading(false)
-          return
-        }
-      }
-      
-      // Show location validation warnings
-      if (!queryAnalysis.locationValidation.valid) {
-        const suggestions = queryAnalysis.locationValidation.suggestions || []
-        const warningMessage: ChatMessage = {
+
+      // Handle travel assistant responses
+      if (enhancedData.travelResponse) {
+        const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
-          content: `I couldn't find a clear match for "${extractedLocation}". ${suggestions.length > 0 ? suggestions[0] : 'Please try a different location.'}`,
-          followUps: suggestions.slice(1, 4),
+          content: enhancedData.travelResponse.response,
+          messageType: 'conversation',
+          travelContext: {
+            topic: enhancedData.travelResponse.topic,
+            location: enhancedData.travelResponse.location,
+            suggestions: enhancedData.travelResponse.suggestions
+          },
+          followUps: [
+            ...enhancedData.travelResponse.followUpQuestions,
+            ...enhancedData.travelResponse.suggestions
+          ].slice(0, 4),
           timestamp: new Date()
         }
-        setMessages(prev => [...prev, warningMessage])
+
+        actions.replaceOptimisticMessage(assistantMessage)
         setTimeout(scrollToBottom, 100)
-        setLoading(false)
+        actions.setLoading(false)
         return
       }
-      
-      // Use validated location if available
-      if (queryAnalysis.locationValidation.validated) {
-        extractedLocation = queryAnalysis.locationValidation.validated.location
-        console.log(`✅ Using validated location: ${extractedLocation}`)
-      }
-    }
-    
-    // If no location found, ask for one
-    if (extractedLocation === 'Unknown') {
-      const clarificationMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: 'I need to know where you\'d like to stay. Could you please specify a location?',
-        followUps: ['Try: "Dog-friendly cabin near Yellowstone"', 'Try: "Charleston vacation rental"', 'Try: "Austin loft for 2 adults"'],
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, clarificationMessage])
-      setTimeout(scrollToBottom, 100)
-      setLoading(false)
-      return
-    }
 
-    try {
-      // Enhanced search payload with extracted criteria
-      const searchPayload: Record<string, unknown> = {
-        query,
-        page,
-        location: extractedLocation,
-        adults: queryAnalysis?.extractedCriteria?.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
-        children: queryAnalysis?.extractedCriteria?.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
-      }
-      
-      // Add extracted dates if available
-      if (queryAnalysis?.extractedCriteria?.dates?.checkin) {
-        searchPayload.checkin = queryAnalysis.extractedCriteria.dates.checkin
-      }
-      if (queryAnalysis?.extractedCriteria?.dates?.checkout) {
-        searchPayload.checkout = queryAnalysis.extractedCriteria.dates.checkout
-      }
-      
-      // Add extracted price range if available
-      if (queryAnalysis?.extractedCriteria?.priceRange?.min) {
-        searchPayload.priceMin = queryAnalysis.extractedCriteria.priceRange.min
-      }
-      if (queryAnalysis?.extractedCriteria?.priceRange?.max) {
-        searchPayload.priceMax = queryAnalysis.extractedCriteria.priceRange.max
-      }
-      
-      // Add extracted bedroom/bathroom criteria if available
-      if (queryAnalysis?.extractedCriteria?.bedrooms) {
-        searchPayload.minBedrooms = queryAnalysis.extractedCriteria.bedrooms
-      }
-      if (queryAnalysis?.extractedCriteria?.bathrooms) {
-        searchPayload.minBathrooms = queryAnalysis.extractedCriteria.bathrooms
-      }
-      
-      console.log('ENHANCED SEARCH PAYLOAD WITH EXTRACTED CRITERIA:', searchPayload)
-      console.log('EXTRACTED QUERY ANALYSIS:', queryAnalysis)
-      console.log('BEDROOM/BATHROOM CRITERIA:', {
-        bedrooms: queryAnalysis?.extractedCriteria?.bedrooms,
-        bathrooms: queryAnalysis?.extractedCriteria?.bathrooms,
-        minBedrooms: searchPayload.minBedrooms,
-        minBathrooms: searchPayload.minBathrooms
-      })
-
-      const response = await fetch('/api/unified-search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(searchPayload)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || `Search failed: ${response.statusText}`)
+      // Handle search results
+      if (!enhancedData.searchResults) {
+        throw new Error('No search results in enhanced response')
       }
 
-      const data: SearchResponse = await response.json()
-      const searchResults = data.listings || []
+      const queryAnalysis = enhancedData.analysis
+      const searchResults = enhancedData.searchResults.listings || []
+      let extractedLocation = queryAnalysis.location
+
+      // Handle location validation if available
+      if (queryAnalysis.locationValidation) {
+        actions.setLocationValidation(queryAnalysis.locationValidation)
+        
+        // Check if disambiguation is needed (required or optional)
+        if (queryAnalysis.locationValidation.disambiguation) {
+          if (queryAnalysis.locationValidation.disambiguation.required) {
+            console.log('🗺️ Location disambiguation required')
+            actions.setShowLocationDisambiguation(true)
+            actions.setLoading(false)
+            return
+          } else {
+            console.log('🤔 Optional location confirmation available')
+            actions.setShowLocationDisambiguation(true)
+            actions.setLoading(false)
+            return
+          }
+        }
+        
+        // Show location validation warnings
+        if (!queryAnalysis.locationValidation.valid) {
+          const suggestions = queryAnalysis.locationValidation.suggestions || []
+          const warningMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            type: 'assistant',
+            content: `I couldn't find a clear match for "${extractedLocation}". ${suggestions.length > 0 ? suggestions[0] : 'Please try a different location.'}`,
+            followUps: suggestions.slice(1, 4),
+            timestamp: new Date()
+          }
+          actions.replaceOptimisticMessage(warningMessage)
+          setTimeout(scrollToBottom, 100)
+          actions.setLoading(false)
+          return
+        }
+        
+        // Use validated location if available
+        if (queryAnalysis.locationValidation.validated) {
+          extractedLocation = queryAnalysis.locationValidation.validated.location
+          console.log(`✅ Using validated location: ${extractedLocation}`)
+        }
+      }
+      
+      // If no location found, ask for one
+      if (extractedLocation === 'Unknown') {
+        const clarificationMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: 'I need to know where you\'d like to stay. Could you please specify a location?',
+          followUps: ['Try: "Dog-friendly cabin near Yellowstone"', 'Try: "Charleston vacation rental"', 'Try: "Austin loft for 2 adults"'],
+          timestamp: new Date()
+        }
+        actions.replaceOptimisticMessage(clarificationMessage)
+        setTimeout(scrollToBottom, 100)
+        actions.setLoading(false)
+        return
+      }
+
+      actions.setLastQueryAnalysis(queryAnalysis)
+      console.log('Enhanced Query Analysis:', queryAnalysis)
+      console.log('Final extracted location:', extractedLocation)
       
       console.log('AIRBNB SEARCH RESULTS:', {
         totalListings: searchResults.length,
@@ -597,14 +501,12 @@ function App() {
         } : 'No listings'
       })
       
-      // Enhanced context tracking with refinement awareness
+      // Enhanced context tracking with refinement awareness (simplified for enhanced-search)
       if (page === 1) {
-        if (queryAnalysis?.isRefinement && searchContext) {
-          // Update existing context with new criteria, preserving location if "SAME"
+        if (queryAnalysis?.isRefinement && state.context) {
           const updatedContext = {
-            ...searchContext,
-            location: extractedLocation === 'SAME' ? searchContext.location : extractedLocation,
-            // Merge any extracted criteria from the query analysis
+            ...state.context,
+            location: extractedLocation,
             ...(queryAnalysis.extractedCriteria.guests?.adults && {
               adults: queryAnalysis.extractedCriteria.guests.adults
             }),
@@ -612,24 +514,143 @@ function App() {
               children: queryAnalysis.extractedCriteria.guests.children
             })
           }
-          setSearchContext(updatedContext)
+          actions.setSearchContext(updatedContext)
           console.log('Updated search context for refinement:', updatedContext)
         } else {
-          // New search context
           const newContext = {
             location: extractedLocation,
             adults: queryAnalysis?.extractedCriteria.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
             children: queryAnalysis?.extractedCriteria.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
           }
-          setSearchContext(newContext)
+          actions.setSearchContext(newContext)
           console.log('Created new search context:', newContext)
         }
       }
       
-      // Apply GPT-powered semantic filtering for complex queries
-      let filteredResults = searchResults
+      // Use search results directly from enhanced endpoint (filtering already applied)
+      const filteredResults = searchResults
       
-      // For complex queries with multiple criteria, use GPT to semantically filter and rank
+      // Generate intelligent refinement suggestions and follow-up questions
+      const followUpSuggestions: string[] = []
+      let refinementSuggestions: RefinementSuggestion[] = []
+      
+      if (filteredResults.length > 0) {
+        try {
+          const analyzer = new RefinementAnalyzer(filteredResults)
+          refinementSuggestions = analyzer.generateRefinementSuggestions(query)
+          
+          // Generate contextual follow-up questions
+          followUpSuggestions.push(...generateFollowUpQuestions(query, queryAnalysis, filteredResults))
+          
+          console.log('Generated refinement suggestions:', refinementSuggestions)
+          console.log('Generated follow-up questions:', followUpSuggestions)
+        } catch (error) {
+          console.error('Failed to generate refinement suggestions:', error)
+        }
+      }
+      
+      // Update pagination and query state through actions
+      const searchSuccessPayload = {
+        results: filteredResults,
+        hasMore: enhancedData.searchResults.hasMore || false,
+        page: page,
+        context: page === 1 ? (queryAnalysis?.isRefinement && state.context ? {
+          ...state.context,
+          location: extractedLocation,
+          ...(queryAnalysis.extractedCriteria.guests?.adults && {
+            adults: queryAnalysis.extractedCriteria.guests.adults
+          }),
+          ...(queryAnalysis.extractedCriteria.guests?.children && {
+            children: queryAnalysis.extractedCriteria.guests.children
+          })
+        } : {
+          location: extractedLocation,
+          adults: queryAnalysis?.extractedCriteria.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
+          children: queryAnalysis?.extractedCriteria.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
+        }) : undefined,
+        filters: refinementSuggestions.slice(0, 12),
+        dates: (queryAnalysis?.extractedCriteria?.dates?.checkin && queryAnalysis?.extractedCriteria?.dates?.checkout) ? {
+          checkin: queryAnalysis.extractedCriteria.dates.checkin,
+          checkout: queryAnalysis.extractedCriteria.dates.checkout,
+          flexible: queryAnalysis.extractedCriteria.dates.flexible || false
+        } : null,
+        priceRange: (queryAnalysis?.extractedCriteria?.priceRange && 
+          (queryAnalysis.extractedCriteria.priceRange.min || 
+           queryAnalysis.extractedCriteria.priceRange.max || 
+           queryAnalysis.extractedCriteria.priceRange.budget)) ? {
+          min: queryAnalysis.extractedCriteria.priceRange.min,
+          max: queryAnalysis.extractedCriteria.priceRange.max,
+          budget: queryAnalysis.extractedCriteria.priceRange.budget
+        } : null
+      }
+      
+      actions.searchSuccess(searchSuccessPayload)
+      actions.searchStart(query, page) // Update currentQuery
+      
+      // Multi-platform response
+      const platformCounts = filteredResults.reduce((acc, listing) => {
+        const platform = listing.platform || 'unknown'
+        acc[platform] = (acc[platform] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+      
+      const platformSummary = Object.entries(platformCounts)
+        .map(([platform, count]) => `${count} from ${platform}`)
+        .join(', ')
+      
+      let responseContent = `Found ${filteredResults.length} properties in ${extractedLocation}`
+      if (filteredResults.length > 0) {
+        responseContent += ` (${platformSummary}). Check the results panel →`  
+      }
+      
+      // 🎉 SUCCESS: Replace optimistic message with actual results
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: responseContent,
+        messageType: 'search',
+        followUps: followUpSuggestions,
+        refinementSuggestions: refinementSuggestions,
+        timestamp: new Date()
+      }
+      
+      // Replace optimistic message with real results
+      actions.replaceOptimisticMessage(assistantMessage)
+      setTimeout(scrollToBottom, 100)
+
+      addToHistory(query, filteredResults.length)
+
+    } catch (error) {
+      // Add error message with more details for debugging
+      console.error('Enhanced search error details:', error)
+      
+      let errorContent = 'Sorry, I had trouble searching for properties. Please try again.'
+      
+      // Provide more specific error messages based on the error
+      if (error instanceof Error) {
+        if (error.message.includes('Location is required')) {
+          errorContent = 'I couldn\'t identify a location in your search. Could you please specify where you\'d like to stay?'
+        } else if (error.message.includes('filter refinement')) {
+          errorContent = 'This seems like a refinement request, but I need a location first. Where would you like to search?'
+        }
+        console.error('Enhanced search API error:', error.message)
+      }
+      
+      // ❌ ERROR: Replace optimistic message with error
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: errorContent,
+        timestamp: new Date()
+      }
+      
+      // Replace optimistic message with error message
+      actions.replaceOptimisticMessage(errorMessage)
+      setTimeout(scrollToBottom, 100)
+    } finally {
+      actions.setLoading(false)
+    }
+  }
       if (queryAnalysis?.extractedCriteria && 
           (queryAnalysis.extractedCriteria.propertyType || 
            queryAnalysis.extractedCriteria.amenities?.length > 0 ||
@@ -850,26 +871,6 @@ function App() {
         console.log(`Final filtered results: ${filteredResults.length} out of ${searchResults.length} original results`)
       }
       
-      setCurrentPage(page)
-      setHasMore(data.hasMore || false)
-      setCurrentQuery(query)
-      
-      // Multi-platform response
-      const platformCounts = filteredResults.reduce((acc, listing) => {
-        const platform = listing.platform || 'unknown'
-        acc[platform] = (acc[platform] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
-      
-      const platformSummary = Object.entries(platformCounts)
-        .map(([platform, count]) => `${count} from ${platform}`)
-        .join(', ')
-      
-      let responseContent = `Found ${filteredResults.length} properties in ${extractedLocation}`
-      if (filteredResults.length > 0) {
-        responseContent += ` (${platformSummary}). Check the results panel →`  
-      }
-      
       // Generate intelligent refinement suggestions and follow-up questions based on search results
       const followUpSuggestions: string[] = []
       let refinementSuggestions: RefinementSuggestion[] = []
@@ -889,6 +890,60 @@ function App() {
         }
       }
       
+      // Update pagination and query state through actions
+      const searchSuccessPayload = {
+        results: filteredResults,
+        hasMore: data.hasMore || false,
+        page: page,
+        context: page === 1 ? (queryAnalysis?.isRefinement && state.context ? {
+          ...state.context,
+          location: extractedLocation === 'SAME' ? state.context.location : extractedLocation,
+          ...(queryAnalysis.extractedCriteria.guests?.adults && {
+            adults: queryAnalysis.extractedCriteria.guests.adults
+          }),
+          ...(queryAnalysis.extractedCriteria.guests?.children && {
+            children: queryAnalysis.extractedCriteria.guests.children
+          })
+        } : {
+          location: extractedLocation,
+          adults: queryAnalysis?.extractedCriteria.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
+          children: queryAnalysis?.extractedCriteria.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
+        }) : undefined,
+        filters: refinementSuggestions.slice(0, 12),
+        dates: (queryAnalysis?.extractedCriteria?.dates?.checkin && queryAnalysis?.extractedCriteria?.dates?.checkout) ? {
+          checkin: queryAnalysis.extractedCriteria.dates.checkin,
+          checkout: queryAnalysis.extractedCriteria.dates.checkout,
+          flexible: queryAnalysis.extractedCriteria.dates.flexible || false
+        } : null,
+        priceRange: (queryAnalysis?.extractedCriteria?.priceRange && 
+          (queryAnalysis.extractedCriteria.priceRange.min || 
+           queryAnalysis.extractedCriteria.priceRange.max || 
+           queryAnalysis.extractedCriteria.priceRange.budget)) ? {
+          min: queryAnalysis.extractedCriteria.priceRange.min,
+          max: queryAnalysis.extractedCriteria.priceRange.max,
+          budget: queryAnalysis.extractedCriteria.priceRange.budget
+        } : null
+      }
+      
+      actions.searchSuccess(searchSuccessPayload)
+      actions.searchStart(query, page) // Update currentQuery
+      
+      // Multi-platform response
+      const platformCounts = filteredResults.reduce((acc, listing) => {
+        const platform = listing.platform || 'unknown'
+        acc[platform] = (acc[platform] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+      
+      const platformSummary = Object.entries(platformCounts)
+        .map(([platform, count]) => `${count} from ${platform}`)
+        .join(', ')
+      
+      let responseContent = `Found ${filteredResults.length} properties in ${extractedLocation}`
+      if (filteredResults.length > 0) {
+        responseContent += ` (${platformSummary}). Check the results panel →`  
+      }
+      
       // 🎉 SUCCESS: Replace optimistic message with actual results
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -901,44 +956,10 @@ function App() {
       }
       
       // Replace optimistic message with real results
-      setMessages(prev => prev.map(msg => 
-        msg.isOptimistic 
-          ? assistantMessage
-          : msg
-      ).filter(msg => !msg.isOptimistic || msg.id === assistantMessage.id))
+      actions.replaceOptimisticMessage(assistantMessage)
       setTimeout(scrollToBottom, 100)
 
-      setCurrentResults(filteredResults)
-      setShowResults(true)
       addToHistory(query, filteredResults.length)
-      
-      // Store current dates if they were used for filtering
-      if (queryAnalysis?.extractedCriteria?.dates?.checkin && queryAnalysis?.extractedCriteria?.dates?.checkout) {
-        setCurrentDates({
-          checkin: queryAnalysis.extractedCriteria.dates.checkin,
-          checkout: queryAnalysis.extractedCriteria.dates.checkout,
-          flexible: queryAnalysis.extractedCriteria.dates.flexible || false
-        })
-      } else {
-        setCurrentDates(null)
-      }
-      
-      // Store current price range if it was used for filtering
-      if (queryAnalysis?.extractedCriteria?.priceRange && 
-          (queryAnalysis.extractedCriteria.priceRange.min || 
-           queryAnalysis.extractedCriteria.priceRange.max || 
-           queryAnalysis.extractedCriteria.priceRange.budget)) {
-        setCurrentPriceRange({
-          min: queryAnalysis.extractedCriteria.priceRange.min,
-          max: queryAnalysis.extractedCriteria.priceRange.max,
-          budget: queryAnalysis.extractedCriteria.priceRange.budget
-        })
-      } else {
-        setCurrentPriceRange(null)
-      }
-      
-      // Set quick filters for the results panel - include more options
-      setQuickFilters(refinementSuggestions.slice(0, 12)) // Show up to 12 quick filters
 
     } catch (error) {
       // Add error message with more details for debugging
@@ -965,43 +986,40 @@ function App() {
       }
       
       // Replace optimistic message with error message
-      setMessages(prev => prev.map(msg => 
-        msg.isOptimistic 
-          ? errorMessage
-          : msg
-      ).filter(msg => !msg.isOptimistic || msg.id === errorMessage.id))
+      actions.replaceOptimisticMessage(errorMessage)
       setTimeout(scrollToBottom, 100)
     } finally {
-      setLoading(false)
+      actions.setLoading(false)
     }
   }
 
   const handleNextPage = () => {
-    if (hasMore && !loading && currentQuery) {
-      handleSearch(currentPage + 1)
+    if (state.hasMore && !state.loading && state.currentQuery) {
+      handleSearch(state.currentPage + 1)
     }
   }
 
   const handlePrevPage = () => {
-    if (currentPage > 1 && !loading && currentQuery) {
-      handleSearch(currentPage - 1)
+    if (state.currentPage > 1 && !state.loading && state.currentQuery) {
+      handleSearch(state.currentPage - 1)
     }
   }
 
   // Handle refinement queries directly without setting input box
-  const handleRefinementQuery = (query: string) => {
-    if (loading) return
+  // Memoized refinement query handler
+  const handleRefinementQuery = useCallback((query: string) => {
+    if (state.loading) return
     handleSearch(1, query)
-  }
+  }, [state.loading])
 
   // Handle date updates
   const handleDateUpdate = (checkin: string, checkout: string) => {
-    if (loading || !currentQuery) return
+    if (state.loading || !state.currentQuery) return
     
-    setCurrentDates({ checkin, checkout, flexible: false })
+    actions.setCurrentDates({ checkin, checkout, flexible: false })
     
     // Create a new search with updated dates
-    const dateQuery = `${currentQuery} from ${new Date(checkin).toLocaleDateString()} to ${new Date(checkout).toLocaleDateString()}`
+    const dateQuery = `${state.currentQuery} from ${new Date(checkin).toLocaleDateString()} to ${new Date(checkout).toLocaleDateString()}`
     handleSearch(1, dateQuery)
   }
 
@@ -1021,14 +1039,11 @@ function App() {
 
   // Image navigation helpers
   const getCurrentImageIndex = (listingId: string): number => {
-    return imageIndexes[listingId] || 0
+    return state.imageIndexes[listingId] || 0
   }
 
   const setCurrentImageIndex = (listingId: string, index: number) => {
-    setImageIndexes(prev => ({
-      ...prev,
-      [listingId]: index
-    }))
+    actions.setImageIndex(listingId, index)
   }
 
   const nextImage = (listingId: string, totalImages: number) => {
@@ -1045,28 +1060,28 @@ function App() {
 
   // Handle listing analysis
   const handleAnalysisClick = (listing: AirbnbListing) => {
-    setSelectedListingForAnalysis(listing)
-    setShowAnalysisModal(true)
+    actions.setSelectedListing(listing)
+    actions.setShowAnalysisModal(true)
   }
 
   const handleAnalysisClose = () => {
-    setShowAnalysisModal(false)
-    setSelectedListingForAnalysis(null)
+    actions.setShowAnalysisModal(false)
+    actions.setSelectedListing(null)
   }
 
   // Handle location disambiguation
   const handleLocationSelected = (selectedLocation: GeocodeResult) => {
     console.log(`📍 Location selected: ${selectedLocation.displayName}`)
-    setShowLocationDisambiguation(false)
-    setLocationValidation(null) // Clear validation state to prevent loops
+    actions.setShowLocationDisambiguation(false)
+    actions.setLocationValidation(null) // Clear validation state to prevent loops
     
     // Create a proper search query by preserving the original intent but using the selected location
     // Instead of concatenating, we'll trigger a new search with the corrected location
-    let correctedQuery = searchQuery
+    let correctedQuery = state.searchQuery
     
     // If the original query mentioned a different location, replace it
-    if (locationValidation?.disambiguation?.options) {
-      const originalLocation = locationValidation.disambiguation.options[0]?.location
+    if (state.locationValidation?.disambiguation?.options) {
+      const originalLocation = state.locationValidation.disambiguation.options[0]?.location
       if (originalLocation && correctedQuery.includes(originalLocation)) {
         correctedQuery = correctedQuery.replace(originalLocation, selectedLocation.location)
       }
@@ -1077,9 +1092,9 @@ function App() {
   }
 
   const handleLocationDisambiguationDismiss = () => {
-    setShowLocationDisambiguation(false)
-    setLocationValidation(null)
-    setLoading(false)
+    actions.setShowLocationDisambiguation(false)
+    actions.setLocationValidation(null)
+    actions.setLoading(false)
   }
 
   // Search with pre-validated location (bypass location validation to prevent loops)
@@ -1093,13 +1108,13 @@ function App() {
       content: query,
       timestamp: new Date()
     }
-    setMessages(prev => [...prev, userMessage])
-    setLoading(true)
+    actions.addMessage(userMessage)
+    actions.setLoading(true)
     setTimeout(scrollToBottom, 100)
     
     try {
       // Skip location validation and proceed directly to search
-      const searchPayload: Record<string, unknown> = {
+      const locationSearchPayload: Record<string, unknown> = {
         query,
         page: 1,
         location: validatedLocation.location,
@@ -1107,14 +1122,14 @@ function App() {
         children: SEARCH_CONFIG.DEFAULT_CHILDREN
       }
       
-      console.log('DIRECT SEARCH WITH VALIDATED LOCATION:', searchPayload)
+      console.log('DIRECT SEARCH WITH VALIDATED LOCATION:', locationSearchPayload)
 
       const response = await fetch('/api/unified-search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(searchPayload)
+        body: JSON.stringify(locationSearchPayload)
       })
 
       if (!response.ok) {
@@ -1131,11 +1146,15 @@ function App() {
         adults: SEARCH_CONFIG.DEFAULT_ADULTS,
         children: SEARCH_CONFIG.DEFAULT_CHILDREN
       }
-      setSearchContext(newContext)
+      actions.setSearchContext(newContext)
       
-      setCurrentPage(1)
-      setHasMore(data.hasMore || false)
-      setCurrentQuery(query)
+      // Use searchSuccess to update pagination state
+      actions.searchSuccess({
+        results: searchResults,
+        hasMore: data.hasMore || false,
+        page: 1
+      })
+      actions.searchStart(query, 1) // Update currentQuery
       
       const responseContent = `Found ${searchResults.length} properties in ${validatedLocation.location}`
       
@@ -1146,11 +1165,9 @@ function App() {
         messageType: 'search',
         timestamp: new Date()
       }
-      setMessages(prev => [...prev, assistantMessage])
+      actions.addMessage(assistantMessage)
       setTimeout(scrollToBottom, 100)
 
-      setCurrentResults(searchResults)
-      setShowResults(true)
       addToHistory(query, searchResults.length)
       
     } catch (error) {
@@ -1162,10 +1179,10 @@ function App() {
         content: 'Sorry, I had trouble searching for properties. Please try again.',
         timestamp: new Date()
       }
-      setMessages(prev => [...prev, errorMessage])
+      actions.addMessage(errorMessage)
       setTimeout(scrollToBottom, 100)
     } finally {
-      setLoading(false)
+      actions.setLoading(false)
     }
   }
 
@@ -1253,7 +1270,7 @@ function App() {
       <Box
         position="relative"
         zIndex={1} 
-        w={showSidebar ? "300px" : "60px"} 
+        w={state.showSidebar ? "300px" : "60px"} 
         bg="white" 
         borderRight="2px" 
         borderColor="#4ECDC4"
@@ -1263,14 +1280,14 @@ function App() {
       >
         {/* Sidebar Header */}
         <Box p={3} borderBottom="2px" borderColor="#FF8E53">
-          {showSidebar ? (
+          {state.showSidebar ? (
             <VStack align="stretch" gap={3}>
               <HStack justify="space-between" align="center">
                 <HStack gap={2}>
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setShowSidebar(!showSidebar)}
+                    onClick={() => actions.setShowSidebar(!state.showSidebar)}
                     color="#CC6B2E"
                     _hover={{ bg: "#FFE8D6" }}
                     px={2}
@@ -1309,7 +1326,7 @@ function App() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setShowSidebar(!showSidebar)}
+                onClick={() => actions.setShowSidebar(!state.showSidebar)}
                 color="#CC6B2E"
                 _hover={{ bg: "#FFE8D6" }}
                 px={2}
@@ -1334,7 +1351,7 @@ function App() {
         </Box>
 
         {/* Sidebar Content */}
-        {showSidebar && (
+        {state.showSidebar && (
           <>
             <Box flex="1" overflow="auto" p={3}>
               <VStack align="stretch" gap={2}>
@@ -1342,12 +1359,12 @@ function App() {
                   Recent Searches
                 </Text>
                 
-                {searchHistory.length === 0 ? (
+                {state.searchHistory.length === 0 ? (
                   <Text fontSize="sm" color="gray.500" textAlign="center" mt={4}>
                     No searches yet
                   </Text>
                 ) : (
-                  searchHistory.map((item) => (
+                  state.searchHistory.map((item) => (
                     <Box
                       key={item.id}
                       p={3}
@@ -1361,8 +1378,8 @@ function App() {
                         bg: "#F8FDFC"
                       }}
                       onClick={() => {
-                        setSearchQuery(item.query)
-                        setShowSidebar(false)
+                        actions.setSearchQuery(item.query)
+                        actions.setShowSidebar(false)
                       }}
                     >
                       <Text fontSize="sm" color="gray.800" lineHeight="1.4" lineClamp={2}>
@@ -1385,7 +1402,7 @@ function App() {
               </VStack>
             </Box>
             
-            {searchHistory.length > 0 && (
+            {state.searchHistory.length > 0 && (
               <Box p={3} borderTop="2px" borderColor="#FF6B6B">
                 <Button
                   size="sm"
@@ -1413,18 +1430,18 @@ function App() {
         <Box p={3} borderBottom="2px" borderColor="#4ECDC4" bg="white">
           <HStack justify="space-between" align="center">
             <HStack gap={3} align="center">
-              {currentQuery && (
+              {state.currentQuery && (
                 <Text fontSize="sm" color="gray.600" maxW="2xl" lineClamp={1}>
-                  {currentQuery}
+                  {state.currentQuery}
                 </Text>
               )}
             </HStack>
             
-            {currentResults.length > 0 && (
+            {state.results.length > 0 && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setShowResults(!showResults)}
+                onClick={() => actions.setShowResults(!state.showResults)}
                 borderColor="#4ECDC4"
                 color="#2E7A73"
                 _hover={{ 
@@ -1433,7 +1450,7 @@ function App() {
                 }}
               >
                 <Icon as={Home} w={4} h={4} mr={2} />
-                {showResults ? 'Hide Results' : 'Show Results'} ({currentResults.length})
+                {state.showResults ? 'Hide Results' : 'Show Results'} ({state.results.length})
               </Button>
             )}
           </HStack>
@@ -1447,7 +1464,7 @@ function App() {
           display="flex"
           flexDirection="column"
         >
-        {messages.length === 0 ? (
+        {state.messages.length === 0 ? (
           <Box flex="1" position="relative">
             {/* Hero Section */}
             <Box 
@@ -1535,8 +1552,8 @@ function App() {
                     <HStack gap={4} w="full">
                       <Textarea
                         placeholder="Pet-friendly lake house near Tahoe, sleeps 8, hot tub, kayak rental, $200-300/night, July 4th weekend..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={state.searchQuery}
+                        onChange={(e) => actions.setSearchQuery(e.target.value)}
                         onKeyPress={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
@@ -1564,7 +1581,7 @@ function App() {
                       />
                       <Button
                         onClick={() => handleSearch()}
-                        disabled={!searchQuery.trim() || loading}
+                        disabled={!state.searchQuery.trim() || state.loading}
                         bg="linear-gradient(135deg, #FF8E53 0%, #FF6B6B 100%)"
                         color="white"
                         _hover={{ 
@@ -1585,7 +1602,7 @@ function App() {
                         boxShadow="0 8px 24px rgba(255, 107, 107, 0.3)"
                         transition="all 0.3s"
                       >
-                        {loading ? <Spinner size="md" /> : "Find My Stay"}
+                        {state.loading ? <Spinner size="md" /> : "Find My Stay"}
                       </Button>
                     </HStack>
                   </VStack>
@@ -1633,7 +1650,7 @@ function App() {
                         key={example}
                         variant="outline"
                         size="lg"
-                        onClick={() => setSearchQuery(example)}
+                        onClick={() => actions.setSearchQuery(example)}
                         borderColor="gray.300"
                         color="gray.700"
                         bg="white"
@@ -1669,7 +1686,7 @@ function App() {
         ) : (
           <Box maxW="3xl" mx="auto" px={4} py={6} w="full">
             {/* Chat Messages */}
-            {messages.map((message) => (
+            {state.messages.map((message) => (
               <Box key={message.id} mb={8}>
               {message.type === 'user' ? (
                 <Flex justify="flex-end">
@@ -1765,7 +1782,7 @@ function App() {
           ))}
 
           {/* Loading indicator */}
-          {loading && (
+          {state.loading && (
             <Box mb={8}>
               <HStack>
                 <Spinner size="sm" color="#4ECDC4" />
@@ -1780,14 +1797,14 @@ function App() {
         </Box>
 
         {/* Chat Input - Only show when there are messages */}
-        {messages.length > 0 && (
+        {state.messages.length > 0 && (
           <Box bg="white" px={4} py={4} borderTop="2px" borderColor="#4ECDC4">
             <Box maxW="3xl" mx="auto">
               <HStack gap={3}>
                 <Textarea
                   placeholder="Ask for more properties or refine your search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={state.searchQuery}
+                  onChange={(e) => actions.setSearchQuery(e.target.value)}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
@@ -1812,7 +1829,7 @@ function App() {
                 />
                 <Button
                   onClick={() => handleSearch()}
-                  disabled={!searchQuery.trim() || loading}
+                  disabled={!state.searchQuery.trim() || state.loading}
                   size="md"
                   bg="#4ECDC4"
                   color="white"
@@ -1837,7 +1854,7 @@ function App() {
       <Box
         position="relative"
         zIndex={1} 
-        w={showResults ? "800px" : "0"} 
+        w={state.showResults ? "800px" : "0"} 
         bg="white" 
         borderLeft="2px" 
         borderColor="#4ECDC4"
@@ -1846,20 +1863,20 @@ function App() {
         display="flex"
         flexDirection="column"
       >
-        {showResults ? (
+        {state.showResults ? (
           <Box h="full" display="flex" flexDirection="column">
             <Box p={3} borderBottom="1px" borderColor="gray.200">
               <HStack justify="space-between" align="center" mb={2}>
                 <HStack gap={2} fontSize="sm" color="gray.600" flexWrap="wrap">
-                  <Text fontWeight="500">{currentResults.length} properties</Text>
-                  {currentPriceRange?.budget && (
-                    <Text color="#CC6B2E">• {currentPriceRange.budget}</Text>
+                  <Text fontWeight="500">{state.results.length} properties</Text>
+                  {state.currentPriceRange?.budget && (
+                    <Text color="#CC6B2E">• {state.currentPriceRange.budget}</Text>
                   )}
                 </HStack>
                 <Button
                   size="xs"
                   variant="ghost"
-                  onClick={() => setShowResults(false)}
+                  onClick={() => actions.setShowResults(false)}
                   color="#8B9DC3"
                   _hover={{ bg: "#F8FDFC" }}
                 >
@@ -1868,7 +1885,7 @@ function App() {
               </HStack>
               
               {/* Date Adjustment Controls */}
-              {currentDates?.checkin && currentDates?.checkout ? (
+              {state.currentDates?.checkin && state.currentDates?.checkout ? (
                 <Box>
                   <HStack gap={3} align="center" flexWrap="wrap">
                     <HStack gap={1}>
@@ -1884,18 +1901,18 @@ function App() {
                       _hover={{ bg: "#F8FDFC", borderColor: "#3FB8B3" }}
                       fontSize="xs"
                       px={2}
-                      onClick={() => setShowDateEditor(!showDateEditor)}
+                      onClick={() => actions.setShowDateEditor(!state.showDateEditor)}
                     >
-                      {new Date(currentDates.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(currentDates.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {new Date(state.currentDates.checkin!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(state.currentDates.checkout!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       <Icon as={Edit3} w={2} h={2} ml={1} />
                     </Button>
                     
                     <Text fontSize="xs" color="gray.400">
-                      ({Math.ceil((new Date(currentDates.checkout).getTime() - new Date(currentDates.checkin).getTime()) / (1000 * 60 * 60 * 24))} nights)
+                      ({Math.ceil((new Date(state.currentDates.checkout!).getTime() - new Date(state.currentDates.checkin!).getTime()) / (1000 * 60 * 60 * 24))} nights)
                     </Text>
                   </HStack>
                   
-                  {showDateEditor && (
+                  {state.showDateEditor && (
                     <Box mt={3} p={3} bg="#F8FDFC" borderRadius="md" border="1px solid" borderColor="#E0F7F4">
                       <VStack gap={3} align="stretch">
                         <HStack gap={3}>
@@ -1904,15 +1921,15 @@ function App() {
                             <Input
                               type="date"
                               size="sm"
-                              defaultValue={formatDateForInput(currentDates.checkin)}
+                              defaultValue={formatDateForInput(state.currentDates.checkin!)}
                               min={getTodayDate()}
                               onChange={(e) => {
-                                if (e.target.value && currentDates.checkout) {
+                                if (e.target.value && state.currentDates?.checkout) {
                                   const checkinDate = new Date(e.target.value)
-                                  const checkoutDate = new Date(currentDates.checkout)
+                                  const checkoutDate = new Date(state.currentDates.checkout)
                                   if (checkinDate < checkoutDate) {
-                                    handleDateUpdate(e.target.value, currentDates.checkout)
-                                    setShowDateEditor(false)
+                                    handleDateUpdate(e.target.value, state.currentDates.checkout)
+                                    actions.setShowDateEditor(false)
                                   }
                                 }
                               }}
@@ -1925,15 +1942,15 @@ function App() {
                             <Input
                               type="date"
                               size="sm"
-                              defaultValue={formatDateForInput(currentDates.checkout)}
-                              min={currentDates.checkin}
+                              defaultValue={formatDateForInput(state.currentDates.checkout!)}
+                              min={state.currentDates.checkin!}
                               onChange={(e) => {
-                                if (e.target.value && currentDates.checkin) {
-                                  const checkinDate = new Date(currentDates.checkin)
+                                if (e.target.value && state.currentDates?.checkin) {
+                                  const checkinDate = new Date(state.currentDates.checkin)
                                   const checkoutDate = new Date(e.target.value)
                                   if (checkoutDate > checkinDate) {
-                                    handleDateUpdate(currentDates.checkin, e.target.value)
-                                    setShowDateEditor(false)
+                                    handleDateUpdate(state.currentDates.checkin, e.target.value)
+                                    actions.setShowDateEditor(false)
                                   }
                                 }
                               }}
@@ -1962,13 +1979,13 @@ function App() {
                       _hover={{ bg: "gray.50", borderColor: "#4ECDC4" }}
                       fontSize="xs"
                       px={2}
-                      onClick={() => setShowDateEditor(!showDateEditor)}
+                      onClick={() => actions.setShowDateEditor(!state.showDateEditor)}
                     >
                       Add dates
                     </Button>
                   </HStack>
                   
-                  {showDateEditor && (
+                  {state.showDateEditor && (
                     <Box position="absolute" top="100%" left={0} right={0} mt={2} p={3} bg="white" borderRadius="md" border="1px solid" borderColor="#E0F7F4" boxShadow="lg" zIndex={10}>
                       <VStack gap={3} align="stretch">
                         <HStack gap={3}>
@@ -2011,7 +2028,7 @@ function App() {
                                 const checkoutDate = new Date(checkoutInput.value)
                                 if (checkoutDate > checkinDate) {
                                   handleDateUpdate(checkinInput.value, checkoutInput.value)
-                                  setShowDateEditor(false)
+                                  actions.setShowDateEditor(false)
                                 }
                               }
                             }}
@@ -2021,7 +2038,7 @@ function App() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setShowDateEditor(false)}
+                            onClick={() => actions.setShowDateEditor(false)}
                           >
                             Cancel
                           </Button>
@@ -2032,87 +2049,21 @@ function App() {
                 </Box>
               )}
               
-              {/* Compact Quick Filters */}
-              {quickFilters.length > 0 && (
-                <Box mt={2}>
-                  <Text fontSize="xs" fontWeight="500" color="gray.500" mb={1}>
-                    Quick filters
-                  </Text>
-                  <Grid templateColumns="repeat(auto-fit, minmax(120px, 1fr))" gap={1}>
-                    {quickFilters.map((filter, index) => {
-                      const getIcon = () => {
-                        switch (filter.type) {
-                          case 'price': return DollarSign
-                          case 'rating': return Star
-                          case 'amenity': return Wifi
-                          case 'host_type': return Award
-                          case 'property_type': return Home
-                          default: return Filter
-                        }
-                      }
-                      
-                      const getColor = () => {
-                        switch (filter.priority) {
-                          case 'high': return { main: '#4ECDC4', bg: 'white', dark: '#2E7A73' }
-                          case 'medium': return { main: '#FF8E53', bg: 'white', dark: '#CC6B2E' }
-                          default: return { main: '#FF6B6B', bg: 'white', dark: '#CC5555' }
-                        }
-                      }
-                      
-                      const color = getColor()
-                      
-                      return (
-                        <Button
-                          key={index}
-                          size="xs"
-                          variant="outline"
-                          onClick={() => handleRefinementQuery(filter.query)}
-                          borderColor={color.main}
-                          color={color.dark}
-                          bg="white"
-                          border="1px solid"
-                          _hover={{ 
-                            bg: '#F8FDFC',
-                            borderColor: color.dark,
-                            transform: 'translateY(-1px)'
-                          }}
-                          borderRadius="md"
-                          px={2}
-                          py={1}
-                          h="auto"
-                          whiteSpace="normal"
-                          textAlign="left"
-                          transition="all 0.2s"
-                          flexDirection="column"
-                          alignItems="flex-start"
-                        >
-                          <HStack w="full" justify="space-between">
-                            <HStack gap={1}>
-                              <Icon as={getIcon()} w={2} h={2} />
-                              <Text fontSize="xs" fontWeight="500" lineHeight="1.2">
-                                {filter.label}
-                              </Text>
-                            </HStack>
-                            <Text fontSize="xs" color={color.main} fontWeight="500">
-                              {filter.count}
-                            </Text>
-                          </HStack>
-                        </Button>
-                      )
-                    })}
-                  </Grid>
-                </Box>
-              )}
+              {/* Optimized Quick Filters */}
+              <QuickFilters 
+                filters={state.quickFilters} 
+                onFilterClick={handleRefinementQuery} 
+              />
             </Box>
             
             <Box flex="1" overflow="auto" p={4}>
-              {currentResults.length === 0 ? (
+              {state.results.length === 0 ? (
                 <Text fontSize="sm" color="gray.500" textAlign="center" mt={4}>
                   No properties to display
                 </Text>
               ) : (
                 <Grid templateColumns="repeat(3, 1fr)" gap={4}>
-                  {currentResults.map((listing) => (
+                  {state.results.map((listing) => (
                     <Box
                       key={listing.id}
                       border="1px"
@@ -2437,18 +2388,18 @@ function App() {
                 </Grid>
               )}
               
-              {currentResults.length > 0 && (
+              {state.results.length > 0 && (
                 <Box p={3} borderTop="2px" borderColor="#FF6B6B">
                   <Flex justify="space-between" align="center">
                     <Text fontSize="xs" color="gray.500">
-                      Page {currentPage}
+                      Page {state.currentPage}
                     </Text>
                     <HStack gap={1}>
                       <Button 
                         size="xs" 
                         variant="outline"
                         onClick={handlePrevPage}
-                        disabled={currentPage === 1 || loading}
+                        disabled={state.currentPage === 1 || state.loading}
                         borderColor="#4ECDC4"
                         _hover={{ 
                           bg: "#F0F8F7",
@@ -2461,7 +2412,7 @@ function App() {
                         size="xs" 
                         variant="outline"
                         onClick={handleNextPage}
-                        disabled={!hasMore || loading}
+                        disabled={!state.hasMore || state.loading}
                         borderColor="#4ECDC4"
                         _hover={{ 
                           bg: "#F0F8F7",
@@ -2480,23 +2431,23 @@ function App() {
       </Box>
 
       {/* Location Disambiguation Modal */}
-      {showLocationDisambiguation && locationValidation && (
+      {state.showLocationDisambiguation && state.locationValidation && (
         <LocationDisambiguation
-          validation={locationValidation}
-          originalQuery={searchQuery}
+          validation={state.locationValidation}
+          originalQuery={state.searchQuery}
           onLocationSelected={handleLocationSelected}
           onDismiss={handleLocationDisambiguationDismiss}
         />
       )}
 
       {/* Listing Analysis Modal */}
-      {showAnalysisModal && selectedListingForAnalysis && (
+      {state.showAnalysisModal && state.selectedListingForAnalysis && (
         <ListingAnalysisModal
-          isOpen={showAnalysisModal}
+          isOpen={state.showAnalysisModal}
           onClose={handleAnalysisClose}
-          listing={selectedListingForAnalysis}
-          searchQuery={currentQuery}
-          alternatives={currentResults.filter(l => l.id !== selectedListingForAnalysis.id).slice(0, 5)}
+          listing={state.selectedListingForAnalysis}
+          searchQuery={state.currentQuery}
+          alternatives={state.results.filter(l => l.id !== state.selectedListingForAnalysis!.id).slice(0, 5)}
         />
       )}
     </Box>
