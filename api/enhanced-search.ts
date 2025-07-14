@@ -223,7 +223,7 @@ export default async function handler(
     }
 
     // For search queries, perform detailed analysis
-    const analysis = await performInlineAnalysis(query, context)
+    const analysis = await performInlineAnalysis(query, context, classification)
     analysisTime = Date.now() - analysisStart
     
     console.log('🔍 Analysis completed in', analysisTime, 'ms:', analysis)
@@ -310,21 +310,39 @@ async function performInlineClassification(
   const travelScore = travelQuestionKeywords.filter(keyword => queryLower.includes(keyword)).length
   const refinementScore = refinementKeywords.filter(keyword => queryLower.includes(keyword)).length
 
-  // Location extraction patterns
+  // Location extraction patterns - improved for common location formats
   const locationPatterns = [
-    /\bin\s+([^,?!.]+)/i,
-    /\bnear\s+([^,?!.]+)/i,
-    /\baround\s+([^,?!.]+)/i,
-    /\bat\s+([^,?!.]+)/i,
-    /([a-z\s]+),\s*([a-z\s]+)/i
+    /\bnear\s+([^,?!.]+?)(?:\s|,|$)/i,  // "near Tahoe" 
+    /\bin\s+([^,?!.]+?)(?:\s|,|$)/i,    // "in Miami"
+    /\baround\s+([^,?!.]+?)(?:\s|,|$)/i, // "around Austin"
+    /\bat\s+([^,?!.]+?)(?:\s|,|$)/i,     // "at Yellowstone"
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g  // "Lake Tahoe", "San Francisco"
   ]
 
   let extractedLocation: string | undefined
-  for (const pattern of locationPatterns) {
-    const match = query.match(pattern)
+  
+  // Try specific patterns first
+  for (let i = 0; i < 4; i++) {
+    const match = query.match(locationPatterns[i])
     if (match) {
       extractedLocation = match[1].trim()
+      // Clean up common trailing words
+      extractedLocation = extractedLocation.replace(/\s+(area|region|town|city)$/i, '')
       break
+    }
+  }
+  
+  // If no specific pattern found, try to find capitalized location names
+  if (!extractedLocation) {
+    const capitalizedMatches = query.match(locationPatterns[4])
+    if (capitalizedMatches) {
+      // Look for location-like capitalized words
+      const locationWords = capitalizedMatches.filter(word => 
+        !['July', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(word)
+      )
+      if (locationWords.length > 0) {
+        extractedLocation = locationWords[0]
+      }
     }
   }
 
@@ -397,7 +415,8 @@ async function performInlineClassification(
  */
 async function performInlineAnalysis(
   query: string, 
-  context: any
+  context: any,
+  classification?: QueryClassification
 ): Promise<QueryAnalysis> {
   const openaiKey = process.env.OPENAI_API_KEY
   if (!openaiKey) {
@@ -414,9 +433,15 @@ async function performInlineAnalysis(
 Context: ${contextInfo}
 Query: "${query}"
 
+IMPORTANT: For location extraction, look for these patterns:
+- "near Tahoe" → "Lake Tahoe, California"
+- "in Miami" → "Miami, Florida" 
+- "around Austin" → "Austin, Texas"
+- Common abbreviations: "Tahoe" = "Lake Tahoe, California", "NYC" = "New York City, New York"
+
 Return JSON with this structure:
 {
-  "location": "city/state/country, 'SAME' if refining existing location, or 'Unknown'",
+  "location": "full location name with state/country (e.g., 'Lake Tahoe, California'), 'SAME' if refining existing location, or 'Unknown'",
   "isRefinement": boolean,
   "refinementType": "price|rating|amenity|property_type|host_type|general|null",
   "extractedCriteria": {
@@ -472,7 +497,7 @@ Return JSON with this structure:
     analysis = JSON.parse(analysisText)
   } catch (parseError) {
     console.error('Failed to parse GPT response:', analysisText)
-    analysis = createFallbackAnalysis(query, context)
+    analysis = createFallbackAnalysis(query, context, classification)
   }
 
   // Handle SAME location logic
@@ -619,9 +644,12 @@ function createMinimalAnalysis(query: string, context: any): QueryAnalysis {
 /**
  * Create fallback analysis
  */
-function createFallbackAnalysis(query: string, context: any): QueryAnalysis {
+function createFallbackAnalysis(query: string, context: any, classification?: QueryClassification): QueryAnalysis {
+  // Use classification location if available, otherwise fallback to previous or Unknown
+  const location = classification?.extractedLocation || context.previousLocation || 'Unknown'
+  
   return {
-    location: context.previousLocation || 'Unknown',
+    location,
     isRefinement: !!context.previousLocation,
     extractedCriteria: {},
     intent: context.previousLocation ? 'refine_criteria' : 'new_search',
@@ -630,17 +658,96 @@ function createFallbackAnalysis(query: string, context: any): QueryAnalysis {
 }
 
 /**
+ * Preprocess location to handle common abbreviations and formats
+ */
+function preprocessLocation(location: string): string {
+  if (!location || typeof location !== 'string') {
+    return location
+  }
+  
+  const locationLower = location.toLowerCase().trim()
+  
+  // Common location abbreviations and variations
+  const locationMappings: Record<string, string> = {
+    'tahoe': 'Lake Tahoe, California',
+    'lake tahoe': 'Lake Tahoe, California',
+    'nyc': 'New York City, New York',
+    'sf': 'San Francisco, California',
+    'la': 'Los Angeles, California',
+    'miami': 'Miami, Florida',
+    'austin': 'Austin, Texas',
+    'denver': 'Denver, Colorado',
+    'seattle': 'Seattle, Washington',
+    'portland': 'Portland, Oregon',
+    'boston': 'Boston, Massachusetts',
+    'chicago': 'Chicago, Illinois',
+    'vegas': 'Las Vegas, Nevada',
+    'las vegas': 'Las Vegas, Nevada',
+    'nashville': 'Nashville, Tennessee',
+    'charleston': 'Charleston, South Carolina',
+    'savannah': 'Savannah, Georgia',
+    'asheville': 'Asheville, North Carolina',
+    'cape cod': 'Cape Cod, Massachusetts',
+    'napa': 'Napa Valley, California',
+    'big sur': 'Big Sur, California',
+    'malibu': 'Malibu, California',
+    'jackson hole': 'Jackson Hole, Wyoming',
+    'park city': 'Park City, Utah',
+    'aspen': 'Aspen, Colorado',
+    'vail': 'Vail, Colorado'
+  }
+  
+  // Check for exact matches first
+  if (locationMappings[locationLower]) {
+    console.log(`📍 Location mapping: "${location}" → "${locationMappings[locationLower]}"`)
+    return locationMappings[locationLower]
+  }
+  
+  // Check for partial matches
+  for (const [key, value] of Object.entries(locationMappings)) {
+    if (locationLower.includes(key)) {
+      console.log(`📍 Partial location mapping: "${location}" → "${value}"`)
+      return value
+    }
+  }
+  
+  return location
+}
+
+/**
  * Validate location using geocoding
  */
 async function validateLocation(location: string) {
   try {
-    const result = await geocodingService.geocode(location, {
+    // Preprocess location first
+    const processedLocation = preprocessLocation(location)
+    
+    const result = await geocodingService.geocode(processedLocation, {
       includeAlternatives: true,
       maxResults: 3,
       fuzzyMatching: true
     })
     
     if (!result) {
+      // Try with original location if preprocessing failed
+      if (processedLocation !== location) {
+        console.log(`🔄 Trying original location: "${location}"`)
+        const fallbackResult = await geocodingService.geocode(location, {
+          includeAlternatives: true,
+          maxResults: 3,
+          fuzzyMatching: true
+        })
+        
+        if (fallbackResult) {
+          return {
+            valid: fallbackResult.confidence >= 0.5,
+            confidence: fallbackResult.confidence,
+            validated: fallbackResult,
+            alternatives: fallbackResult.alternatives
+          }
+        }
+      }
+      
       return {
         valid: false,
         confidence: 0,
