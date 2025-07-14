@@ -12,8 +12,6 @@
     "@chakra-ui/react": "^3.21.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@modelcontextprotocol/sdk": "^1.15.0",
-    "@openbnb/mcp-server-airbnb": "^0.1.1",
     "compromise": "^14.14.4",
     "dotenv": "^17.2.0",
     "framer-motion": "^12.23.0",

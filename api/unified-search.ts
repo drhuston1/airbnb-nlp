@@ -626,7 +626,7 @@ function extractHttpAmenities(listing: any): string[] {
     }
   }
   
-  return [...new Set(amenities)] // Remove duplicates
+  return Array.from(new Set(amenities)) // Remove duplicates
 }
 
 // Calculate trust score based on rating and review count

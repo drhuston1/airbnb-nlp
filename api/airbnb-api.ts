@@ -12,17 +12,33 @@ interface AirbnbSearchParams {
 
 interface AirbnbListing {
   id: string
-  title: string
-  price: number
-  rating: number
-  reviewCount: number
-  imageUrl: string
+  name: string
   url: string
-  hostName: string
-  propertyType: string
-  bedrooms: number
-  bathrooms: number
+  images: string[]
+  price: {
+    total: number
+    rate: number
+    currency: string
+  }
+  rating: number
+  reviewsCount: number
+  location: {
+    city: string
+    country: string
+  }
+  host: {
+    name: string
+    isSuperhost: boolean
+  }
   amenities: string[]
+  roomType: string
+  propertyType?: string
+  platform?: string
+  bedrooms?: number
+  bathrooms?: number
+  beds?: number
+  maxGuests?: number
+  trustScore?: number
 }
 
 // Headers that mimic Airbnb's web frontend
@@ -65,20 +81,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     console.log('✅ Session initialized with cookies and CSRF token')
     
-    // Step 2: Build search request parameters
-    const searchPayload = buildSearchPayload(params)
-    console.log('🔧 Built search payload')
+    // Step 2: Build search URL
+    const searchUrl = buildSearchPayload(params)
+    console.log('🔧 Built search URL')
     
     // Step 3: Make search API call
     console.log('🚀 Making search API request...')
-    const searchResponse = await fetch('https://www.airbnb.com/api/v3/StaysSearch', {
-      method: 'POST',
+    console.log('URL:', searchUrl)
+    const searchResponse = await fetch(searchUrl, {
+      method: 'GET',
       headers: {
         ...AIRBNB_HEADERS,
         'Cookie': sessionCookies,
         'X-CSRF-Token': csrfToken
-      },
-      body: JSON.stringify(searchPayload)
+      }
     })
     
     if (!searchResponse.ok) {
@@ -116,73 +132,141 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 function buildSearchPayload(params: AirbnbSearchParams) {
-  const rawParams = [
-    { filterName: 'adults', filterValues: [params.adults?.toString() || '1'] }
-  ]
+  // Simplified approach using URL parameters instead of complex GraphQL
+  const searchUrl = new URL('https://www.airbnb.com/api/v2/explore_tabs')
+  searchUrl.searchParams.set('version', '1.3.9')
+  searchUrl.searchParams.set('_format', 'for_explore_search_web')
+  searchUrl.searchParams.set('auto_ib', 'false')
+  searchUrl.searchParams.set('fetch_filters', 'true')
+  searchUrl.searchParams.set('has_zero_guest_treatment', 'false')
+  searchUrl.searchParams.set('is_guided_search', 'true')
+  searchUrl.searchParams.set('is_new_cards_experiment', 'true')
+  searchUrl.searchParams.set('luxury_pre_launch', 'false')
+  searchUrl.searchParams.set('query_understanding_enabled', 'true')
+  searchUrl.searchParams.set('show_groupings', 'true')
+  searchUrl.searchParams.set('supports_for_you_v3', 'true')
+  searchUrl.searchParams.set('timezone_offset', '0')
+  searchUrl.searchParams.set('items_per_grid', '20')
+  searchUrl.searchParams.set('federated_search_session_id', Date.now().toString())
+  searchUrl.searchParams.set('tab_id', 'home_tab')
+  searchUrl.searchParams.set('refinement_paths[]', '/homes')
   
-  if (params.children && params.children > 0) {
-    rawParams.push({ filterName: 'children', filterValues: [params.children.toString()] })
-  }
+  // Core search parameters
+  searchUrl.searchParams.set('query', params.location)
+  searchUrl.searchParams.set('place_id', '')
+  searchUrl.searchParams.set('checkin', params.checkin || '')
+  searchUrl.searchParams.set('checkout', params.checkout || '')
+  searchUrl.searchParams.set('adults', (params.adults || 1).toString())
+  searchUrl.searchParams.set('children', (params.children || 0).toString())
+  searchUrl.searchParams.set('infants', '0')
+  searchUrl.searchParams.set('guests', ((params.adults || 1) + (params.children || 0)).toString())
+  searchUrl.searchParams.set('min_bathrooms', '0')
+  searchUrl.searchParams.set('min_bedrooms', '0')
+  searchUrl.searchParams.set('min_beds', '0')
+  searchUrl.searchParams.set('min_num_pic_urls', '1')
+  searchUrl.searchParams.set('monthly_start_date', '')
+  searchUrl.searchParams.set('monthly_length', '')
+  searchUrl.searchParams.set('price_min', '0')
+  searchUrl.searchParams.set('price_max', '1000')
+  searchUrl.searchParams.set('room_types[]', 'Entire home/apt')
+  searchUrl.searchParams.set('top_tier_stays[]', 'true')
+  searchUrl.searchParams.set('satori_version', '1.2.0')
+  searchUrl.searchParams.set('_cb', Date.now().toString())
   
-  if (params.checkin && params.checkout) {
-    rawParams.push({ filterName: 'checkin', filterValues: [params.checkin] })
-    rawParams.push({ filterName: 'checkout', filterValues: [params.checkout] })
-  }
-  
-  return {
-    operationName: 'StaysSearch',
-    locale: 'en',
-    currency: 'USD',
-    variables: {
-      staysSearchRequest: {
-        requestedPageType: 'STAYS_SEARCH',
-        metadataOnly: false,
-        source: 'structured_search_input_header',
-        searchType: 'filter_change',
-        treatmentFlags: [
-          'stays_search_rehydration_treatment_desktop',
-          'stays_search_rehydration_treatment_moweb'
-        ],
-        rawParams: [
-          ...rawParams,
-          { filterName: 'location', filterValues: [params.location] }
-        ]
-      }
-    }
-  }
+  return searchUrl.toString()
 }
 
 function transformAirbnbResults(data: any): AirbnbListing[] {
   try {
-    // Navigate Airbnb's response structure
-    const sections = data?.data?.dora?.exploreV3?.sections || []
-    const staysSection = sections.find((section: any) => 
-      section.sectionComponentType === 'STAYS_GRID' || 
-      section.listingCards?.length > 0
-    )
+    // Navigate explore_tabs API response structure
+    let listingCards: any[] = []
     
-    if (!staysSection?.listingCards) {
-      console.warn('No listing cards found in response')
+    // Structure 1: explore_tabs sections
+    if (data?.explore_tabs?.[0]?.sections) {
+      for (const section of data.explore_tabs[0].sections) {
+        if (section.listings?.length > 0) {
+          listingCards = section.listings
+          console.log(`✅ Found ${listingCards.length} listings in section: ${section.section_type_uid}`)
+          break
+        }
+      }
+    }
+    
+    // Structure 2: Direct explore_tabs listings
+    if (!listingCards.length && data?.explore_tabs?.[0]?.listings) {
+      listingCards = data.explore_tabs[0].listings
+      console.log(`✅ Found ${listingCards.length} listings in explore_tabs`)
+    }
+    
+    if (!listingCards.length) {
+      console.warn('No listing cards found in any known response structure')
+      console.log('🔍 Available top-level keys:', Object.keys(data))
       return []
     }
     
-    return staysSection.listingCards.map((card: any) => {
-      const listing = card.listing || {}
-      const pricingQuote = card.pricingQuote || {}
+    return listingCards.map((item: any, index: number) => {
+      // Handle both explore_tabs and listing formats
+      const listing = item.listing || item
+      
+      // Log first listing for monitoring
+      if (index === 0) {
+        console.log(`🔍 Raw listing fields:`, Object.keys(listing))
+      }
+      
+      // More robust ID extraction
+      const listingId = listing.id || item.id || listing.listing_id || item.listing_id || `temp_${index}`
+      
+      // Extract price information
+      let price = 0
+      if (listing.pricing_quote?.rate?.amount) {
+        price = listing.pricing_quote.rate.amount
+      } else if (listing.price?.rate) {
+        price = listing.price.rate
+      } else if (item.pricing_quote?.rate?.amount) {
+        price = item.pricing_quote.rate.amount
+      }
+      
+      // Extract images array
+      let images: string[] = []
+      if (listing.contextual_pictures && Array.isArray(listing.contextual_pictures)) {
+        images = listing.contextual_pictures.map((pic: any) => pic.picture || pic.url || pic.src).filter(Boolean)
+      } else if (listing.picture_url) {
+        images = [listing.picture_url]
+      }
+      
+      const rating = listing.avg_rating || listing.avgRating || listing.rating || 4.0
+      const reviewsCount = listing.reviews_count || listing.reviewsCount || listing.reviewCount || 0
+      const trustScore = calculateTrustScore(rating, reviewsCount)
       
       return {
-        id: listing.id || '',
-        title: listing.name || 'Untitled Property',
-        price: pricingQuote.structuredStayDisplayPrice?.primaryLine?.price || 0,
-        rating: listing.avgRating || 4.0,
-        reviewCount: listing.reviewsCount || 0,
-        imageUrl: listing.contextualPictures?.[0]?.picture || listing.pictureUrls?.[0] || '',
-        url: `https://www.airbnb.com/rooms/${listing.id}`,
-        hostName: listing.user?.firstName || 'Host',
-        propertyType: listing.roomTypeCategory || 'Property',
-        bedrooms: listing.bedrooms || 0,
-        bathrooms: listing.bathrooms || 0,
-        amenities: extractAmenities(listing)
+        id: listingId,
+        name: listing.name || listing.title || 'Untitled Property',
+        url: `https://www.airbnb.com/rooms/${listingId}`,
+        images,
+        price: {
+          total: price,
+          rate: price,
+          currency: 'USD'
+        },
+        rating,
+        reviewsCount,
+        location: {
+          city: listing.localized_city || listing.city || 'Unknown',
+          country: listing.localized_country || listing.country || 'Unknown'
+        },
+        host: {
+          name: listing.primary_host?.host_name || listing.user?.firstName || listing.host?.name || 'Host',
+          isSuperhost: listing.is_superhost || listing.user?.isSuperhost || listing.primary_host?.is_superhost || false
+        },
+        amenities: extractAmenities(listing),
+        roomType: listing.room_type_category || listing.roomTypeCategory || 'Property',
+        propertyType: listing.room_and_property_type || listing.space_type || 'Property',
+        platform: 'airbnb',
+        bedrooms: listing.bedrooms || listing.bedroom_count || 0,
+        bathrooms: listing.bathrooms || (listing.bathroomLabel ? parseInt(listing.bathroomLabel) : 0) || 0,
+        beds: listing.beds || 0,
+        maxGuests: listing.person_capacity || 1,
+        trustScore
       }
     }).filter((listing: AirbnbListing) => listing.id) // Remove invalid entries
     
@@ -225,5 +309,32 @@ function extractAmenities(listing: any): string[] {
     })
   }
   
-  return [...new Set(amenities)] // Remove duplicates
+  return Array.from(new Set(amenities)) // Remove duplicates
+}
+
+// Calculate trust score based on rating and review count
+function calculateTrustScore(rating: number, reviewsCount: number): number {
+  if (!rating || !reviewsCount || reviewsCount === 0) return 0
+
+  // Base score from rating (0-60 points)
+  const ratingScore = Math.min(60, (rating / 5.0) * 60)
+
+  // Review count confidence boost (0-40 points)
+  let reviewCountScore = 0
+  if (reviewsCount >= 100) {
+    reviewCountScore = 40
+  } else if (reviewsCount >= 50) {
+    reviewCountScore = 35
+  } else if (reviewsCount >= 25) {
+    reviewCountScore = 30
+  } else if (reviewsCount >= 10) {
+    reviewCountScore = 20
+  } else if (reviewsCount >= 5) {
+    reviewCountScore = 10
+  } else {
+    reviewCountScore = 5
+  }
+
+  const totalScore = Math.round(ratingScore + reviewCountScore)
+  return Math.min(100, Math.max(0, totalScore))
 }
