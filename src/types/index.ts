@@ -84,6 +84,12 @@ export interface ChatMessage {
   refinementSuggestions?: RefinementSuggestion[]
   timestamp: Date
   messageType?: 'search' | 'conversation' // Distinguish between search results and general chat
+  isOptimistic?: boolean // For optimistic UI updates
+  optimisticData?: {
+    prediction: any
+    loadingSteps: any[]
+    resultsPreview: string
+  }
   travelContext?: {
     topic: string
     location?: string

@@ -46,6 +46,15 @@ import type { SearchContext } from './types'
 import { RefinementAnalyzer, type RefinementSuggestion } from './utils/refinementAnalyzer'
 import { SEARCH_CONFIG } from './config/constants'
 
+// Import optimistic search utilities
+import { 
+  predictSearchCharacteristics, 
+  createOptimisticLoadingSteps,
+  predictFollowUps,
+  createOptimisticResultsPreview
+} from './utils/optimisticSearch'
+import { OptimisticSearchMessage } from './components/OptimisticSearchMessage'
+
 // Intelligent follow-up question generator
 function generateFollowUpQuestions(query: string, _queryAnalysis: any, results: AirbnbListing[]): string[] {
   const questions: string[] = []
@@ -357,8 +366,32 @@ function App() {
     }
     setMessages(prev => [...prev, userMessage])
 
+    // 🚀 OPTIMISTIC UI: Immediate feedback with predictions
+    const prediction = predictSearchCharacteristics(query)
+    const loadingSteps = createOptimisticLoadingSteps(prediction)
+    const optimisticFollowUps = predictFollowUps(query, prediction)
+    const resultsPreview = createOptimisticResultsPreview(prediction)
+    
+    // Create optimistic message with loading animation
+    const optimisticMessage: ChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      type: 'assistant',
+      content: prediction.suggestedMessage,
+      messageType: 'search',
+      isOptimistic: true,
+      optimisticData: {
+        prediction,
+        loadingSteps,
+        resultsPreview
+      },
+      followUps: prediction.confidence > 0.6 ? optimisticFollowUps : [],
+      timestamp: new Date()
+    }
+    
+    setMessages(prev => [...prev, optimisticMessage])
     setLoading(true)
-    // Scroll to bottom to show user message and loading state
+    
+    // Scroll to bottom to show user message and optimistic response
     setTimeout(scrollToBottom, 100)
     
     // Only clear search query if not using directQuery (refinement)
@@ -393,6 +426,13 @@ function App() {
       }
     } catch (error) {
       console.error('Classification failed, proceeding with search:', error)
+      // Update optimistic message to show we're proceeding
+      setMessages(prev => prev.map(msg => 
+        msg.isOptimistic ? {
+          ...msg,
+          content: `${msg.optimisticData?.prediction?.suggestedMessage || 'Searching...'} (Starting search...)`
+        } : msg
+      ))
     }
 
     // Use enhanced query analysis to understand intent and extract location
@@ -849,6 +889,7 @@ function App() {
         }
       }
       
+      // 🎉 SUCCESS: Replace optimistic message with actual results
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
@@ -858,7 +899,13 @@ function App() {
         refinementSuggestions: refinementSuggestions,
         timestamp: new Date()
       }
-      setMessages(prev => [...prev, assistantMessage])
+      
+      // Replace optimistic message with real results
+      setMessages(prev => prev.map(msg => 
+        msg.isOptimistic 
+          ? assistantMessage
+          : msg
+      ).filter(msg => !msg.isOptimistic || msg.id === assistantMessage.id))
       setTimeout(scrollToBottom, 100)
 
       setCurrentResults(filteredResults)
@@ -909,13 +956,20 @@ function App() {
         console.error('Search API error:', error.message)
       }
       
+      // ❌ ERROR: Replace optimistic message with error
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
         content: errorContent,
         timestamp: new Date()
       }
-      setMessages(prev => [...prev, errorMessage])
+      
+      // Replace optimistic message with error message
+      setMessages(prev => prev.map(msg => 
+        msg.isOptimistic 
+          ? errorMessage
+          : msg
+      ).filter(msg => !msg.isOptimistic || msg.id === errorMessage.id))
       setTimeout(scrollToBottom, 100)
     } finally {
       setLoading(false)
@@ -1631,26 +1685,41 @@ function App() {
                 </Flex>
               ) : (
                 <Box>
-                  {/* Add visual indicator for conversation vs search messages */}
-                  {message.messageType === 'conversation' && (
-                    <HStack gap={2} mb={2}>
-                      <Box w={2} h={2} bg="#FF8E53" borderRadius="full" />
-                      <Text fontSize="xs" color="#CC6B2E" fontWeight="600" textTransform="uppercase">
-                        Travel Assistant
+                  {/* Optimistic UI: Show beautiful loading component */}
+                  {message.isOptimistic && message.optimisticData ? (
+                    <OptimisticSearchMessage
+                      location={message.optimisticData.prediction.location}
+                      estimatedResults={message.optimisticData.prediction.estimatedResults}
+                      loadingSteps={message.optimisticData.loadingSteps}
+                      onStepsComplete={() => {
+                        // Optional: Could trigger some action when loading completes
+                        console.log('Optimistic loading steps completed')
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {/* Add visual indicator for conversation vs search messages */}
+                      {message.messageType === 'conversation' && (
+                        <HStack gap={2} mb={2}>
+                          <Box w={2} h={2} bg="#FF8E53" borderRadius="full" />
+                          <Text fontSize="xs" color="#CC6B2E" fontWeight="600" textTransform="uppercase">
+                            Travel Assistant
+                          </Text>
+                        </HStack>
+                      )}
+                      {message.messageType === 'search' && (
+                        <HStack gap={2} mb={2}>
+                          <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
+                          <Text fontSize="xs" color="#2E7A73" fontWeight="600" textTransform="uppercase">
+                            Property Search
+                          </Text>
+                        </HStack>
+                      )}
+                      <Text fontSize="md" color="gray.800" mb={4} lineHeight="1.6">
+                        {message.content}
                       </Text>
-                    </HStack>
+                    </>
                   )}
-                  {message.messageType === 'search' && (
-                    <HStack gap={2} mb={2}>
-                      <Box w={2} h={2} bg="#4ECDC4" borderRadius="full" />
-                      <Text fontSize="xs" color="#2E7A73" fontWeight="600" textTransform="uppercase">
-                        Property Search
-                      </Text>
-                    </HStack>
-                  )}
-                  <Text fontSize="md" color="gray.800" mb={4} lineHeight="1.6">
-                    {message.content}
-                  </Text>
                 </Box>
                 )}
 
