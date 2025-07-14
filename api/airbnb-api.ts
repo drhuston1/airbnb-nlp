@@ -338,3 +338,111 @@ function calculateTrustScore(rating: number, reviewsCount: number): number {
   const totalScore = Math.round(ratingScore + reviewCountScore)
   return Math.min(100, Math.max(0, totalScore))
 }
+
+// Export function for use by enhanced-search endpoint
+export async function callAirbnbHttpAPI(payload: any) {
+  console.log('🔍 Starting HTTP API-based Airbnb search...')
+  
+  const { location, adults = 1, children = 0, checkin, checkout, priceMin, priceMax, minBedrooms, minBathrooms } = payload
+  
+  try {
+    // Step 1: Initialize session and get cookies
+    console.log('🍪 Initializing session...')
+    const sessionResponse = await fetch('https://www.airbnb.com/', {
+      headers: AIRBNB_HEADERS
+    })
+    
+    const sessionCookies = sessionResponse.headers.get('set-cookie') || ''
+    const sessionText = await sessionResponse.text()
+    
+    // Extract CSRF token from page content
+    const csrfMatch = sessionText.match(/"csrfToken":"([^"]+)"/)
+    const csrfToken = csrfMatch ? csrfMatch[1] : ''
+    
+    console.log('✅ Session initialized')
+    
+    // Step 2: Build search URL with all parameters
+    const searchUrl = new URL('https://www.airbnb.com/api/v2/explore_tabs')
+    searchUrl.searchParams.set('version', '1.3.9')
+    searchUrl.searchParams.set('_format', 'for_explore_search_web')
+    searchUrl.searchParams.set('auto_ib', 'false')
+    searchUrl.searchParams.set('fetch_filters', 'true')
+    searchUrl.searchParams.set('has_zero_guest_treatment', 'false')
+    searchUrl.searchParams.set('is_guided_search', 'true')
+    searchUrl.searchParams.set('is_new_cards_experiment', 'true')
+    searchUrl.searchParams.set('luxury_pre_launch', 'false')
+    searchUrl.searchParams.set('query_understanding_enabled', 'true')
+    searchUrl.searchParams.set('show_groupings', 'true')
+    searchUrl.searchParams.set('supports_for_you_v3', 'true')
+    searchUrl.searchParams.set('timezone_offset', '0')
+    searchUrl.searchParams.set('items_per_grid', '20')
+    searchUrl.searchParams.set('federated_search_session_id', Date.now().toString())
+    searchUrl.searchParams.set('tab_id', 'home_tab')
+    searchUrl.searchParams.set('refinement_paths[]', '/homes')
+    
+    // Core search parameters
+    searchUrl.searchParams.set('query', location)
+    searchUrl.searchParams.set('place_id', '')
+    searchUrl.searchParams.set('checkin', checkin || '')
+    searchUrl.searchParams.set('checkout', checkout || '')
+    searchUrl.searchParams.set('adults', adults.toString())
+    searchUrl.searchParams.set('children', children.toString())
+    searchUrl.searchParams.set('infants', '0')
+    searchUrl.searchParams.set('guests', (adults + children).toString())
+    searchUrl.searchParams.set('min_bathrooms', (minBathrooms || 0).toString())
+    searchUrl.searchParams.set('min_bedrooms', (minBedrooms || 0).toString())
+    searchUrl.searchParams.set('min_beds', '0')
+    searchUrl.searchParams.set('min_num_pic_urls', '1')
+    searchUrl.searchParams.set('monthly_start_date', '')
+    searchUrl.searchParams.set('monthly_length', '')
+    searchUrl.searchParams.set('price_min', (priceMin || 0).toString())
+    searchUrl.searchParams.set('price_max', (priceMax || 1000).toString())
+    searchUrl.searchParams.set('room_types[]', 'Entire home/apt')
+    searchUrl.searchParams.set('top_tier_stays[]', 'true')
+    searchUrl.searchParams.set('satori_version', '1.2.0')
+    searchUrl.searchParams.set('_cb', Date.now().toString())
+    
+    console.log('🔗 Search URL built')
+    
+    // Step 3: Make search API call
+    console.log('🚀 Making search API request...')
+    const searchResponse = await fetch(searchUrl.toString(), {
+      method: 'GET',
+      headers: {
+        ...AIRBNB_HEADERS,
+        'Cookie': sessionCookies,
+        'X-CSRF-Token': csrfToken
+      }
+    })
+    
+    if (!searchResponse.ok) {
+      throw new Error(`Airbnb API returned ${searchResponse.status}: ${searchResponse.statusText}`)
+    }
+    
+    const searchData = await searchResponse.json()
+    console.log('✅ Received search response')
+    
+    // Step 4: Transform results to our format
+    const listings = transformAirbnbResults(searchData)
+    console.log(`🎉 HTTP API found ${listings.length} listings`)
+    
+    return {
+      platform: 'airbnb',
+      properties: listings,
+      hasMore: listings.length >= 20,
+      totalResults: listings.length,
+      status: 'success' as const
+    }
+    
+  } catch (error) {
+    console.error('❌ Airbnb HTTP API failed:', error)
+    return {
+      platform: 'airbnb',
+      properties: [],
+      hasMore: false,
+      totalResults: 0,
+      status: 'error' as const,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
