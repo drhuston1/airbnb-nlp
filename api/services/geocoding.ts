@@ -29,9 +29,16 @@ interface GeocodeOptions {
   biasLocation?: { lat: number; lng: number }
 }
 
+interface CachedGeocodeEntry {
+  result: GeocodeResult
+  timestamp: number
+  hitCount: number
+}
+
 export class GeocodingService {
-  private cache = new Map<string, GeocodeResult>()
-  private cacheExpiry = 24 * 60 * 60 * 1000 // 24 hours
+  private cache = new Map<string, CachedGeocodeEntry>()
+  private cacheExpiry = 7 * 24 * 60 * 60 * 1000 // 7 days for frequently used locations
+  private maxCacheSize = 1000 // Prevent unlimited memory growth
   
   // Provider configuration with different strategies
   private providers = [
@@ -62,9 +69,16 @@ export class GeocodingService {
     const cacheKey = this.getCacheKey(query, options)
     const cached = this.cache.get(cacheKey)
     
-    if (cached) {
-      console.log(`🗺️ Using cached geocoding result for: ${query}`)
-      return cached
+    // Enhanced cache validation with expiry and hit tracking
+    if (cached && this.isCacheValid(cached)) {
+      cached.hitCount++
+      console.log(`🗺️ Cache HIT for "${query}" (${cached.hitCount} uses, saved ~200ms)`)
+      return cached.result
+    }
+    
+    // Clean expired entries if cache is getting large
+    if (this.cache.size > this.maxCacheSize * 0.8) {
+      this.cleanExpiredEntries()
     }
 
     console.log(`🔍 Geocoding location: "${query}"`)
@@ -96,8 +110,15 @@ export class GeocodingService {
     
     console.log(`✅ Selected best result: ${bestResult.displayName} (confidence: ${bestResult.confidence}, provider: ${bestResult.providers.join(',')})`)
     
-    // Cache the result
-    this.cache.set(cacheKey, bestResult)
+    // Enhanced caching with metadata
+    const cacheEntry: CachedGeocodeEntry = {
+      result: bestResult,
+      timestamp: Date.now(),
+      hitCount: 0
+    }
+    this.cache.set(cacheKey, cacheEntry)
+    console.log(`💾 Cached result for future use (cache size: ${this.cache.size})`)
+    
     return bestResult
   }
 
@@ -730,8 +751,10 @@ export class GeocodingService {
    * Create cache key for geocoding results
    */
   private getCacheKey(query: string, options: GeocodeOptions): string {
+    // Normalize query for better cache hits
+    const normalizedQuery = query.toLowerCase().trim()
     const optionsStr = JSON.stringify(options)
-    const combined = query + optionsStr
+    const combined = normalizedQuery + optionsStr
     // Simple hash function for caching (not cryptographically secure)
     let hash = 0
     for (let i = 0; i < combined.length; i++) {
@@ -740,6 +763,72 @@ export class GeocodingService {
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36)
+  }
+
+  /**
+   * Check if cache entry is still valid
+   */
+  private isCacheValid(entry: CachedGeocodeEntry): boolean {
+    const age = Date.now() - entry.timestamp
+    const isExpired = age > this.cacheExpiry
+    
+    if (isExpired) {
+      console.log(`⏰ Cache entry expired (${Math.round(age / (24 * 60 * 60 * 1000))} days old)`)
+      return false
+    }
+    
+    return true
+  }
+
+  /**
+   * Clean expired entries and least-used entries to prevent memory bloat
+   */
+  private cleanExpiredEntries(): void {
+    const now = Date.now()
+    let removedCount = 0
+    let expiredCount = 0
+    
+    // Remove expired entries
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > this.cacheExpiry) {
+        this.cache.delete(key)
+        expiredCount++
+      }
+    }
+    removedCount += expiredCount
+    
+    // If still too large, remove least-used entries
+    if (this.cache.size > this.maxCacheSize) {
+      const entries = Array.from(this.cache.entries())
+      entries.sort((a, b) => a[1].hitCount - b[1].hitCount) // Sort by hit count ascending
+      
+      const entriesToRemove = this.cache.size - this.maxCacheSize + 100 // Remove extra for buffer
+      for (let i = 0; i < entriesToRemove && i < entries.length; i++) {
+        this.cache.delete(entries[i][0])
+        removedCount++
+      }
+    }
+    
+    console.log(`🧹 Cache cleanup: removed ${removedCount} entries (${expiredCount} expired), size now: ${this.cache.size}`)
+  }
+
+  /**
+   * Get cache statistics for monitoring
+   */
+  getCacheStats(): { size: number; hitRate: number; totalHits: number } {
+    let totalHits = 0
+    let totalEntries = 0
+    
+    for (const entry of this.cache.values()) {
+      totalHits += entry.hitCount
+      totalEntries++
+    }
+    
+    return {
+      size: this.cache.size,
+      hitRate: totalEntries > 0 ? totalHits / totalEntries : 0,
+      totalHits
+    }
   }
 
   /**

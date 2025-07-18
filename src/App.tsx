@@ -54,6 +54,9 @@ import { QuickFilters } from './components/QuickFilters'
 // Import consolidated state management
 import { useSearchState } from './hooks/useSearchState'
 
+// Import request deduplication
+import { useRequestDeduplication } from './utils/request-deduplicator'
+
 // Intelligent follow-up question generator
 function generateFollowUpQuestions(query: string, _queryAnalysis: any, results: AirbnbListing[]): string[] {
   const questions: string[] = []
@@ -149,6 +152,9 @@ function App() {
   // Use consolidated state management
   const { state, actions } = useSearchState()
   
+  // Use request deduplication for API calls
+  const { fetch: fetchWithDeduplication, getStats: getDeduplicationStats, cancelRequests } = useRequestDeduplication()
+  
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -177,6 +183,13 @@ function App() {
       }
     }
   }, [actions])
+
+  // Cleanup requests on unmount
+  useEffect(() => {
+    return () => {
+      cancelRequests()
+    }
+  }, [cancelRequests])
 
   // Simplified helper functions that use actions
   const addToHistory = (query: string, resultCount: number) => {
@@ -241,13 +254,12 @@ function App() {
     }
 
     try {
-      // 🚀 NEW: Single enhanced search call - eliminates API waterfall
-      console.log('🚀 Using enhanced search endpoint - eliminating API waterfall...')
+      // 🚀 NEW: Single enhanced search call with request deduplication
+      console.log('🚀 Using enhanced search endpoint with deduplication - eliminating API waterfall...')
       const startTime = Date.now()
       
-      const enhancedResponse = await fetch('/api/enhanced-search', {
+      const enhancedData = await fetchWithDeduplication('/api/enhanced-search', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query,
           context: {
@@ -264,14 +276,11 @@ function App() {
       })
 
       const totalTime = Date.now() - startTime
+      
+      // Log deduplication stats
+      const deduplicationStats = getDeduplicationStats()
       console.log(`⚡ Enhanced search completed in ${totalTime}ms (${Math.round(((1200 - totalTime) / 1200) * 100)}% improvement)`)
-
-      if (!enhancedResponse.ok) {
-        const errorData = await enhancedResponse.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || `Enhanced search failed: ${enhancedResponse.statusText}`)
-      }
-
-      const enhancedData = await enhancedResponse.json()
+      console.log('🔄 Frontend deduplication:', deduplicationStats)
       
       if (!enhancedData.success) {
         throw new Error(enhancedData.error || 'Enhanced search failed')

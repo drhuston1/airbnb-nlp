@@ -3,6 +3,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { API_CONFIG } from './config'
 import { geocodingService, type GeocodeResult } from './services/geocoding'
+import { callAirbnbHttpAPI } from './airbnb-api'
+import { requestDeduplicator } from './utils/request-deduplicator'
 
 interface EnhancedSearchRequest {
   query: string
@@ -188,20 +190,15 @@ export default async function handler(
 
     console.log('🚀 Enhanced search request:', { query, context, preferences })
 
-    // Step 1: Quick classification (inline for speed)
+    // Step 1: Quick classification with early exits
     const classificationStart = Date.now()
     const classification = await performInlineClassification(query, context)
     classificationTime = Date.now() - classificationStart
     
     console.log('⚡ Classification completed in', classificationTime, 'ms:', classification)
 
-    // Step 2: Parallel analysis and action based on classification
-    const analysisStart = Date.now()
-    
+    // Step 2: Early exit for travel questions
     if (classification.suggestedAction === 'travel_assistant') {
-      // For travel questions, skip detailed analysis and go directly to travel assistant
-      analysisTime = Date.now() - analysisStart
-      
       const travelStart = Date.now()
       const travelResponse = await handleTravelQuestion(query, context)
       travelAssistantTime = Date.now() - travelStart
@@ -215,33 +212,92 @@ export default async function handler(
         travelResponse,
         timing: {
           classification: classificationTime,
-          analysis: analysisTime,
+          analysis: 0,
           travelAssistant: travelAssistantTime,
           total: Date.now() - startTime
         }
       })
     }
 
-    // For search queries, perform detailed analysis
-    const analysis = await performInlineAnalysis(query, context, classification)
-    analysisTime = Date.now() - analysisStart
-    
-    console.log('🔍 Analysis completed in', analysisTime, 'ms:', analysis)
-
-    // Step 3: Execute search if location is available
-    let searchResults = undefined
-    
-    if (analysis.location && analysis.location !== 'Unknown') {
-      const searchStart = Date.now()
-      searchResults = await performInlineSearch(query, analysis, preferences, context)
-      searchTime = Date.now() - searchStart
-      
-      console.log('🏠 Search completed in', searchTime, 'ms, found', searchResults?.listings.length || 0, 'properties')
+    // Step 3: Early exit if no location found
+    if (!classification.extractedLocation) {
+      return res.status(200).json({
+        success: true,
+        classification,
+        analysis: {
+          location: 'Unknown',
+          isRefinement: false,
+          extractedCriteria: {},
+          intent: 'new_search',
+          confidence: 0.3
+        },
+        timing: {
+          classification: classificationTime,
+          analysis: 0,
+          total: Date.now() - startTime
+        },
+        error: 'Location is required for search. Please specify where you would like to stay.'
+      })
     }
 
+    // Step 4: PARALLEL execution - Analysis + Location Validation
+    const parallelStart = Date.now()
+    
+    const [analysis, locationValidation] = await Promise.all([
+      performInlineAnalysis(query, context, classification),
+      validateLocation(classification.extractedLocation)
+    ])
+    
+    const parallelTime = Date.now() - parallelStart
+    analysisTime = parallelTime // Both operations completed in parallel
+    
+    console.log('🔄 Parallel analysis + validation completed in', parallelTime, 'ms')
+
+    // Step 5: Handle location validation results
+    if (!locationValidation.valid) {
+      return res.status(200).json({
+        success: false,
+        classification,
+        analysis: {
+          ...analysis,
+          locationValidation
+        },
+        timing: {
+          classification: classificationTime,
+          analysis: analysisTime,
+          total: Date.now() - startTime
+        },
+        error: locationValidation.suggestions?.[0] || `Could not find location "${classification.extractedLocation}"`
+      })
+    }
+
+    // Update analysis with validated location
+    if (locationValidation.validated) {
+      analysis.location = locationValidation.validated.location
+      analysis.locationValidation = locationValidation
+    }
+
+    // Step 6: Execute search with validated location
+    const searchStart = Date.now()
+    const searchResults = await performInlineSearch(query, analysis, preferences, context)
+    searchTime = Date.now() - searchStart
+    
+    console.log('🏠 Search completed in', searchTime, 'ms, found', searchResults?.listings.length || 0, 'properties')
+
     const totalTime = Date.now() - startTime
+    
+    // Log request deduplication statistics
+    const deduplicationStats = requestDeduplicator.getStats()
     console.log('✅ Enhanced search completed in', totalTime, 'ms (', 
       Math.round(((1200 - totalTime) / 1200) * 100), '% improvement vs 1200ms target)')
+    console.log('🔄 Request deduplication:', {
+      total: deduplicationStats.totalRequests,
+      prevented: deduplicationStats.duplicatePrevented,
+      savedRequests: deduplicationStats.duplicatePrevented > 0 
+        ? `${Math.round((deduplicationStats.duplicatePrevented / deduplicationStats.totalRequests) * 100)}%` 
+        : '0%',
+      avgResponseTime: `${deduplicationStats.avgResponseTime}ms`
+    })
 
     const response: EnhancedSearchResponse = {
       success: true,
@@ -310,39 +366,24 @@ async function performInlineClassification(
   const travelScore = travelQuestionKeywords.filter(keyword => queryLower.includes(keyword)).length
   const refinementScore = refinementKeywords.filter(keyword => queryLower.includes(keyword)).length
 
-  // Location extraction patterns - improved for common location formats
+  // Generic location extraction patterns
   const locationPatterns = [
-    /\bnear\s+([^,?!.]+?)(?:\s|,|$)/i,  // "near Tahoe" 
-    /\bin\s+([^,?!.]+?)(?:\s|,|$)/i,    // "in Miami"
-    /\baround\s+([^,?!.]+?)(?:\s|,|$)/i, // "around Austin"
-    /\bat\s+([^,?!.]+?)(?:\s|,|$)/i,     // "at Yellowstone"
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g  // "Lake Tahoe", "San Francisco"
+    /\bnear\s+([^,?!.]+?)(?:\s+\w+(?:ing|ed|s|er|est)|\s*[,$!.]|$)/i,  // "near [location]"
+    /\bin\s+([^,?!.]+?)(?:\s+\w+(?:ing|ed|s|er|est)|\s*[,$!.]|$)/i,    // "in [location]"
+    /\baround\s+([^,?!.]+?)(?:\s+\w+(?:ing|ed|s|er|est)|\s*[,$!.]|$)/i, // "around [location]"
+    /\bat\s+([^,?!.]+?)(?:\s+\w+(?:ing|ed|s|er|est)|\s*[,$!.]|$)/i      // "at [location]"
   ]
 
   let extractedLocation: string | undefined
   
-  // Try specific patterns first
-  for (let i = 0; i < 4; i++) {
-    const match = query.match(locationPatterns[i])
+  // Try location pattern matching
+  for (const pattern of locationPatterns) {
+    const match = query.match(pattern)
     if (match) {
       extractedLocation = match[1].trim()
-      // Clean up common trailing words
-      extractedLocation = extractedLocation.replace(/\s+(area|region|town|city)$/i, '')
+      // Generic cleanup - remove common descriptive suffixes
+      extractedLocation = extractedLocation.replace(/\s+(area|region|town|city|place|location)$/i, '')
       break
-    }
-  }
-  
-  // If no specific pattern found, try to find capitalized location names
-  if (!extractedLocation) {
-    const capitalizedMatches = query.match(locationPatterns[4])
-    if (capitalizedMatches) {
-      // Look for location-like capitalized words
-      const locationWords = capitalizedMatches.filter(word => 
-        !['July', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(word)
-      )
-      if (locationWords.length > 0) {
-        extractedLocation = locationWords[0]
-      }
     }
   }
 
@@ -433,15 +474,9 @@ async function performInlineAnalysis(
 Context: ${contextInfo}
 Query: "${query}"
 
-IMPORTANT: For location extraction, look for these patterns:
-- "near Tahoe" → "Lake Tahoe, California"
-- "in Miami" → "Miami, Florida" 
-- "around Austin" → "Austin, Texas"
-- Common abbreviations: "Tahoe" = "Lake Tahoe, California", "NYC" = "New York City, New York"
-
 Return JSON with this structure:
 {
-  "location": "full location name with state/country (e.g., 'Lake Tahoe, California'), 'SAME' if refining existing location, or 'Unknown'",
+  "location": "extracted location name as mentioned in query, 'SAME' if refining existing location, or 'Unknown'",
   "isRefinement": boolean,
   "refinementType": "price|rating|amenity|property_type|host_type|general|null",
   "extractedCriteria": {
@@ -458,10 +493,10 @@ Return JSON with this structure:
   "confidence": number
 }`
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // Use request deduplicator for OpenAI API calls to prevent duplicate requests
+  const data = await requestDeduplicator.fetchJson('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${openaiKey}`
     },
     body: JSON.stringify({
@@ -481,11 +516,6 @@ Return JSON with this structure:
     })
   })
 
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`)
-  }
-
-  const data = await response.json()
   const analysisText = data.choices[0]?.message?.content?.trim()
   
   if (!analysisText) {
@@ -551,9 +581,7 @@ async function performInlineSearch(
     ...(analysis.extractedCriteria.bathrooms && { minBathrooms: analysis.extractedCriteria.bathrooms })
   }
 
-  // Call the existing Airbnb search function
-  const { callAirbnbHttpAPI } = await import('./airbnb-api')
-  
+  // Call the Airbnb search function (pre-imported for performance)
   const result = await callAirbnbHttpAPI(searchPayload)
   
   return {
@@ -591,10 +619,10 @@ Provide a helpful response and suggest follow-up questions. Format as JSON:
   "followUpQuestions": ["related questions the user might ask"]
 }`
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // Use request deduplicator for travel assistant calls
+  const data = await requestDeduplicator.fetchJson('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${openaiKey}`
     },
     body: JSON.stringify({
@@ -608,11 +636,6 @@ Provide a helpful response and suggest follow-up questions. Format as JSON:
     })
   })
 
-  if (!response.ok) {
-    throw new Error(`Travel assistant API error: ${response.status}`)
-  }
-
-  const data = await response.json()
   const responseText = data.choices[0]?.message?.content?.trim()
   
   try {
@@ -657,97 +680,25 @@ function createFallbackAnalysis(query: string, context: any, classification?: Qu
   }
 }
 
-/**
- * Preprocess location to handle common abbreviations and formats
- */
-function preprocessLocation(location: string): string {
-  if (!location || typeof location !== 'string') {
-    return location
-  }
-  
-  const locationLower = location.toLowerCase().trim()
-  
-  // Common location abbreviations and variations
-  const locationMappings: Record<string, string> = {
-    'tahoe': 'Lake Tahoe, California',
-    'lake tahoe': 'Lake Tahoe, California',
-    'nyc': 'New York City, New York',
-    'sf': 'San Francisco, California',
-    'la': 'Los Angeles, California',
-    'miami': 'Miami, Florida',
-    'austin': 'Austin, Texas',
-    'denver': 'Denver, Colorado',
-    'seattle': 'Seattle, Washington',
-    'portland': 'Portland, Oregon',
-    'boston': 'Boston, Massachusetts',
-    'chicago': 'Chicago, Illinois',
-    'vegas': 'Las Vegas, Nevada',
-    'las vegas': 'Las Vegas, Nevada',
-    'nashville': 'Nashville, Tennessee',
-    'charleston': 'Charleston, South Carolina',
-    'savannah': 'Savannah, Georgia',
-    'asheville': 'Asheville, North Carolina',
-    'cape cod': 'Cape Cod, Massachusetts',
-    'napa': 'Napa Valley, California',
-    'big sur': 'Big Sur, California',
-    'malibu': 'Malibu, California',
-    'jackson hole': 'Jackson Hole, Wyoming',
-    'park city': 'Park City, Utah',
-    'aspen': 'Aspen, Colorado',
-    'vail': 'Vail, Colorado'
-  }
-  
-  // Check for exact matches first
-  if (locationMappings[locationLower]) {
-    console.log(`📍 Location mapping: "${location}" → "${locationMappings[locationLower]}"`)
-    return locationMappings[locationLower]
-  }
-  
-  // Check for partial matches
-  for (const [key, value] of Object.entries(locationMappings)) {
-    if (locationLower.includes(key)) {
-      console.log(`📍 Partial location mapping: "${location}" → "${value}"`)
-      return value
-    }
-  }
-  
-  return location
-}
 
 /**
- * Validate location using geocoding
+ * Validate location using geocoding with enhanced caching
  */
 async function validateLocation(location: string) {
   try {
-    // Preprocess location first
-    const processedLocation = preprocessLocation(location)
-    
-    const result = await geocodingService.geocode(processedLocation, {
+    const startTime = Date.now()
+    const result = await geocodingService.geocode(location, {
       includeAlternatives: true,
       maxResults: 3,
       fuzzyMatching: true
     })
+    const geocodingTime = Date.now() - startTime
+    
+    // Log cache performance
+    const cacheStats = geocodingService.getCacheStats()
+    console.log(`🗺️ Location validation completed in ${geocodingTime}ms (cache: ${cacheStats.size} entries, ${cacheStats.totalHits} total hits)`)
     
     if (!result) {
-      // Try with original location if preprocessing failed
-      if (processedLocation !== location) {
-        console.log(`🔄 Trying original location: "${location}"`)
-        const fallbackResult = await geocodingService.geocode(location, {
-          includeAlternatives: true,
-          maxResults: 3,
-          fuzzyMatching: true
-        })
-        
-        if (fallbackResult) {
-          return {
-            valid: fallbackResult.confidence >= 0.5,
-            confidence: fallbackResult.confidence,
-            validated: fallbackResult,
-            alternatives: fallbackResult.alternatives
-          }
-        }
-      }
-      
       return {
         valid: false,
         confidence: 0,
