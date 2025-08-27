@@ -184,12 +184,11 @@ function App() {
     }
   }, [actions])
 
-  // Cleanup requests only on unmount (avoid cancelling on every re-render)
   useEffect(() => {
     return () => {
       cancelRequests()
     }
-  }, [])
+  }, [cancelRequests])
 
   // Simplified helper functions that use actions
   const addToHistory = (query: string, resultCount: number) => {

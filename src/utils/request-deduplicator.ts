@@ -1,6 +1,9 @@
 // Frontend Request Deduplication Utility
 // Prevents duplicate API calls during rapid user interactions (typing, clicking, etc.)
+<<<<<<< HEAD
 import { useCallback } from 'react'
+=======
+>>>>>>> b9f286103d2f5e33e4bad0775c280d49768dd569
 
 interface RequestCacheEntry {
   promise: Promise<any>
@@ -151,13 +154,13 @@ export const frontendDeduplicator = new FrontendRequestDeduplicator()
 
 // Hook for React components to use deduplication
 export const useRequestDeduplication = () => {
-  const fetchWithDeduplication = useCallback(async <T = any>(url: string, options?: RequestInit): Promise<T> => {
+  const fetchWithDeduplication = async <T = any>(url: string, options?: RequestInit): Promise<T> => {
     return frontendDeduplicator.fetchJson<T>(url, options)
-  }, [])
+  }
 
-  const getStats = useCallback(() => frontendDeduplicator.getStats(), [])
-
-  const cancelRequests = useCallback(() => frontendDeduplicator.cancelAllRequests(), [])
+  const getStats = () => frontendDeduplicator.getStats()
+  
+  const cancelRequests = () => frontendDeduplicator.cancelAllRequests()
 
   return {
     fetch: fetchWithDeduplication,
