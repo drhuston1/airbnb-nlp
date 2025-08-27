@@ -50,10 +50,7 @@ export async function extractWithTransformers(query: string): Promise<QueryAnaly
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function extractLocationWithGPT(_query: string): Promise<string> {
-  // Endpoint removed in simplified flow; return Unknown and let unified search handle parsing
-  return 'Unknown'
-}
+// (Removed legacy GPT extractor; unified search handles parsing)
 
 
 // Pure NER-only extraction - no pattern-based functions
