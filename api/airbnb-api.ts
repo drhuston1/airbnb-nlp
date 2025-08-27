@@ -8,8 +8,10 @@ async function fetchThroughProxy(url: string, init?: RequestInit) {
   const proxied = new URL('https://app.scrapingbee.com/api/v1/')
   proxied.searchParams.set('api_key', key)
   proxied.searchParams.set('url', url)
-  // Disable JS rendering for speed; endpoints are JSON
-  proxied.searchParams.set('render_js', 'false')
+  // JS rendering improves reliability with Airbnb endpoints via proxy
+  proxied.searchParams.set('render_js', 'true')
+  // Route via US by default
+  proxied.searchParams.set('country_code', 'us')
   return fetch(proxied.toString(), {
     ...init,
     // ScrapingBee forwards headers; keep them but avoid Host/Origin confusion
@@ -416,7 +418,8 @@ export async function callAirbnbHttpAPI(payload: any) {
     searchUrl.searchParams.set('monthly_length', '')
     searchUrl.searchParams.set('price_min', (priceMin || 0).toString())
     searchUrl.searchParams.set('price_max', (priceMax || 1000).toString())
-    searchUrl.searchParams.set('room_types[]', 'Entire home/apt')
+    // Be less restrictive to avoid zero results
+    // searchUrl.searchParams.set('room_types[]', 'Entire home/apt')
     searchUrl.searchParams.set('top_tier_stays[]', 'true')
     searchUrl.searchParams.set('satori_version', '1.2.0')
     searchUrl.searchParams.set('_cb', Date.now().toString())

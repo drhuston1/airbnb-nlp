@@ -20,8 +20,11 @@ export async function searchBooking(params: ProviderParams) {
   const qs = new URLSearchParams({
     engine: 'google_hotels',
     q: params.location,
+    hl: 'en',
+    gl: 'us',
     check_in_date: params.checkin || '',
     check_out_date: params.checkout || '',
+    currency: 'USD',
     api_key: serpKey,
   })
 
@@ -58,4 +61,3 @@ export async function searchBooking(params: ProviderParams) {
     trustScore: h.overall_rating ? Math.round((h.overall_rating / 5) * 100) : 0,
   }))
 }
-
