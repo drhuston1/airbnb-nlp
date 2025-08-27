@@ -1,0 +1,11 @@
+{
+  "env": {
+    "MCP_SERVER_URL": "https://airbnb-mcp-production.up.railway.app"
+  },
+  "functions": {
+    "api/*.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    }
+  }
+}

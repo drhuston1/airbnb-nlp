@@ -1,0 +1,151 @@
+// Web Speech API type declarations
+declare global {
+  interface Window {
+    SpeechRecognition: any
+    webkitSpeechRecognition: any
+  }
+}
+
+export interface SpeechRecognitionEvent extends Event {
+  results: any
+}
+
+export interface SpeechRecognitionErrorEvent extends Event {
+  error: string
+}
+
+export interface AirbnbListing {
+  id: string
+  name: string
+  url: string
+  images: string[]
+  price: {
+    total: number
+    rate: number
+    currency: string
+  }
+  rating: number
+  reviewsCount: number
+  location: {
+    city: string
+    country: string
+  }
+  host: {
+    name: string
+    isSuperhost: boolean
+  }
+  amenities: string[]
+  roomType: string
+  propertyType?: string
+  platform?: string
+  // Enhanced property details
+  bedrooms?: number
+  bathrooms?: number
+  beds?: number
+  maxGuests?: number
+  // Review insights
+  trustScore?: number // 0-100 score based on rating and review count
+  reviewInsights?: {
+    positiveHighlights: string[]
+    negativeInsights: string[]
+    commonConcerns: string[]
+    overallSentiment: 'positive' | 'mixed' | 'negative'
+  }
+}
+
+export interface SearchResponse {
+  listings: AirbnbListing[]
+  hasMore: boolean
+  totalResults: number
+  page: number
+  searchUrl?: string
+  source?: string
+  dates?: {
+    checkin?: string
+    checkout?: string
+    flexible?: boolean
+  }
+  sources?: {
+    platform: string
+    count: number
+    status: 'success' | 'error' | 'timeout'
+    error?: string
+  }[]
+}
+
+// Import RefinementSuggestion from refinementAnalyzer
+import type { RefinementSuggestion } from '../utils/refinementAnalyzer'
+
+export interface ChatMessage {
+  id: string
+  type: 'user' | 'assistant'
+  content: string
+  followUps?: string[]
+  refinementSuggestions?: RefinementSuggestion[]
+  timestamp: Date
+  messageType?: 'search' | 'conversation' // Distinguish between search results and general chat
+  isOptimistic?: boolean // For optimistic UI updates
+  optimisticData?: {
+    prediction: any
+    loadingSteps: any[]
+    resultsPreview: string
+  }
+  travelContext?: {
+    topic: string
+    location?: string
+    suggestions?: string[]
+  }
+}
+
+export interface SearchHistory {
+  id: string
+  query: string
+  timestamp: Date
+  resultCount: number
+}
+
+export interface SearchContext {
+  location: string
+  adults: number
+  children: number
+  nights?: number
+  checkin?: string
+  checkout?: string
+  minPrice?: number
+  maxPrice?: number
+}
+
+// Geocoding types
+export interface GeocodeResult {
+  location: string
+  confidence: number
+  coordinates: {
+    lat: number
+    lng: number
+  }
+  components: {
+    city?: string
+    state?: string
+    country?: string
+    countryCode?: string
+    postalCode?: string
+    neighborhood?: string
+  }
+  displayName: string
+  type: 'city' | 'neighborhood' | 'landmark' | 'region' | 'country'
+  providers: string[]
+  alternatives?: GeocodeResult[]
+}
+
+export interface LocationValidation {
+  valid: boolean
+  confidence: number
+  validated?: GeocodeResult
+  alternatives?: GeocodeResult[]
+  disambiguation?: {
+    required: boolean
+    options: GeocodeResult[]
+    message: string
+  }
+  suggestions?: string[]
+}
