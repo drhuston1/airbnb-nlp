@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { extractParams } from './tools/extract-params'
 import { searchAirbnb } from './providers/airbnb'
+import { searchAirbnbPybnb } from './providers/airbnb-pybnb'
 import { searchBooking } from './providers/booking'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -210,7 +211,14 @@ async function runProviders(providerParams: any, which: ('airbnb'|'booking')[] =
 
   const tasks: Promise<any>[] = []
   const platforms: ('airbnb'|'booking')[] = []
-  if (which.includes('airbnb')) { tasks.push(withTimeout(searchAirbnb(providerParams), 12000)); platforms.push('airbnb') }
+  if (which.includes('airbnb')) {
+    if (process.env.PYBNB_URL) {
+      tasks.push(withTimeout(searchAirbnbPybnb(providerParams), 15000))
+    } else {
+      tasks.push(withTimeout(searchAirbnb(providerParams), 12000))
+    }
+    platforms.push('airbnb')
+  }
   if (which.includes('booking')) { tasks.push(withTimeout(searchBooking(providerParams), 12000)); platforms.push('booking') }
 
   const settled = await Promise.allSettled(tasks)
