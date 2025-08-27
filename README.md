@@ -1,13 +1,13 @@
 # Airbnb Natural Language Search
 
-A React application that allows users to search for Airbnb listings using natural language queries. Built with React, TypeScript, Vite, and Chakra UI, designed for deployment on Vercel.
+A React + Vercel app that searches Airbnb and Booking.com using natural language. The backend provides a single `/api/search` endpoint with LLM tool-calling orchestration and a deterministic fallback.
 
 ## Features
 
-- **Natural Language Search**: Type queries like "Find me a cozy apartment in Paris with a kitchen for 2 guests"
-- **Modern UI**: Clean, responsive interface built with Chakra UI
-- **Real-time Results**: Fast search with loading states and error handling
-- **MCP Integration**: Ready for integration with Airbnb MCP server
+- **Natural Language Search**: Type queries like "2BR in Charleston under $200/night for 2 adults"
+- **Unified Endpoint**: Single `POST /api/search` handles param extraction and provider calls
+- **LLM Tool-Calling**: Orchestrates `extract_params`, `search_airbnb`, `search_booking` (optional)
+- **Fallback Parser**: Works without LLM using compromise + regex
 
 ## Tech Stack
 
@@ -61,64 +61,22 @@ Or connect your GitHub repository to Vercel for automatic deployments.
 
 ### Environment Setup
 
-The application is configured to work with Vercel's serverless functions out of the box. The API endpoints are located in the `/api` directory.
+Set environment variables locally (`.env.local`) and in Vercel:
 
-## Search Implementation Options
-
-The app is now configured for **Real MCP Integration**. Here are all available options:
-
-### 🔥 Real MCP Integration (Current - Real Airbnb Data!)
-- **Endpoint**: `/api/mcp-search`
-- **Features**: Actual Airbnb listings via MCP server
-- **Pros**: Real data, real prices, real availability
-- **Setup**: Deploy the included MCP server (see instructions below)
-
-### 🎯 Demo Mode (Fallback)
-- **Endpoint**: `/api/demo-search`
-- **Features**: Realistic listings using real location data + market trends
-- **Pros**: Works immediately, no API keys needed, realistic results
-- **Cons**: Not real Airbnb data
-
-### 🌐 Proxy Services (API Key Required)
-Switch to `/api/proxy-search` and configure one of these:
-
-#### Option A: ScrapingBee (Recommended)
-```bash
-# Add to Vercel environment
-SCRAPINGBEE_API_KEY=your_key_here
 ```
-- **Cost**: Free tier: 1,000 requests/month
-- **Pros**: Real Airbnb data, reliable
-- **Setup**: https://www.scrapingbee.com
-
-#### Option B: RapidAPI Travel APIs
-```bash
-# Add to Vercel environment  
-RAPIDAPI_KEY=your_key_here
+OPENAI_API_KEY=your_openai_api_key   # enables LLM tool-calling
+SCRAPINGBEE_API_KEY=your_key         # optional; proxies Airbnb HTTP for reliability
+SERPAPI_KEY=your_serpapi_key         # optional; enables Booking.com/Google Hotels
 ```
-- **Cost**: Various free tiers
-- **Pros**: Multiple travel sites, structured data
-- **Setup**: https://rapidapi.com/hub
 
-#### Option C: SerpAPI
-```bash
-# Add to Vercel environment
-SERPAPI_KEY=your_key_here  
-```
-- **Cost**: Free tier: 100 searches/month
-- **Pros**: Google search results
-- **Setup**: https://serpapi.com
+## How It Works
 
-### 🛠️ Direct Web Scraping
-- **Endpoint**: `/api/direct-search` 
-- **Pros**: No API costs
-- **Cons**: May be blocked, unreliable
-
-### 🔧 MCP Server (Advanced)
-- **Endpoint**: `/api/search-real`
-- **Setup**: Deploy separate MCP server to cloud
-- **Pros**: Full control, can integrate multiple sources
-- **Cons**: Requires server deployment
+1. The frontend posts `{ query, page }` to `/api/search`.
+2. The backend tries LLM tool-calling (if `OPENAI_API_KEY` is set):
+   - Calls `extract_params` to get location, dates, guests, price.
+   - Calls `search_airbnb` (and `search_booking` if configured).
+   - Merges, dedupes, and sorts results by trust score, rating, then price.
+3. If LLM is not available, the fallback parser extracts params and calls providers directly.
 
 ## 🚀 Quick Setup for Real MCP Data
 
@@ -176,10 +134,12 @@ The application parses natural language queries to extract:
 - **Dates**: "from July 1st", "check-in June 15th"
 - **Special Requirements**: "pet-friendly", "with kitchen", "has pool"
 
-## API Endpoints
+## API Endpoint
 
-- `POST /api/search-real` - Main search endpoint that processes natural language queries
-- Query parameters: `location`, `checkin`, `checkout`, `adults`, `children`, `minPrice`, `maxPrice`
+- `POST /api/search` - unified search
+  - Body: `{ query: string, page?: number }`
+  - Response: `{ listings: Property[], sources: SourceStatus[], page: number }`
+  - Providers: Airbnb (always), Booking (if `SERPAPI_KEY` set)
 
 ## Contributing
 

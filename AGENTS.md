@@ -2,7 +2,10 @@
 
 ## Project Structure & Module Organization
 - `src/`: React + TypeScript (Vite). Key folders: `components/`, `hooks/`, `utils/`, `config/`, `types/`, `assets/`.
-- `api/`: Vercel serverless functions (TypeScript) such as `unified-search.ts`, `analyze-query.ts`, `validate-location.ts`.
+- `api/`: Vercel serverless functions (TypeScript). Key routes:
+  - `search.ts`: unified search with LLM tool-calling + fallback parser
+  - `providers/`: source adapters (Airbnb, Booking)
+  - `tools/`: lightweight NL extraction helpers
 - `public/`: Static assets.
 - Root tests/tools: Node scripts like `test-workflow.js`, `test-*.js`, `*-test.js`.
 - Docs: Operational/integration guides (`OPENAI_SETUP.md`, `VERCEL_DEPLOYMENT.md`, `HTTP_API_TESTING.md`).
@@ -13,7 +16,7 @@
 - `npm run build`: Type-check (`tsc -b`) and build for production (`vite build`).
 - `npm run preview`: Preview the production build locally.
 - `npm run lint`: Lint TS/JS using project ESLint config.
-- Workflow test: `node test-workflow.js` (expects app/API reachable and env vars loaded).
+- Manual test: try “2BR in Charleston under $200/night” or “Paris 2025-07-10 to 2025-07-14 for 2”.
 - Env: `cp .env.example .env.local` then add keys (see below).
 
 ## Coding Style & Naming Conventions
@@ -24,7 +27,8 @@
 ## Testing Guidelines
 - Tests are Node scripts (no Jest). Naming: `test-*.js` or `*-test.js` at repo root.
 - Start dev servers first (`npm run dev` and `npx vercel dev --listen 3001`), then run scripts: `node test-geocoding.js`.
-- Required env vars vary by test: `OPENAI_API_KEY`, `MAPBOX_ACCESS_TOKEN`, `GOOGLE_GEOCODING_API_KEY` (see `.env.example`).
+- LLM Orchestration: `OPENAI_API_KEY` (enables tool-calling in `/api/search`).
+- Providers: `SCRAPINGBEE_API_KEY` (optional, Airbnb proxy), `SERPAPI_KEY` (optional, Booking adapter).
 - For API diagnosis/manual checks, see `HTTP_API_TESTING.md`.
 
 ## Commit & Pull Request Guidelines
@@ -33,5 +37,5 @@
 
 ## Security & Configuration Tips
 - Never commit secrets. Use `.env.local` locally and Vercel Project Environment Variables in production.
-- Common keys: `OPENAI_API_KEY`, `MAPBOX_ACCESS_TOKEN`, `GOOGLE_GEOCODING_API_KEY`.
+- Common keys: `OPENAI_API_KEY`, `SCRAPINGBEE_API_KEY`, `SERPAPI_KEY`.
 - Refer to `OPENAI_SETUP.md` and `VERCEL_DEPLOYMENT.md` for provider setup and deployment.

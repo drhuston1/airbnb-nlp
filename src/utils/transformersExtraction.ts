@@ -21,7 +21,7 @@ export async function extractWithTransformers(query: string): Promise<QueryAnaly
   try {
     console.log('Extracting location with GPT-4o-mini for query:', query);
     
-    const location = await extractLocationWithGPT(query);
+    const location = 'Unknown';
     
     const analysis: QueryAnalysis = {
       location,
@@ -49,42 +49,16 @@ export async function extractWithTransformers(query: string): Promise<QueryAnaly
   }
 }
 
-async function extractLocationWithGPT(query: string): Promise<string> {
+async function extractLocationWithGPT(_query: string): Promise<string> {
   try {
-    const response = await fetch('/api/extract-location', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Location extraction API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      console.error('Location extraction failed:', data.error);
-      return 'Unknown';
-    }
-
-    const extractedLocation = data.location;
-    
-    if (!extractedLocation || extractedLocation.toLowerCase() === 'unknown') {
-      console.log('GPT could not extract location from:', query);
-      return 'Unknown';
-    }
-
-    console.log(`GPT extracted location: "${extractedLocation}" from query: "${query}"`);
-    return extractedLocation;
-
+    // Endpoint removed in simplified flow; return Unknown and let unified search handle parsing
+    return 'Unknown'
   } catch (error) {
     console.error('GPT location extraction failed:', error);
     return 'Unknown';
   }
 }
+
 
 // Pure NER-only extraction - no pattern-based functions
 

@@ -254,23 +254,14 @@ function App() {
 
     try {
       // 🚀 NEW: Single enhanced search call with request deduplication
-      console.log('🚀 Using enhanced search endpoint with deduplication - eliminating API waterfall...')
+      console.log('🚀 Using unified search endpoint')
       const startTime = Date.now()
       
-      const enhancedData = await fetchWithDeduplication('/api/enhanced-search', {
+      const enhancedData = await fetchWithDeduplication('/api/search', {
         method: 'POST',
         body: JSON.stringify({
           query,
-          context: {
-            hasSearchResults: state.results.length > 0,
-            previousLocation: state.context?.location,
-            currentPage: page
-          },
-          preferences: {
-            maxResults: 50,
-            includeAlternatives: true,
-            strictFiltering: false
-          }
+          page
         })
       })
 
@@ -278,96 +269,48 @@ function App() {
       
       // Log deduplication stats
       const deduplicationStats = getDeduplicationStats()
-      console.log(`⚡ Enhanced search completed in ${totalTime}ms (${Math.round(((1200 - totalTime) / 1200) * 100)}% improvement)`)
+      console.log(`⚡ Search completed in ${totalTime}ms`) 
       console.log('🔄 Frontend deduplication:', deduplicationStats)
       
       if (!enhancedData.success) {
         throw new Error(enhancedData.error || 'Enhanced search failed')
       }
 
-      console.log('🎯 Enhanced search results:', {
-        classification: enhancedData.classification,
-        analysis: enhancedData.analysis,
-        searchResults: enhancedData.searchResults?.listings.length || 0,
-        travelResponse: !!enhancedData.travelResponse,
-        timing: enhancedData.timing
+      console.log('🎯 Unified search results:', {
+        listings: enhancedData.listings?.length || 0,
+        sources: enhancedData.sources
       })
 
       // Handle travel assistant responses
-      if (enhancedData.travelResponse) {
+      // No travel assistant in simplified flow
+
+      // Handle search results
+      if (!enhancedData.listings) {
+        const friendly = enhancedData.notes || enhancedData.error || 'I could not retrieve property results this time.'
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
-          content: enhancedData.travelResponse.response,
-          messageType: 'conversation',
-          travelContext: {
-            topic: enhancedData.travelResponse.topic,
-            location: enhancedData.travelResponse.location,
-            suggestions: enhancedData.travelResponse.suggestions
-          },
+          content: `${friendly} Try a more specific location or adjust your filters.`,
+          messageType: 'search',
           followUps: [
-            ...enhancedData.travelResponse.followUpQuestions,
-            ...enhancedData.travelResponse.suggestions
-          ].slice(0, 4),
+            'Try: "2BR in Charleston under $200/night"',
+            'Try: "Austin loft for 2 adults"',
+            'Try: "Lake Tahoe cabin with hot tub"'
+          ],
           timestamp: new Date()
         }
-
         actions.replaceOptimisticMessage(assistantMessage)
         setTimeout(scrollToBottom, 100)
         actions.setLoading(false)
         return
       }
 
-      // Handle search results
-      if (!enhancedData.searchResults) {
-        throw new Error('No search results in enhanced response')
-      }
-
-      const queryAnalysis = enhancedData.analysis
-      const searchResults = enhancedData.searchResults.listings || []
-      let extractedLocation = queryAnalysis.location
+      const searchResults = enhancedData.listings || []
+      // Extract a location label from first result if present
+      let extractedLocation = searchResults[0]?.location?.city || 'your destination'
 
       // Handle location validation if available
-      if (queryAnalysis.locationValidation) {
-        actions.setLocationValidation(queryAnalysis.locationValidation)
-        
-        // Check if disambiguation is needed (required or optional)
-        if (queryAnalysis.locationValidation.disambiguation) {
-          if (queryAnalysis.locationValidation.disambiguation.required) {
-            console.log('🗺️ Location disambiguation required')
-            actions.setShowLocationDisambiguation(true)
-            actions.setLoading(false)
-            return
-          } else {
-            console.log('🤔 Optional location confirmation available')
-            actions.setShowLocationDisambiguation(true)
-            actions.setLoading(false)
-            return
-          }
-        }
-        
-        // Show location validation warnings
-        if (!queryAnalysis.locationValidation.valid) {
-          const suggestions = queryAnalysis.locationValidation.suggestions || []
-          const warningMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            type: 'assistant',
-            content: `I couldn't find a clear match for "${extractedLocation}". ${suggestions.length > 0 ? suggestions[0] : 'Please try a different location.'}`,
-            followUps: suggestions.slice(1, 4),
-            timestamp: new Date()
-          }
-          actions.replaceOptimisticMessage(warningMessage)
-          setTimeout(scrollToBottom, 100)
-          actions.setLoading(false)
-          return
-        }
-        
-        // Use validated location if available
-        if (queryAnalysis.locationValidation.validated) {
-          extractedLocation = queryAnalysis.locationValidation.validated.location
-          console.log(`✅ Using validated location: ${extractedLocation}`)
-        }
-      }
+      // No server-side location validation in simplified flow
       
       // If no location found, ask for one
       if (extractedLocation === 'Unknown') {
@@ -384,9 +327,7 @@ function App() {
         return
       }
 
-      actions.setLastQueryAnalysis(queryAnalysis)
-      console.log('Enhanced Query Analysis:', queryAnalysis)
-      console.log('Final extracted location:', extractedLocation)
+      console.log('Final inferred location:', extractedLocation)
       
       console.log('AIRBNB SEARCH RESULTS:', {
         totalListings: searchResults.length,
@@ -399,26 +340,22 @@ function App() {
         } : 'No listings'
       })
       
-      // Enhanced context tracking with refinement awareness (simplified for enhanced-search)
+      // Context tracking
       if (page === 1) {
-        if (queryAnalysis?.isRefinement && state.context) {
+        if (state.context) {
           const updatedContext = {
             ...state.context,
             location: extractedLocation,
-            ...(queryAnalysis.extractedCriteria.guests?.adults && {
-              adults: queryAnalysis.extractedCriteria.guests.adults
-            }),
-            ...(queryAnalysis.extractedCriteria.guests?.children && {
-              children: queryAnalysis.extractedCriteria.guests.children
-            })
+            adults: state.context.adults || 2,
+            children: state.context.children || 0
           }
           actions.setSearchContext(updatedContext)
           console.log('Updated search context for refinement:', updatedContext)
         } else {
           const newContext = {
             location: extractedLocation,
-            adults: queryAnalysis?.extractedCriteria.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
-            children: queryAnalysis?.extractedCriteria.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
+            adults: SEARCH_CONFIG.DEFAULT_ADULTS,
+            children: SEARCH_CONFIG.DEFAULT_CHILDREN
           }
           actions.setSearchContext(newContext)
           console.log('Created new search context:', newContext)
@@ -452,34 +389,17 @@ function App() {
         results: filteredResults,
         hasMore: enhancedData.searchResults.hasMore || false,
         page: page,
-        context: page === 1 ? (queryAnalysis?.isRefinement && state.context ? {
+        context: page === 1 ? (state.context ? {
           ...state.context,
           location: extractedLocation,
-          ...(queryAnalysis.extractedCriteria.guests?.adults && {
-            adults: queryAnalysis.extractedCriteria.guests.adults
-          }),
-          ...(queryAnalysis.extractedCriteria.guests?.children && {
-            children: queryAnalysis.extractedCriteria.guests.children
-          })
         } : {
           location: extractedLocation,
-          adults: queryAnalysis?.extractedCriteria.guests?.adults || SEARCH_CONFIG.DEFAULT_ADULTS,
-          children: queryAnalysis?.extractedCriteria.guests?.children || SEARCH_CONFIG.DEFAULT_CHILDREN
+          adults: SEARCH_CONFIG.DEFAULT_ADULTS,
+          children: SEARCH_CONFIG.DEFAULT_CHILDREN
         }) : undefined,
         filters: refinementSuggestions.slice(0, 12),
-        dates: (queryAnalysis?.extractedCriteria?.dates?.checkin && queryAnalysis?.extractedCriteria?.dates?.checkout) ? {
-          checkin: queryAnalysis.extractedCriteria.dates.checkin,
-          checkout: queryAnalysis.extractedCriteria.dates.checkout,
-          flexible: queryAnalysis.extractedCriteria.dates.flexible || false
-        } : null,
-        priceRange: (queryAnalysis?.extractedCriteria?.priceRange && 
-          (queryAnalysis.extractedCriteria.priceRange.min || 
-           queryAnalysis.extractedCriteria.priceRange.max || 
-           queryAnalysis.extractedCriteria.priceRange.budget)) ? {
-          min: queryAnalysis.extractedCriteria.priceRange.min,
-          max: queryAnalysis.extractedCriteria.priceRange.max,
-          budget: queryAnalysis.extractedCriteria.priceRange.budget
-        } : null
+        dates: null,
+        priceRange: null
       }
       
       actions.searchSuccess(searchSuccessPayload)

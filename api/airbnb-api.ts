@@ -1,6 +1,24 @@
 // HTTP API-based Airbnb search (no browser automation needed)
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
+// Optional proxy via ScrapingBee to avoid blocking in serverless
+async function fetchThroughProxy(url: string, init?: RequestInit) {
+  const key = process.env.SCRAPINGBEE_API_KEY
+  if (!key) return fetch(url, init)
+  const proxied = new URL('https://app.scrapingbee.com/api/v1/')
+  proxied.searchParams.set('api_key', key)
+  proxied.searchParams.set('url', url)
+  // Disable JS rendering for speed; endpoints are JSON
+  proxied.searchParams.set('render_js', 'false')
+  return fetch(proxied.toString(), {
+    ...init,
+    // ScrapingBee forwards headers; keep them but avoid Host/Origin confusion
+    headers: {
+      ...((init && init.headers) || {})
+    }
+  })
+}
+
 interface AirbnbSearchParams {
   location: string
   checkin?: string
@@ -68,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     // Step 1: Initialize session and get cookies
     console.log('🍪 Initializing session...')
-    const sessionResponse = await fetch('https://www.airbnb.com/', {
+    const sessionResponse = await fetchThroughProxy('https://www.airbnb.com/', {
       headers: AIRBNB_HEADERS
     })
     
@@ -88,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Step 3: Make search API call
     console.log('🚀 Making search API request...')
     console.log('URL:', searchUrl)
-    const searchResponse = await fetch(searchUrl, {
+    const searchResponse = await fetchThroughProxy(searchUrl, {
       method: 'GET',
       headers: {
         ...AIRBNB_HEADERS,
@@ -348,7 +366,7 @@ export async function callAirbnbHttpAPI(payload: any) {
   try {
     // Step 1: Initialize session and get cookies
     console.log('🍪 Initializing session...')
-    const sessionResponse = await fetch('https://www.airbnb.com/', {
+    const sessionResponse = await fetchThroughProxy('https://www.airbnb.com/', {
       headers: AIRBNB_HEADERS
     })
     
@@ -406,7 +424,7 @@ export async function callAirbnbHttpAPI(payload: any) {
     
     // Step 3: Make search API call
     console.log('🚀 Making search API request...')
-    const searchResponse = await fetch(searchUrl.toString(), {
+    const searchResponse = await fetchThroughProxy(searchUrl.toString(), {
       method: 'GET',
       headers: {
         ...AIRBNB_HEADERS,
