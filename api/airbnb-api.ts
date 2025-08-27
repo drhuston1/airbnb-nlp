@@ -116,7 +116,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
     
     if (!searchResponse.ok) {
-      throw new Error(`Airbnb API returned ${searchResponse.status}: ${searchResponse.statusText}`)
+      const body = await safeText(searchResponse)
+      throw new Error(`Airbnb API returned ${searchResponse.status}: ${searchResponse.statusText}${body ? ` - ${truncate(body, 180)}` : ''}`)
     }
     
     const searchData = await searchResponse.json()
@@ -434,7 +435,8 @@ export async function callAirbnbHttpAPI(payload: any) {
     })
     
     if (!searchResponse.ok) {
-      throw new Error(`Airbnb API returned ${searchResponse.status}: ${searchResponse.statusText}`)
+      const body = await safeText(searchResponse)
+      throw new Error(`Airbnb API returned ${searchResponse.status}: ${searchResponse.statusText}${body ? ` - ${truncate(body, 180)}` : ''}`)
     }
     
     const searchData = await searchResponse.json()
@@ -463,4 +465,12 @@ export async function callAirbnbHttpAPI(payload: any) {
       error: error instanceof Error ? error.message : 'Unknown error'
     }
   }
+}
+
+async function safeText(resp: Response) {
+  try { return await resp.text() } catch { return '' }
+}
+
+function truncate(s: string, n: number) {
+  return s.length > n ? s.slice(0, n) + '…' : s
 }

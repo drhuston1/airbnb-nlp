@@ -147,30 +147,9 @@ async function orchestrateWithLLM(query: string, page: number) {
     `Capabilities: booking_available=${hasBooking ? 'true' : 'false'}, page=${page}.`
   ].join('\n')
 
-  const examples = [
-    {
-      user: '2BR in Charleston under $200/night for 2 adults',
-      calls: [
-        { name: 'extract_params', args: { query: '2BR in Charleston under $200/night for 2 adults' } },
-        { name: 'search_airbnb', args: { location: 'Charleston', priceMax: 200, adults: 2, page: 1 } },
-      ]
-    },
-    {
-      user: 'Paris 2025-07-10 to 2025-07-14 for 2',
-      calls: [
-        { name: 'extract_params', args: { query: 'Paris 2025-07-10 to 2025-07-14 for 2' } },
-        { name: 'search_airbnb', args: { location: 'Paris', checkin: '2025-07-10', checkout: '2025-07-14', adults: 2, page: 1 } },
-      ]
-    }
-  ]
-
   const messages: any[] = [
     { role: 'system', content: system },
-    { role: 'user', content: query },
-    { role: 'user', content: `EXAMPLE 1: ${examples[0].user}` },
-    { role: 'assistant', tool_calls: [{ type: 'function', id: 'ex1a', function: { name: 'extract_params', arguments: JSON.stringify(examples[0].calls[0].args) } }], content: null },
-    { role: 'tool', tool_call_id: 'ex1a', content: JSON.stringify({ location: 'Charleston', adults: 2, priceMax: 200 }) },
-    { role: 'assistant', tool_calls: [{ type: 'function', id: 'ex1b', function: { name: 'search_airbnb', arguments: JSON.stringify(examples[0].calls[1].args) } }], content: null },
+    { role: 'user', content: query }
   ]
 
   const collected: any[] = []
