@@ -8,8 +8,9 @@ async function fetchThroughProxy(url: string, init?: RequestInit) {
   const proxied = new URL('https://app.scrapingbee.com/api/v1/')
   proxied.searchParams.set('api_key', key)
   proxied.searchParams.set('url', url)
-  // JS rendering improves reliability with Airbnb endpoints via proxy
+  // JS rendering + premium proxy greatly improve reliability on dynamic sites
   proxied.searchParams.set('render_js', 'true')
+  proxied.searchParams.set('premium_proxy', 'true')
   // Route via US by default
   proxied.searchParams.set('country_code', 'us')
   return fetch(proxied.toString(), {
