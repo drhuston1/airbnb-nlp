@@ -272,9 +272,7 @@ function App() {
       console.log(`⚡ Search completed in ${totalTime}ms`) 
       console.log('🔄 Frontend deduplication:', deduplicationStats)
       
-      if (!enhancedData.success) {
-        throw new Error(enhancedData.error || 'Enhanced search failed')
-      }
+      // Unified search does not include a success flag; handle by presence of listings
 
       console.log('🎯 Unified search results:', {
         listings: enhancedData.listings?.length || 0,
