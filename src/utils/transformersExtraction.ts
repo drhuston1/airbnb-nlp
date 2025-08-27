@@ -49,14 +49,10 @@ export async function extractWithTransformers(query: string): Promise<QueryAnaly
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function extractLocationWithGPT(_query: string): Promise<string> {
-  try {
-    // Endpoint removed in simplified flow; return Unknown and let unified search handle parsing
-    return 'Unknown'
-  } catch (error) {
-    console.error('GPT location extraction failed:', error);
-    return 'Unknown';
-  }
+  // Endpoint removed in simplified flow; return Unknown and let unified search handle parsing
+  return 'Unknown'
 }
 
 

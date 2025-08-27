@@ -1923,8 +1923,6 @@ function App() {
           isOpen={state.showAnalysisModal}
           onClose={handleAnalysisClose}
           listing={state.selectedListingForAnalysis}
-          searchQuery={state.currentQuery}
-          alternatives={state.results.filter(l => l.id !== state.selectedListingForAnalysis!.id).slice(0, 5)}
         />
       )}
     </Box>
