@@ -67,16 +67,12 @@ interface ListingAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
   listing: AirbnbListing;
-  searchQuery?: string;
-  alternatives?: AirbnbListing[];
 }
 
 export function ListingAnalysisModal({ 
   isOpen, 
   onClose, 
-  listing, 
-  searchQuery, 
-  alternatives 
+  listing
 }: ListingAnalysisModalProps) {
   const [analysis, setAnalysis] = useState<ListingAnalysis | null>(null);
   const [loading, setLoading] = useState(false);

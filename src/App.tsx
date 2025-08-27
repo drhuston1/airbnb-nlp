@@ -375,7 +375,7 @@ function App() {
           refinementSuggestions = analyzer.generateRefinementSuggestions(query)
           
           // Generate contextual follow-up questions
-          followUpSuggestions.push(...generateFollowUpQuestions(query, queryAnalysis, filteredResults))
+          followUpSuggestions.push(...generateFollowUpQuestions(query, null, filteredResults))
           
           console.log('Generated refinement suggestions:', refinementSuggestions)
           console.log('Generated follow-up questions:', followUpSuggestions)
@@ -387,7 +387,7 @@ function App() {
       // Update pagination and query state through actions
       const searchSuccessPayload = {
         results: filteredResults,
-        hasMore: enhancedData.searchResults.hasMore || false,
+        hasMore: false,
         page: page,
         context: page === 1 ? (state.context ? {
           ...state.context,
@@ -601,7 +601,7 @@ function App() {
       
       console.log('DIRECT SEARCH WITH VALIDATED LOCATION:', locationSearchPayload)
 
-      const response = await fetch('/api/unified-search', {
+      const response = await fetch('/api/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
